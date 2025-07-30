@@ -358,14 +358,20 @@ const FishGame = () => {
   }, [gameLoop]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-900 to-blue-600 p-4">
-      <div className="relative">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-900 to-blue-600 p-2 sm:p-4">
+      <div className="relative max-w-full">
         <canvas
           ref={canvasRef}
           width={CANVAS_WIDTH}
           height={CANVAS_HEIGHT}
-          className="border-4 border-blue-800 rounded-lg shadow-2xl cursor-pointer"
-          style={{ maxWidth: '100%', height: 'auto' }}
+          className="border-4 border-blue-800 rounded-lg shadow-2xl cursor-pointer touch-none select-none"
+          style={{ 
+            maxWidth: '100vw', 
+            maxHeight: '70vh',
+            width: 'auto',
+            height: 'auto',
+            aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}`
+          }}
         />
         
         {/* Game UI Overlay */}
