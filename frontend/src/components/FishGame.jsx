@@ -137,7 +137,7 @@ const FishGame = () => {
 
     // Update difficulty
     game.difficulty = Math.floor(newScore / 30) + 1;
-    const currentSpeed = BASE_SEAWEED_SPEED + (game.difficulty - 1) * 0.5;
+    const currentSpeed = BASE_SEAWEED_SPEED + (game.difficulty - 1) * 0.3;
 
     // Update fish physics
     game.fish.velocity += GRAVITY;
