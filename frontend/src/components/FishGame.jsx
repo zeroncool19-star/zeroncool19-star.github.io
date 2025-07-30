@@ -172,7 +172,7 @@ const FishGame = () => {
     // Remove off-screen seaweeds and add new ones
     game.seaweeds = game.seaweeds.filter(seaweed => seaweed.x > -SEAWEED_WIDTH);
     
-    if (game.seaweeds.length === 0 || game.seaweeds[game.seaweeds.length - 1].x < CANVAS_WIDTH - 250 - (game.difficulty * 10)) {
+    if (game.seaweeds.length === 0 || game.seaweeds[game.seaweeds.length - 1].x < CANVAS_WIDTH - 300 - (game.difficulty * 5)) {
       game.seaweeds.push(createSeaweed(CANVAS_WIDTH + SEAWEED_WIDTH));
     }
 
