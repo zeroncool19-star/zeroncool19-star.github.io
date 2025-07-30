@@ -149,7 +149,7 @@ const FishGame = () => {
       setGameState('gameOver');
       if (newScore > highScore) {
         setHighScore(newScore);
-        localStorage.setItem('fishGameHighScore', newScore.toString());
+        localStorage.setItem('seaweedSwimmerHighScore', newScore.toString());
       }
       return;
     }
