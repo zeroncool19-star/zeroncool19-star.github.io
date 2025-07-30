@@ -413,8 +413,8 @@ const FishGame = () => {
         )}
       </div>
       
-      <div className="mt-4 text-center text-white">
-        <p className="text-sm opacity-75">Use spacebar, click, or tap to play</p>
+      <div className="mt-2 sm:mt-4 text-center text-white">
+        <p className="text-xs sm:text-sm opacity-75">Tap anywhere on the screen to play</p>
       </div>
     </div>
   );
