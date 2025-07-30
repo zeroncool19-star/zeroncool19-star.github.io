@@ -389,22 +389,22 @@ const FishGame = () => {
                 🐠 Seaweed Swimmer
               </h1>
               {gameState === 'gameOver' && (
-                <div className="text-white mb-4">
-                  <div className="text-2xl mb-2">Game Over!</div>
-                  <div className="text-xl">Final Score: {score}</div>
+                <div className="text-white mb-3 sm:mb-4">
+                  <div className="text-xl sm:text-2xl mb-1 sm:mb-2">Game Over!</div>
+                  <div className="text-lg sm:text-xl">Final Score: {score}</div>
                   {score === highScore && score > 0 && (
-                    <div className="text-yellow-400 text-lg">🏆 New High Score!</div>
+                    <div className="text-yellow-400 text-base sm:text-lg">🏆 New High Score!</div>
                   )}
                 </div>
               )}
-              <div className="text-white mb-6">
-                <p className="mb-2">Tap to make the fish swim up!</p>
-                <p className="mb-2">Navigate through the swaying seaweed forest</p>
-                <p className="text-sm opacity-75">Survive as long as possible - difficulty increases every 30 seconds</p>
+              <div className="text-white mb-4 sm:mb-6 text-sm sm:text-base">
+                <p className="mb-1 sm:mb-2">Tap to make the fish swim up!</p>
+                <p className="mb-1 sm:mb-2">Navigate through the swaying seaweed forest</p>
+                <p className="text-xs sm:text-sm opacity-75">Survive as long as possible - difficulty increases every 30 seconds</p>
               </div>
               <Button 
                 onClick={jumpFish}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 text-lg"
+                className="bg-orange-500 hover:bg-orange-600 text-white px-6 sm:px-8 py-2 sm:py-3 text-sm sm:text-lg w-full"
               >
                 {gameState === 'menu' ? 'Start Game' : 'Play Again'}
               </Button>
