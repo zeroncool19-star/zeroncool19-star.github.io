@@ -55,21 +55,21 @@ const FishGame = () => {
     return {
       x: x,
       gapY: gapY,
-      // Multiple wave parameters for natural movement
+      // Multiple wave parameters for natural movement with increased amplitude
       primaryWave: {
         offset: Math.random() * Math.PI * 2,
         speed: 0.003 + Math.random() * 0.002, // Much slower base movement
-        amplitude: 8 + Math.random() * 6 // Primary sway amount
+        amplitude: 12 + Math.random() * 10 // Increased primary sway amount
       },
       secondaryWave: {
         offset: Math.random() * Math.PI * 2,
         speed: 0.007 + Math.random() * 0.004, // Faster secondary wave
-        amplitude: 3 + Math.random() * 3 // Smaller secondary movement
+        amplitude: 5 + Math.random() * 6 // Increased secondary movement
       },
       currentWave: {
         offset: Math.random() * Math.PI * 2,
         speed: 0.001 + Math.random() * 0.001, // Very slow current effect
-        amplitude: 12 + Math.random() * 8 // Gentle current sway
+        amplitude: 18 + Math.random() * 12 // Increased gentle current sway
       }
     };
   };
