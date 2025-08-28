@@ -85,7 +85,7 @@ const FishGame = () => {
     };
   };
 
-  // Initialize game
+  // Initialize game with performance optimizations
   const initGame = useCallback(() => {
     const game = gameRef.current;
     game.fish = {
@@ -99,6 +99,8 @@ const FishGame = () => {
     game.startTime = Date.now();
     game.lastSeaweedSpawn = 0;
     game.difficulty = 1;
+    // Clear cached gradient for new game
+    game.backgroundGradient = null;
     setScore(0);
   }, []);
 
