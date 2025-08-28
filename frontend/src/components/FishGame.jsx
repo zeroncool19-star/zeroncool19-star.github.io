@@ -17,7 +17,7 @@ if (typeof window !== 'undefined') {
 const FishGame = () => {
   const canvasRef = useRef(null);
   const gameLoopRef = useRef(null);
-  const [gameState, setGameState] = useState('menu'); // menu, playing, gameOver
+  const [gameState, setGameState] = useState('welcome'); // welcome, menu, playing, gameOver
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(parseInt(localStorage.getItem('seaweedSwimmerHighScore') || '0'));
 
