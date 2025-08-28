@@ -121,7 +121,7 @@ const FishGame = () => {
       } catch (error) {
         // Haptics not available, continue without feedback
       }
-    } else if (gameState === 'menu' || gameState === 'gameOver') {
+    } else if (gameState === 'gameOver') {
       initGame();
       setGameState('playing');
       // Add haptic feedback for menu interaction
@@ -135,10 +135,14 @@ const FishGame = () => {
     }
   }, [gameState, initGame, score]);
 
-  // Handle welcome screen to menu transition
-  const goToMenu = useCallback(() => {
-    setGameState('menu');
-  }, []);
+  // Navigation handlers
+  const goToMenu = useCallback(() => setGameState('menu'), []);
+  const goToHowToPlay = useCallback(() => setGameState('howToPlay'), []);
+  const goToHighScores = useCallback(() => setGameState('highScores'), []);
+  const startGame = useCallback(() => {
+    initGame();
+    setGameState('playing');
+  }, [initGame]);
 
   // Check collision
   const checkCollision = (fish, seaweed) => {
