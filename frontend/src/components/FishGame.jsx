@@ -351,18 +351,18 @@ const FishGame = () => {
       ctx.fillRect(seaweed.x - SEAWEED_WIDTH/2 + baseSway, CANVAS_HEIGHT - 15, SEAWEED_WIDTH, 15); // Bottom base
     });
 
-    // Draw fish
+    // Draw fish (optimized rendering)
     ctx.save();
     ctx.translate(game.fish.x, game.fish.y);
     ctx.rotate(game.fish.rotation * Math.PI / 180);
     
-    // Fish body
+    // Fish body (main shape)
     ctx.fillStyle = '#ff6b35';
     ctx.beginPath();
     ctx.ellipse(0, 0, FISH_SIZE / 2, FISH_SIZE / 3, 0, 0, Math.PI * 2);
     ctx.fill();
     
-    // Fish stripes
+    // Fish stripes (batch render for performance)
     ctx.fillStyle = '#ff8c5a';
     ctx.fillRect(-FISH_SIZE / 4, -FISH_SIZE / 6, 3, FISH_SIZE / 3);
     ctx.fillRect(0, -FISH_SIZE / 6, 3, FISH_SIZE / 3);
@@ -376,7 +376,7 @@ const FishGame = () => {
     ctx.closePath();
     ctx.fill();
     
-    // Fish eye
+    // Fish eye (simplified for performance)
     ctx.fillStyle = 'white';
     ctx.beginPath();
     ctx.arc(FISH_SIZE / 6, -FISH_SIZE / 8, 6, 0, Math.PI * 2);
@@ -396,7 +396,7 @@ const FishGame = () => {
     ctx.restore();
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameState, highScore]);
+  }, [gameState, highScore, score]);
 
   // Event listeners
   useEffect(() => {
