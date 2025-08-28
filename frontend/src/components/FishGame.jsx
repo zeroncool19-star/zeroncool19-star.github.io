@@ -487,7 +487,7 @@ const FishGame = () => {
   }, [gameLoop]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-900 to-blue-600 p-2 sm:p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-600 to-blue-800 p-2 sm:p-4">
       <div className="relative max-w-full">
         <canvas
           ref={canvasRef}
