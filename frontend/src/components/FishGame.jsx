@@ -618,10 +618,20 @@ const FishGame = () => {
               </div>
               <Button 
                 onClick={jumpFish}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-6 sm:px-8 py-2 sm:py-3 text-sm sm:text-lg w-full"
+                className="bg-orange-500 hover:bg-orange-600 text-white px-6 sm:px-8 py-2 sm:py-3 text-sm sm:text-lg w-full mb-3"
               >
                 {gameState === 'menu' ? 'Start Game' : 'Play Again'}
               </Button>
+              
+              {gameState === 'gameOver' && (
+                <Button 
+                  onClick={() => setGameState('welcome')}
+                  variant="outline"
+                  className="border-blue-400 text-blue-300 hover:bg-blue-800 px-6 sm:px-8 py-2 sm:py-3 text-sm sm:text-lg w-full"
+                >
+                  📖 Back to Instructions
+                </Button>
+              )}
             </Card>
           </div>
         )}
