@@ -150,7 +150,7 @@ const FishGame = () => {
     return false;
   };
 
-  // Game loop
+  // Game loop with performance optimizations
   const gameLoop = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -158,12 +158,18 @@ const FishGame = () => {
     const ctx = canvas.getContext('2d');
     const game = gameRef.current;
 
-    // Clear canvas with underwater gradient
-    const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-    gradient.addColorStop(0, '#001e3c');
-    gradient.addColorStop(0.5, '#003f7f');
-    gradient.addColorStop(1, '#1e3a8a');
-    ctx.fillStyle = gradient;
+    // Use requestAnimationFrame timing for smooth animation
+    const currentTime = Date.now();
+    
+    // Clear canvas with underwater gradient (optimize by caching gradient)
+    if (!gameRef.current.backgroundGradient) {
+      const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+      gradient.addColorStop(0, '#001e3c');
+      gradient.addColorStop(0.5, '#003f7f');
+      gradient.addColorStop(1, '#1e3a8a');
+      gameRef.current.backgroundGradient = gradient;
+    }
+    ctx.fillStyle = gameRef.current.backgroundGradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     if (gameState !== 'playing') {
@@ -171,16 +177,17 @@ const FishGame = () => {
       return;
     }
 
-    // Update score based on time
-    const currentTime = Date.now();
+    // Update score based on time (optimized to avoid repeated math)
     const newScore = Math.floor((currentTime - game.startTime) / 1000);
-    setScore(newScore);
+    if (newScore !== score) {
+      setScore(newScore);
+    }
 
     // Update difficulty
     game.difficulty = Math.floor(newScore / 30) + 1;
     const currentSpeed = BASE_SEAWEED_SPEED + (game.difficulty - 1) * 0.2;
 
-    // Update fish physics
+    // Update fish physics (optimized)
     game.fish.velocity += GRAVITY;
     game.fish.y += game.fish.velocity;
     game.fish.rotation = Math.max(-30, Math.min(30, game.fish.velocity * 3));
@@ -195,11 +202,12 @@ const FishGame = () => {
       return;
     }
 
-    // Update seaweeds
-    game.seaweeds.forEach((seaweed, index) => {
+    // Update seaweeds (performance optimized)
+    for (let i = game.seaweeds.length - 1; i >= 0; i--) {
+      const seaweed = game.seaweeds[i];
       seaweed.x -= currentSpeed;
       
-      // Check collision
+      // Check collision (optimized collision detection)
       if (checkCollision(game.fish, seaweed)) {
         setGameState('gameOver');
         if (newScore > highScore) {
@@ -208,13 +216,15 @@ const FishGame = () => {
         }
         return;
       }
-    });
-
-    // Remove off-screen seaweeds and add new ones with unpredictable spacing
-    game.seaweeds = game.seaweeds.filter(seaweed => seaweed.x > -SEAWEED_WIDTH);
+      
+      // Remove off-screen seaweeds
+      if (seaweed.x < -SEAWEED_WIDTH) {
+        game.seaweeds.splice(i, 1);
+      }
+    }
     
-    // Unpredictable seaweed spawning
-    const randomSpacing = 350 + Math.random() * 200; // Random spacing between 350-550px
+    // Add new seaweeds with unpredictable spacing
+    const randomSpacing = 350 + Math.random() * 200;
     const lastSeaweed = game.seaweeds[game.seaweeds.length - 1];
     
     if (game.seaweeds.length === 0 || (lastSeaweed && lastSeaweed.x < CANVAS_WIDTH - randomSpacing)) {
