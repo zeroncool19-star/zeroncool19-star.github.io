@@ -231,77 +231,106 @@ const FishGame = () => {
       game.seaweeds.push(createSeaweed(CANVAS_WIDTH + SEAWEED_WIDTH));
     }
 
-    // Update bubbles
-    game.bubbles.forEach(bubble => {
+    // Update bubbles (performance optimized)
+    for (let i = 0; i < game.bubbles.length; i++) {
+      const bubble = game.bubbles[i];
       bubble.y -= bubble.speed;
       if (bubble.y < -20) {
         bubble.y = CANVAS_HEIGHT + 20;
         bubble.x = Math.random() * CANVAS_WIDTH;
       }
-    });
+    }
 
-    // Draw bubbles
-    game.bubbles.forEach(bubble => {
-      ctx.save();
+    // Draw bubbles (batch rendering)
+    ctx.save();
+    ctx.fillStyle = '#87ceeb';
+    for (let i = 0; i < game.bubbles.length; i++) {
+      const bubble = game.bubbles[i];
       ctx.globalAlpha = bubble.opacity;
-      ctx.fillStyle = '#87ceeb';
       ctx.beginPath();
       ctx.arc(bubble.x, bubble.y, bubble.size, 0, Math.PI * 2);
       ctx.fill();
-      ctx.restore();
-    });
+    }
+    ctx.restore();
 
-    // Draw seaweeds with realistic ocean seaweed appearance
+    // Draw seaweeds with natural underwater movement
     game.seaweeds.forEach(seaweed => {
-      const sway = Math.sin(Date.now() * seaweed.swaySpeed + seaweed.swayOffset) * seaweed.swayAmount;
+      // Calculate natural underwater sway using multiple sine waves
+      const timeInSeconds = currentTime * 0.001;
+      
+      // Primary gentle current (like ocean current)
+      const primarySway = Math.sin(timeInSeconds * seaweed.primaryWave.speed + seaweed.primaryWave.offset) * seaweed.primaryWave.amplitude;
+      
+      // Secondary wave motion (like water turbulence)
+      const secondarySway = Math.sin(timeInSeconds * seaweed.secondaryWave.speed + seaweed.secondaryWave.offset) * seaweed.secondaryWave.amplitude;
+      
+      // Very slow current drift
+      const currentDrift = Math.sin(timeInSeconds * seaweed.currentWave.speed + seaweed.currentWave.offset) * seaweed.currentWave.amplitude;
+      
+      // Combine waves for natural movement
+      const totalSway = primarySway + secondarySway * 0.6 + currentDrift * 0.3;
       
       // Function to draw realistic seaweed fronds
       const drawSeaweedFrond = (x, y, height, isTop) => {
         const frondWidth = SEAWEED_WIDTH / 4;
-        const segments = Math.floor(height / 15);
+        const segments = Math.floor(height / 12);
         
         for (let i = 0; i < 3; i++) { // 3 fronds per seaweed
           const frondX = x + (i - 1) * frondWidth;
-          const swayMultiplier = (i === 1) ? 1 : 0.7; // Center frond sways more
+          const swayMultiplier = (i === 1) ? 1 : 0.8; // Center frond sways more
           
           ctx.save();
-          ctx.strokeStyle = i === 1 ? '#1a5d1a' : '#0d4a0d';
-          ctx.lineWidth = 6 - i;
+          ctx.strokeStyle = i === 1 ? '#1a5d1a' : '#0f4c0f';
+          ctx.lineWidth = Math.max(2, 6 - i);
           ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
           
           ctx.beginPath();
           ctx.moveTo(frondX, y);
           
+          // Draw seaweed with natural segmented movement
           for (let j = 1; j <= segments; j++) {
-            const segmentY = isTop ? y - (j * 15) : y + (j * 15);
-            const segmentSway = sway * swayMultiplier * (j / segments);
-            const naturalCurve = Math.sin(j * 0.3) * 8 * (j / segments);
+            const segmentRatio = j / segments;
+            const segmentY = isTop ? y - (j * 12) : y + (j * 12);
             
-            ctx.lineTo(frondX + segmentSway + naturalCurve, segmentY);
+            // Each segment responds to sway differently (more movement toward tips)
+            const segmentSway = totalSway * swayMultiplier * segmentRatio;
+            
+            // Add natural curve that varies along the length
+            const naturalCurve = Math.sin(j * 0.4 + timeInSeconds * 0.5) * 4 * segmentRatio;
+            
+            // Small random variation per segment for organic look
+            const segmentVariation = Math.sin(j * 1.2 + timeInSeconds * 0.3 + i) * 2;
+            
+            ctx.lineTo(frondX + segmentSway + naturalCurve + segmentVariation, segmentY);
           }
           
           ctx.stroke();
           
-          // Add small leaves along the frond
-          for (let j = 3; j <= segments; j += 2) {
-            const leafY = isTop ? y - (j * 15) : y + (j * 15);
-            const leafSway = sway * swayMultiplier * (j / segments);
-            const leafCurve = Math.sin(j * 0.3) * 8 * (j / segments);
-            
-            ctx.fillStyle = '#2d6e2d';
-            ctx.save();
-            ctx.translate(frondX + leafSway + leafCurve, leafY);
-            ctx.rotate((leafSway + leafCurve) * 0.02);
-            
-            // Small leaf shapes
-            ctx.beginPath();
-            ctx.ellipse(-8, 0, 8, 3, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.ellipse(8, 0, 8, 3, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.restore();
+          // Add small leaves along the frond (less frequent for performance)
+          if (segments > 4) {
+            for (let j = 3; j <= segments; j += 3) {
+              const segmentRatio = j / segments;
+              const leafY = isTop ? y - (j * 12) : y + (j * 12);
+              const leafSway = totalSway * swayMultiplier * segmentRatio;
+              const leafCurve = Math.sin(j * 0.4 + timeInSeconds * 0.5) * 4 * segmentRatio;
+              const leafVariation = Math.sin(j * 1.2 + timeInSeconds * 0.3 + i) * 2;
+              
+              ctx.fillStyle = '#2d6e2d';
+              ctx.save();
+              ctx.translate(frondX + leafSway + leafCurve + leafVariation, leafY);
+              ctx.rotate((leafSway + leafCurve) * 0.01);
+              
+              // Small organic leaf shapes
+              ctx.beginPath();
+              ctx.ellipse(-6, 0, 6, 2.5, 0, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.beginPath();
+              ctx.ellipse(6, 0, 6, 2.5, 0, 0, Math.PI * 2);
+              ctx.fill();
+              
+              ctx.restore();
+            }
           }
           
           ctx.restore();
@@ -315,10 +344,11 @@ const FishGame = () => {
       const bottomHeight = CANVAS_HEIGHT - (seaweed.gapY + SEAWEED_GAP);
       drawSeaweedFrond(seaweed.x, seaweed.gapY + SEAWEED_GAP, bottomHeight, false);
       
-      // Add seaweed base/roots
+      // Add seaweed base/roots (also sway slightly)
+      const baseSway = totalSway * 0.2;
       ctx.fillStyle = '#0d3d0d';
-      ctx.fillRect(seaweed.x - SEAWEED_WIDTH/2, 0, SEAWEED_WIDTH, 15); // Top base
-      ctx.fillRect(seaweed.x - SEAWEED_WIDTH/2, CANVAS_HEIGHT - 15, SEAWEED_WIDTH, 15); // Bottom base
+      ctx.fillRect(seaweed.x - SEAWEED_WIDTH/2 + baseSway, 0, SEAWEED_WIDTH, 15); // Top base
+      ctx.fillRect(seaweed.x - SEAWEED_WIDTH/2 + baseSway, CANVAS_HEIGHT - 15, SEAWEED_WIDTH, 15); // Bottom base
     });
 
     // Draw fish
