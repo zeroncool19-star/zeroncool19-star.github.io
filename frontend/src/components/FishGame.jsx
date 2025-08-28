@@ -28,7 +28,7 @@ const FishGame = () => {
   const SEAWEED_WIDTH = 80;
   const SEAWEED_GAP = 200;
   const GRAVITY = 0.15;
-  const FISH_JUMP = -6;
+  const FISH_JUMP = -5.5;
   const BASE_SEAWEED_SPEED = 1.8;
 
   // Game state
