@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Background color -->
+    <item android:drawable="@android:color/white" />
+    
+    <!-- Ocean gradient background -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="90"
+                android:startColor="#1e40af"
+                android:centerColor="#3b82f6"
+                android:endColor="#1e3a8a"
+                android:type="linear" />
+        </shape>
+    </item>
+    
+    <!-- Logo -->
+    <item android:width="200dp" android:height="200dp" android:gravity="center">
+        <vector android:width="200dp" android:height="200dp"
+            android:viewportWidth="200" android:viewportHeight="200">
+            
+            <!-- Fish body -->
+            <path android:fillColor="#f97316" 
+                android:pathData="M50,80 Q70,60 110,80 Q130,90 110,120 Q70,140 50,120 Q40,100 50,80 Z"/>
+            
+            <!-- Fish tail -->
+            <path android:fillColor="#ea580c" 
+                android:pathData="M40,100 L20,70 L20,130 Z"/>
+            
+            <!-- Fish eye -->
+            <circle android:fillColor="#ffffff" android:cx="90" android:cy="90" android:r="12"/>
+            <circle android:fillColor="#000000" android:cx="94" android:cy="86" android:r="6"/>
+            
+            <!-- Fish fins -->
+            <path android:fillColor="#fb923c" 
+                android:pathData="M60,110 Q50,130 70,120 Z"/>
+            
+            <!-- Seaweed -->
+            <path android:fillColor="#16a34a" 
+                android:pathData="M150,200 Q160,180 150,140 Q170,100 150,60 Q140,40 150,0" 
+                android:strokeWidth="8" android:fillType="nonZero"/>
+            <path android:fillColor="#16a34a" 
+                android:pathData="M170,200 Q180,170 170,130 Q190,90 170,50 Q160,30 170,0" 
+                android:strokeWidth="6" android:fillType="nonZero"/>
+            
+            <!-- Bubbles -->
+            <circle android:fillColor="#87ceeb" android:cx="70" android:cy="40" android:r="6" android:alpha="0.7"/>
+            <circle android:fillColor="#87ceeb" android:cx="130" android:cy="30" android:r="4" android:alpha="0.6"/>
+            <circle android:fillColor="#87ceeb" android:cx="100" android:cy="50" android:r="5" android:alpha="0.8"/>
+        </vector>
+    </item>
+    
+    <!-- App title -->
+    <item android:top="320dp" android:gravity="center_horizontal">
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000"/>
+        </shape>
+    </item>
+    
+</layer-list>
