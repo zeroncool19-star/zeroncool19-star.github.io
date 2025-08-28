@@ -515,6 +515,86 @@ const FishGame = () => {
           <div className="text-xs sm:text-sm opacity-75">Difficulty: {Math.floor(score / 20) + 1}</div>
         </div>
 
+        {/* Welcome Screen */}
+        {gameState === 'welcome' && (
+          <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded-lg p-4">
+            <Card className="p-4 sm:p-8 text-center bg-blue-900 border-blue-700 max-w-2xl w-full">
+              <div className="mb-6">
+                <h1 className="text-3xl sm:text-5xl font-bold text-white mb-3">
+                  🐠 Welcome to Seaweed Swimmer!
+                </h1>
+                <div className="text-lg sm:text-xl text-blue-200 mb-6">
+                  Navigate your fish through the underwater seaweed forest
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6 mb-8 text-white">
+                <div className="space-y-4">
+                  <h2 className="text-xl sm:text-2xl font-semibold text-blue-300 mb-3">
+                    🎮 How to Play
+                  </h2>
+                  <div className="space-y-3 text-sm sm:text-base text-left">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-orange-400 text-lg">📱</span>
+                      <p><strong>Tap anywhere</strong> to make your fish swim upward</p>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="text-green-400 text-lg">🌿</span>
+                      <p><strong>Navigate through</strong> the swaying seaweed obstacles</p>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="text-yellow-400 text-lg">⏱️</span>
+                      <p><strong>Survive as long as possible</strong> - your score is time-based</p>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="text-red-400 text-lg">💥</span>
+                      <p><strong>Avoid collisions</strong> with seaweed or boundaries</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h2 className="text-xl sm:text-2xl font-semibold text-blue-300 mb-3">
+                    ⚡ Difficulty Progression
+                  </h2>
+                  <div className="space-y-3 text-sm sm:text-base text-left">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-blue-400 text-lg">⏰</span>
+                      <p><strong>Every 20 seconds:</strong> Difficulty level increases</p>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="text-purple-400 text-lg">🏃</span>
+                      <p><strong>Seaweed moves faster:</strong> Obstacles approach quicker</p>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="text-pink-400 text-lg">🐟</span>
+                      <p><strong>Fish speed increases:</strong> More responsive but requires precision</p>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="text-cyan-400 text-lg">🌊</span>
+                      <p><strong>Challenge intensifies:</strong> Test your reflexes and endurance!</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-blue-700 pt-6">
+                <div className="text-blue-200 mb-4 text-sm sm:text-base">
+                  <p className="mb-2">🎯 <strong>Goal:</strong> Beat your high score by surviving longer in the underwater seaweed forest!</p>
+                  <p>🌊 The seaweed moves naturally like real ocean vegetation - watch it sway and time your moves carefully.</p>
+                </div>
+                
+                <Button 
+                  onClick={goToMenu}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-8 sm:px-12 py-3 sm:py-4 text-lg sm:text-xl font-semibold w-full sm:w-auto"
+                >
+                  🐠 Start Swimming!
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* Menu/Game Over Overlay */}
         {(gameState === 'menu' || gameState === 'gameOver') && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg p-4">
