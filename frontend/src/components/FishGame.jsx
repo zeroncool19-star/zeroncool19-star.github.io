@@ -168,12 +168,12 @@ const FishGame = () => {
     // Use requestAnimationFrame timing for smooth animation
     const currentTime = Date.now();
     
-    // Clear canvas with underwater gradient (optimize by caching gradient)
+    // Clear canvas with brighter underwater gradient (optimize by caching gradient)
     if (!gameRef.current.backgroundGradient) {
       const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-      gradient.addColorStop(0, '#001e3c');
-      gradient.addColorStop(0.5, '#003f7f');
-      gradient.addColorStop(1, '#1e3a8a');
+      gradient.addColorStop(0, '#1e40af');    // Brighter top blue
+      gradient.addColorStop(0.5, '#1d4ed8');  // Brighter mid blue  
+      gradient.addColorStop(1, '#2563eb');    // Brighter bottom blue
       gameRef.current.backgroundGradient = gradient;
     }
     ctx.fillStyle = gameRef.current.backgroundGradient;
