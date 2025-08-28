@@ -336,7 +336,7 @@ const FishGame = () => {
               const leafCurve = Math.sin(j * 0.4 + timeInSeconds * 0.5) * 4 * segmentRatio;
               const leafVariation = Math.sin(j * 1.2 + timeInSeconds * 0.3 + i) * 2;
               
-              ctx.fillStyle = '#2d6e2d';
+              ctx.fillStyle = '#4ade80'; // Bright green for leaves
               ctx.save();
               ctx.translate(frondX + leafSway + leafCurve + leafVariation, leafY);
               ctx.rotate((leafSway + leafCurve) * 0.01);
