@@ -300,7 +300,7 @@ const FishGame = () => {
           const swayMultiplier = (i === 1) ? 1 : 0.8; // Center frond sways more
           
           ctx.save();
-          ctx.strokeStyle = i === 1 ? '#1a5d1a' : '#0f4c0f';
+          ctx.strokeStyle = i === 1 ? '#22c55e' : '#16a34a'; // Much brighter greens
           ctx.lineWidth = Math.max(2, 6 - i);
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
