@@ -31,7 +31,7 @@ const FishGame = () => {
   const SEAWEED_GAP = 200;
   const GRAVITY = 0.15;
   const FISH_JUMP = -5.5;
-  const BASE_SEAWEED_SPEED = 2.2;
+  const BASE_SEAWEED_SPEED = 2.8;
 
   // Game state
   const gameRef = useRef({
