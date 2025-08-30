@@ -1,20 +1,18 @@
-import { AdMob, BannerAdOptions, BannerAdSize, BannerAdPosition, AdmobConsentStatus, AdmobConsentDebugGeography } from '@capacitor-community/admob';
+import { AdMob, BannerAdSize, BannerAdPosition, AdmobConsentStatus, AdmobConsentDebugGeography } from '@capacitor-community/admob';
 
 class AdService {
-  private isAdMobInitialized = false;
-  private bannerAdId = '';
-  private interstitialAdId = '';
-  private isTestMode = true; // Set to false for production
-
-  // Test IDs (use in development)
-  private testBannerAdId = 'ca-app-pub-3940256099942544/6300978111';
-  private testInterstitialAdId = 'ca-app-pub-3940256099942544/1033173712';
-
-  // Production IDs (replace with your actual AdMob IDs)
-  private prodBannerAdId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
-  private prodInterstitialAdId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
-
   constructor() {
+    this.isAdMobInitialized = false;
+    this.isTestMode = true; // Set to false for production
+    
+    // Test IDs (use in development)
+    this.testBannerAdId = 'ca-app-pub-3940256099942544/6300978111';
+    this.testInterstitialAdId = 'ca-app-pub-3940256099942544/1033173712';
+
+    // Production IDs (replace with your actual AdMob IDs)
+    this.prodBannerAdId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
+    this.prodInterstitialAdId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
+
     this.bannerAdId = this.isTestMode ? this.testBannerAdId : this.prodBannerAdId;
     this.interstitialAdId = this.isTestMode ? this.testInterstitialAdId : this.prodInterstitialAdId;
   }
@@ -41,7 +39,7 @@ class AdService {
     }
   }
 
-  private async handleConsent() {
+  async handleConsent() {
     try {
       const consentInfo = await AdMob.requestConsentInfo({
         debugGeography: this.isTestMode ? AdmobConsentDebugGeography.EEA : AdmobConsentDebugGeography.DISABLED,
@@ -56,13 +54,13 @@ class AdService {
     }
   }
 
-  async showBannerAd(position: BannerAdPosition = BannerAdPosition.BOTTOM_CENTER) {
+  async showBannerAd(position = BannerAdPosition.BOTTOM_CENTER) {
     if (!this.isAdMobInitialized) {
       await this.initialize();
     }
 
     try {
-      const options: BannerAdOptions = {
+      const options = {
         adId: this.bannerAdId,
         adSize: BannerAdSize.BANNER,
         position: position,
