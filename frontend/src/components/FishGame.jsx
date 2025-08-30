@@ -804,7 +804,15 @@ const FishGame = () => {
                 )}
                 {score >= 20 && (
                   <div className="text-blue-300 mt-2">
-                    {score >= 100 ? '👑 Seaweed Master!' : score >= 60 ? '🥇 Gold Swimmer!' : score >= 40 ? '🥈 Silver Swimmer!' : '🥉 Bronze Swimmer!'}
+                    {score >= 500 ? '🌟 Legendary Swimmer!' : 
+                     score >= 400 ? '🔱 Poseidon\'s Chosen!' : 
+                     score >= 300 ? '🐠 Fish Whisperer!' : 
+                     score >= 250 ? '🌊 Current Rider!' : 
+                     score >= 200 ? '⭐ Deep Sea Explorer!' : 
+                     score >= 150 ? '🏆 Ocean Champion!' : 
+                     score >= 100 ? '👑 Seaweed Master!' : 
+                     score >= 60 ? '🥇 Gold Swimmer!' : 
+                     score >= 40 ? '🥈 Silver Swimmer!' : '🥉 Bronze Swimmer!'}
                   </div>
                 )}
               </div>
