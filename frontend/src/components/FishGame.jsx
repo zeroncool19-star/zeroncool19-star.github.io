@@ -838,9 +838,13 @@ const FishGame = () => {
         )}
       </div>
       
-      <div className="mt-2 sm:mt-4 text-center text-white">
-        <p className="text-xs sm:text-sm opacity-75">Tap anywhere on the screen to play</p>
-      </div>
+      {(gameState === 'menu' || gameState === 'playing') && (
+        <div className="mt-2 sm:mt-4 text-center text-white">
+          <p className="text-xs sm:text-sm opacity-75">
+            {gameState === 'menu' ? 'Choose an option above to get started' : 'Tap anywhere on the screen to play'}
+          </p>
+        </div>
+      )}
     </div>
   );
 };
