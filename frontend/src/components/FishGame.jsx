@@ -311,69 +311,134 @@ const FishGame = () => {
       // Combine waves for natural movement
       const totalSway = primarySway + secondarySway * 0.6 + currentDrift * 0.3;
       
-      // Function to draw realistic seaweed fronds
+      // Function to draw realistic seaweed fronds with organic appearance
       const drawSeaweedFrond = (x, y, height, isTop) => {
-        const frondWidth = SEAWEED_WIDTH / 4;
-        const segments = Math.floor(height / 12);
+        const frondWidth = SEAWEED_WIDTH / 3.5;
+        const segments = Math.floor(height / 10);
         
-        for (let i = 0; i < 3; i++) { // 3 fronds per seaweed
-          const frondX = x + (i - 1) * frondWidth;
-          const swayMultiplier = (i === 1) ? 1 : 0.8; // Center frond sways more
+        for (let i = 0; i < 4; i++) { // 4 fronds per seaweed for fuller appearance
+          const frondX = x + (i - 1.5) * frondWidth * 0.8;
+          const swayMultiplier = (i === 1 || i === 2) ? 1 : 0.75; // Center fronds sway more
+          const baseThickness = Math.max(2, 8 - i);
           
           ctx.save();
-          ctx.strokeStyle = i === 1 ? '#22c55e' : '#16a34a'; // Much brighter greens
-          ctx.lineWidth = Math.max(2, 6 - i);
+          
+          // Draw main seaweed stem with tapering
+          const stemGradient = ctx.createLinearGradient(0, 0, 0, height);
+          stemGradient.addColorStop(0, '#16a34a'); // Bright green at base
+          stemGradient.addColorStop(0.3, '#22c55e'); // Brighter in middle  
+          stemGradient.addColorStop(0.7, '#4ade80'); // Even brighter toward tips
+          stemGradient.addColorStop(1, '#86efac'); // Light green at tips
+          
+          ctx.strokeStyle = stemGradient;
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
           
+          // Draw main stem with organic curves
           ctx.beginPath();
           ctx.moveTo(frondX, y);
           
-          // Draw seaweed with natural segmented movement
+          let lastX = frondX;
+          let lastY = y;
+          
           for (let j = 1; j <= segments; j++) {
             const segmentRatio = j / segments;
-            const segmentY = isTop ? y - (j * 12) : y + (j * 12);
+            const segmentY = isTop ? y - (j * 10) : y + (j * 10);
             
-            // Each segment responds to sway differently (more movement toward tips)
+            // Organic sway calculation
             const segmentSway = totalSway * swayMultiplier * segmentRatio;
+            const naturalCurve = Math.sin(j * 0.3 + timeInSeconds * 0.4) * 6 * segmentRatio;
+            const randomVariation = Math.sin(j * 1.1 + timeInSeconds * 0.2 + i) * 3;
             
-            // Add natural curve that varies along the length
-            const naturalCurve = Math.sin(j * 0.4 + timeInSeconds * 0.5) * 4 * segmentRatio;
+            // Tapering thickness toward tips
+            ctx.lineWidth = baseThickness * (1 - segmentRatio * 0.7);
             
-            // Small random variation per segment for organic look
-            const segmentVariation = Math.sin(j * 1.2 + timeInSeconds * 0.3 + i) * 2;
+            const currentX = frondX + segmentSway + naturalCurve + randomVariation;
+            const currentY = segmentY;
             
-            ctx.lineTo(frondX + segmentSway + naturalCurve + segmentVariation, segmentY);
+            // Use quadratic curves for smooth, organic lines
+            const controlX = (lastX + currentX) / 2 + Math.sin(j * 0.5) * 4;
+            const controlY = (lastY + currentY) / 2;
+            
+            ctx.quadraticCurveTo(controlX, controlY, currentX, currentY);
+            
+            lastX = currentX;
+            lastY = currentY;
           }
           
           ctx.stroke();
           
-          // Add small leaves along the frond (less frequent for performance)
-          if (segments > 4) {
-            for (let j = 3; j <= segments; j += 3) {
+          // Add realistic seaweed leaves along the stem
+          if (segments > 3) {
+            for (let j = 2; j <= segments; j += 2) {
               const segmentRatio = j / segments;
-              const leafY = isTop ? y - (j * 12) : y + (j * 12);
+              const leafY = isTop ? y - (j * 10) : y + (j * 10);
               const leafSway = totalSway * swayMultiplier * segmentRatio;
-              const leafCurve = Math.sin(j * 0.4 + timeInSeconds * 0.5) * 4 * segmentRatio;
-              const leafVariation = Math.sin(j * 1.2 + timeInSeconds * 0.3 + i) * 2;
+              const leafCurve = Math.sin(j * 0.3 + timeInSeconds * 0.4) * 6 * segmentRatio;
+              const leafVariation = Math.sin(j * 1.1 + timeInSeconds * 0.2 + i) * 3;
               
-              ctx.fillStyle = '#4ade80'; // Bright green for leaves
+              const leafCenterX = frondX + leafSway + leafCurve + leafVariation;
+              
+              // Create realistic leaf shapes with gradients
+              const leafGradient = ctx.createRadialGradient(leafCenterX, leafY, 0, leafCenterX, leafY, 12);
+              leafGradient.addColorStop(0, '#4ade80'); // Bright center
+              leafGradient.addColorStop(0.7, '#22c55e'); // Medium green
+              leafGradient.addColorStop(1, '#16a34a'); // Darker edges
+              
+              ctx.fillStyle = leafGradient;
               ctx.save();
-              ctx.translate(frondX + leafSway + leafCurve + leafVariation, leafY);
-              ctx.rotate((leafSway + leafCurve) * 0.01);
+              ctx.translate(leafCenterX, leafY);
               
-              // Small organic leaf shapes
-              ctx.beginPath();
-              ctx.ellipse(-6, 0, 6, 2.5, 0, 0, Math.PI * 2);
-              ctx.fill();
-              ctx.beginPath();
-              ctx.ellipse(6, 0, 6, 2.5, 0, 0, Math.PI * 2);
-              ctx.fill();
+              // Rotate leaf based on sway for natural movement
+              const leafRotation = (leafSway + leafCurve) * 0.02;
+              ctx.rotate(leafRotation);
+              
+              // Draw organic leaf shapes (both sides)
+              for (let side = -1; side <= 1; side += 2) {
+                ctx.beginPath();
+                const leafSize = (8 + Math.sin(j * 0.7) * 3) * (1 - segmentRatio * 0.3);
+                const leafWidth = leafSize * 0.6;
+                
+                // Organic leaf shape using bezier curves
+                ctx.moveTo(side * 2, 0);
+                ctx.bezierCurveTo(
+                  side * leafSize, -leafWidth,
+                  side * leafSize, leafWidth,
+                  side * 2, 0
+                );
+                ctx.fill();
+                
+                // Add leaf veins for realism
+                ctx.strokeStyle = '#15803d';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(side * 2, 0);
+                ctx.lineTo(side * leafSize * 0.7, 0);
+                ctx.stroke();
+              }
               
               ctx.restore();
             }
           }
           
+          // Add subtle transparency for depth
+          ctx.globalAlpha = 0.3;
+          
+          // Draw additional wispy fronds for volume
+          ctx.strokeStyle = '#86efac';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          
+          const wispyOffset = Math.sin(timeInSeconds * 0.6 + i) * 8;
+          ctx.moveTo(frondX + wispyOffset, y);
+          
+          for (let j = 1; j <= segments; j += 2) {
+            const segmentY = isTop ? y - (j * 10) : y + (j * 10);
+            const segmentSway = totalSway * 0.5 * (j / segments);
+            ctx.lineTo(frondX + segmentSway + wispyOffset, segmentY);
+          }
+          
+          ctx.stroke();
           ctx.restore();
         }
       };
