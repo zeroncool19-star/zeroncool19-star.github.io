@@ -500,6 +500,16 @@ const FishGame = () => {
     };
   }, [jumpFish]);
 
+  // Start game loop
+  useEffect(() => {
+    gameLoopRef.current = requestAnimationFrame(gameLoop);
+    return () => {
+      if (gameLoopRef.current) {
+        cancelAnimationFrame(gameLoopRef.current);
+      }
+    };
+  }, [gameLoop]);
+
   // Initialize AdMob when component mounts
   useEffect(() => {
     const initializeAds = async () => {
