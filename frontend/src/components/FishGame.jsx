@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
+import AdService from '../services/AdService';
 
 // Import Capacitor plugins for mobile features
 let Haptics, StatusBar, SplashScreen;
@@ -17,6 +18,7 @@ if (typeof window !== 'undefined') {
 const FishGame = () => {
   const canvasRef = useRef(null);
   const gameLoopRef = useRef(null);
+  const adServiceRef = useRef(new AdService());
   const [gameState, setGameState] = useState('menu'); // menu, howToPlay, highScores, playing, gameOver
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(parseInt(localStorage.getItem('seaweedSwimmerHighScore') || '0'));
