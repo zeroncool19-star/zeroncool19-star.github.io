@@ -257,7 +257,7 @@ const FishGame = () => {
         setHighScore(newScore);
         localStorage.setItem('seaweedSwimmerHighScore', newScore.toString());
       }
-      // Show game over ad (revenue opportunity)
+      // Show interstitial ad when player dies
       adServiceRef.current.showGameOverAd();
       return;
     }
