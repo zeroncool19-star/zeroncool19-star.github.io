@@ -216,6 +216,17 @@ const FishGame = () => {
     const gameRunningTime = currentTime - game.startTime;
     const inStartDelay = gameRunningTime < game.gameStartDelay;
     
+    // Update countdown display
+    if (inStartDelay) {
+      const remainingDelay = Math.max(0, game.gameStartDelay - gameRunningTime);
+      const countdownSeconds = Math.ceil(remainingDelay / 1000);
+      if (countdownSeconds !== countdown) {
+        setCountdown(countdownSeconds);
+      }
+    } else if (countdown > 0) {
+      setCountdown(0);
+    }
+    
     // Update score based on time (only after delay period)
     const newScore = inStartDelay ? 0 : Math.floor((gameRunningTime - game.gameStartDelay) / 1000);
     if (newScore !== score) {
