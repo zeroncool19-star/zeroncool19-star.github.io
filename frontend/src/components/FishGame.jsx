@@ -211,21 +211,25 @@ const FishGame = () => {
       return;
     }
 
-    // Update score based on time (optimized to avoid repeated math)
-    const newScore = Math.floor((currentTime - game.startTime) / 1000);
+    // Check if still in starting delay period
+    const gameRunningTime = currentTime - game.startTime;
+    const inStartDelay = gameRunningTime < game.gameStartDelay;
+    
+    // Update score based on time (only after delay period)
+    const newScore = inStartDelay ? 0 : Math.floor((gameRunningTime - game.gameStartDelay) / 1000);
     if (newScore !== score) {
       setScore(newScore);
     }
 
     // Update difficulty every 20 points and increase fish speed
     game.difficulty = Math.floor(newScore / 20) + 1;
-    const currentSpeed = BASE_SEAWEED_SPEED + (game.difficulty - 1) * 0.4;
+    const currentSpeed = inStartDelay ? BASE_SEAWEED_SPEED * 0.5 : BASE_SEAWEED_SPEED + (game.difficulty - 1) * 0.4;
     
     // Increase fish movement speed slightly with difficulty
     const fishSpeedMultiplier = 1 + (game.difficulty - 1) * 0.05;
     
-    // Update fish physics with speed multiplier
-    const adjustedGravity = GRAVITY * fishSpeedMultiplier;
+    // Update fish physics with speed multiplier (no gravity during start delay)
+    const adjustedGravity = inStartDelay ? 0 : GRAVITY * fishSpeedMultiplier;
     game.fish.velocity += adjustedGravity;
     game.fish.y += game.fish.velocity;
     game.fish.rotation = Math.max(-30, Math.min(30, game.fish.velocity * 3));
