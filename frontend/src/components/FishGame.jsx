@@ -585,16 +585,16 @@ const FishGame = () => {
         {/* Start Countdown Overlay */}
         {gameState === 'playing' && (() => {
           const gameRunningTime = Date.now() - (gameRef.current?.startTime || 0);
-          const remainingDelay = Math.max(0, 3000 - gameRunningTime);
+          const remainingDelay = Math.max(0, (gameRef.current?.gameStartDelay || 3000) - gameRunningTime);
           const countdownSeconds = Math.ceil(remainingDelay / 1000);
           
           if (remainingDelay > 0) {
             return (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="text-center bg-black bg-opacity-50 rounded-lg p-6">
-                  <div className="text-6xl font-bold text-white mb-2">{countdownSeconds}</div>
-                  <div className="text-xl text-white opacity-75">Get Ready!</div>
-                  <div className="text-sm text-blue-200 mt-2">Tap to swim up</div>
+                  <div className="text-8xl font-bold text-white mb-2 animate-pulse">{countdownSeconds}</div>
+                  <div className="text-2xl text-white opacity-75">Get Ready!</div>
+                  <div className="text-lg text-blue-200 mt-2">Tap to swim up</div>
                 </div>
               </div>
             );
