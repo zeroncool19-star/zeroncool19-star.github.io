@@ -14,5 +14,3 @@ ext {
     androidxEspressoCoreVersion = '3.6.1'
     cordovaAndroidVersion = '10.1.1'
 }
-</absolute_file_name>
-    </file>
