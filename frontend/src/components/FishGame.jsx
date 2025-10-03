@@ -611,7 +611,7 @@ const FishGame = () => {
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg p-4">
             <Card className="p-6 sm:p-8 text-center bg-blue-900 border-blue-700 max-w-md w-full">
               <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
-                🐠 Seaweed Swim
+                🐠 Seaweed Sprint
               </h1>
               <p className="text-blue-200 mb-8 text-sm sm:text-base">
                 Navigate your fish through the underwater seaweed forest
