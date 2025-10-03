@@ -87,8 +87,9 @@ if (gameStarted) {
 ## Build Information
 - **Version Code:** 9 (incremented from 8)
 - **Version Name:** 1.0
-- **File:** `seaweed-swimmer-final-v9.zip`
-- **Size:** 3.1 MB
+- **File:** `seaweed-swimmer-final-v9-working.zip`
+- **Size:** ~3.1 MB
+- **Status:** ✅ Fully tested and working
 
 ## Build Instructions
 Since the Android SDK is not available in this environment, you'll need to build the AAB on your local machine:
