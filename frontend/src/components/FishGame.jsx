@@ -111,6 +111,11 @@ const FishGame = () => {
   // Handle fish jump with haptic feedback and speed scaling
   const jumpFish = useCallback(async () => {
     if (gameState === 'playing') {
+      // Prevent jumping during countdown
+      if (countdown > 0) {
+        return;
+      }
+      
       // Scale jump force with difficulty for consistent feel
       const currentDifficulty = Math.floor(score / 20) + 1;
       const fishSpeedMultiplier = 1 + (currentDifficulty - 1) * 0.05;
