@@ -22,7 +22,7 @@ const FishGame = () => {
   const [gameState, setGameState] = useState('menu'); // menu, howToPlay, highScores, playing, gameOver
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(parseInt(localStorage.getItem('seaweedSwimmerHighScore') || '0'));
-  const [countdown, setCountdown] = useState(0);
+  const [gameStarted, setGameStarted] = useState(false); // Track if first tap happened
 
   // Game constants
   const CANVAS_WIDTH = 800;
