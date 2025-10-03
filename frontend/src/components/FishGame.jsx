@@ -451,7 +451,7 @@ const FishGame = () => {
     ctx.restore();
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameState, highScore, score]);
+  }, [gameState, highScore, score, gameStarted]);
 
   // Event listeners with performance optimizations
   useEffect(() => {
