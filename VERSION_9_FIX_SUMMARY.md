@@ -63,11 +63,13 @@ if (gameStarted) {
 ```
 
 ## Key Changes
-1. **Removed** the erroneous `drawGame()` call
-2. **Inverted** the logic: physics now only runs AFTER the first tap
-3. **Preserved** drawing functionality for all game states
-4. Fish now stays centered and stationary until first tap
-5. Score and physics only begin after player interaction
+1. **Removed** the erroneous `drawGame()` call that caused initial crash
+2. **Added** `gameStarted` to React dependency arrays for `gameLoop` and `jumpFish`
+3. **Inverted** game loop logic: physics now only runs AFTER the first tap
+4. **Preserved** drawing functionality for all game states
+5. Fish now stays centered and stationary until first tap
+6. Score and physics only begin after player interaction
+7. Game now properly transitions from "Tap to Start" to active gameplay
 
 ## Testing Results ✅
 - ✅ Menu loads without errors
