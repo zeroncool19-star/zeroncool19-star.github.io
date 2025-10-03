@@ -142,7 +142,7 @@ const FishGame = () => {
         // Haptics not available, continue without feedback
       }
     }
-  }, [gameState, initGame, score]);
+  }, [gameState, initGame, score, countdown]);
 
   // Navigation handlers with updated ad integration
   const goToMenu = useCallback(async () => {
