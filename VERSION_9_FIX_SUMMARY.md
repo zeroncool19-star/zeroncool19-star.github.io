@@ -1,10 +1,12 @@
 # Seaweed Swimmer - Version 9 Fix Summary
 
-## Issue Fixed
-**Error:** `drawGame is not defined` JavaScript error causing app crash after "Tap to Start" implementation.
+## Issues Fixed
+1. **Error:** `drawGame is not defined` JavaScript error causing app crash
+2. **Error:** Fish not moving after first tap (frozen gameplay)
 
-## Root Cause
-During the "Tap to Start" refactoring, an erroneous call to a non-existent `drawGame()` function was accidentally added at line 232 of `FishGame.jsx`. This function was never defined, causing a ReferenceError when the game tried to render before the first tap.
+## Root Causes
+1. **First Issue:** An erroneous call to a non-existent `drawGame()` function was accidentally added at line 232 of `FishGame.jsx`
+2. **Second Issue:** React `useCallback` dependency arrays were missing `gameStarted`, causing stale closure values. The game loop and jump function always thought `gameStarted` was `false`, so physics never applied.
 
 ## Solution Implemented
 Restructured the game loop logic in `frontend/src/components/FishGame.jsx`:
