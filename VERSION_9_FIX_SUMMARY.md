@@ -106,10 +106,13 @@ The AAB file will be generated at:
 `frontend/android/app/build/outputs/bundle/release/app-release.aab`
 
 ## What's New in Version 9
-- **Fixed:** `drawGame is not defined` error
-- **Improved:** Game start sequence logic
-- **Enhanced:** Code maintainability and structure
+- **Fixed:** `drawGame is not defined` error (initial crash)
+- **Fixed:** Frozen gameplay after first tap (React closure issue)
+- **Fixed:** Physics not applying after "Tap to Start"
+- **Improved:** Game start sequence logic with proper state management
+- **Enhanced:** Code maintainability with correct React dependency arrays
 - **Maintained:** All existing features (AdMob, achievements, difficulty scaling)
+- **Verified:** Full end-to-end gameplay testing completed successfully
 
 ## Notes
 - The web preview at https://tap-swim-game.preview.emergentagent.com shows the fix working perfectly
