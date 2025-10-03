@@ -169,7 +169,7 @@ const FishGame = () => {
     // Show banner ad during gameplay only
     setTimeout(() => {
       adServiceRef.current.showGameplayBannerAd();
-    }, 4000); // Show after 3-second countdown + 1 second delay
+    }, 6000); // Show after 5-second countdown + 1 second delay
   }, [initGame]);
 
   // Check collision
