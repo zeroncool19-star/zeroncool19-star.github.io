@@ -751,8 +751,8 @@ const FishGame = () => {
                 ← Back to Menu
               </Button>
             </Card>
-          </div>
-        )}
+        </div>
+      )}
 
       {/* High Scores Screen */}
       {gameState === 'highScores' && (
