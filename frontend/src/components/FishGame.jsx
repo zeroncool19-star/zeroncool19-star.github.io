@@ -720,12 +720,19 @@ const FishGame = () => {
       
       {/* Only show game canvas when playing or game over */}
       {(gameState === 'playing' || gameState === 'gameOver') && (
-        <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-b from-blue-600 to-blue-800">
+        <div 
+          className="relative w-full h-full flex items-center justify-center bg-gradient-to-b from-blue-600 to-blue-800 cursor-pointer"
+          onClick={jumpFish}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            jumpFish();
+          }}
+        >
           <canvas
             ref={canvasRef}
             width={CANVAS_WIDTH}
             height={CANVAS_HEIGHT}
-            className="cursor-pointer touch-none select-none"
+            className="pointer-events-none select-none"
             style={{ 
               maxWidth: '100%', 
               maxHeight: '100%',
