@@ -840,7 +840,12 @@ const FishGame = () => {
                 {highScore >= 20 && (
                   <div className="text-center">
                     <div className="text-2xl mb-2">
-                      {highScore >= 500 ? '🌟' : 
+                      {highScore >= 1000 ? '👑' : 
+                       highScore >= 900 ? '🦈' : 
+                       highScore >= 800 ? '💎' : 
+                       highScore >= 700 ? '🌌' : 
+                       highScore >= 600 ? '⚡' : 
+                       highScore >= 500 ? '🌟' : 
                        highScore >= 400 ? '🔱' : 
                        highScore >= 300 ? '🐠' : 
                        highScore >= 250 ? '🌊' : 
@@ -851,7 +856,12 @@ const FishGame = () => {
                        highScore >= 40 ? '🥈' : '🥉'}
                     </div>
                     <div className="text-blue-300 font-semibold">
-                      {highScore >= 500 ? 'Legendary Swimmer!' : 
+                      {highScore >= 1000 ? 'Ocean Deity!' : 
+                       highScore >= 900 ? 'Apex Predator!' : 
+                       highScore >= 800 ? 'Diamond Swimmer!' : 
+                       highScore >= 700 ? 'Abyssal Master!' : 
+                       highScore >= 600 ? 'Storm Breaker!' : 
+                       highScore >= 500 ? 'Legendary Swimmer!' : 
                        highScore >= 400 ? 'Poseidon\'s Chosen!' : 
                        highScore >= 300 ? 'Fish Whisperer!' : 
                        highScore >= 250 ? 'Current Rider!' : 
