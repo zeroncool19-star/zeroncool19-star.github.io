@@ -580,9 +580,11 @@ const FishGame = () => {
     // Load audio preferences
     const loadAudioPreferences = () => {
       const savedMusic = localStorage.getItem('seaweedSwimmerMusic');
+      const savedSfx = localStorage.getItem('seaweedSwimmerSfx');
       const savedHaptics = localStorage.getItem('seaweedSwimmerHaptics');
       
       setMusicEnabled(savedMusic !== null ? savedMusic === 'true' : true);
+      setSfxEnabled(savedSfx !== null ? savedSfx === 'true' : true);
       setHapticsEnabled(savedHaptics !== null ? savedHaptics === 'true' : true);
     };
     
