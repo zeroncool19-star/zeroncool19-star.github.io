@@ -81,6 +81,9 @@ class AudioService {
     
     // Water movement ambience
     this.createWaterAmbience(now);
+    
+    // Rhythmic percussion (upbeat)
+    this.createRhythmLayer(now);
   }
 
   // Deep ocean drone sound
