@@ -562,7 +562,7 @@ const FishGame = () => {
     };
   }, [gameLoop]);
 
-  // Initialize AdMob when component mounts
+  // Initialize AdMob and Audio when component mounts
   useEffect(() => {
     const initializeAds = async () => {
       try {
@@ -576,12 +576,25 @@ const FishGame = () => {
       }
     };
     
-    initializeAds();
+    // Load audio preferences
+    const loadAudioPreferences = () => {
+      const savedMusic = localStorage.getItem('seaweedSwimmerMusic');
+      const savedHaptics = localStorage.getItem('seaweedSwimmerHaptics');
+      
+      setMusicEnabled(savedMusic !== null ? savedMusic === 'true' : true);
+      setHapticsEnabled(savedHaptics !== null ? savedHaptics === 'true' : true);
+    };
     
-    // Cleanup ads on unmount
+    initializeAds();
+    loadAudioPreferences();
+    
+    // Cleanup ads and audio on unmount
     return () => {
       if (adServiceRef.current) {
         adServiceRef.current.removeBannerAd();
+      }
+      if (audioServiceRef.current) {
+        audioServiceRef.current.stopMusic();
       }
     };
   }, []);
