@@ -617,7 +617,7 @@ const FishGame = () => {
   useEffect(() => {
     const handleAdDisplay = async () => {
       try {
-        if (gameState === 'menu' || gameState === 'howToPlay' || gameState === 'highScores' || gameState === 'settings' || gameState === 'gameOver') {
+        if (gameState === 'intro' || gameState === 'menu' || gameState === 'howToPlay' || gameState === 'highScores' || gameState === 'settings' || gameState === 'gameOver') {
           // Hide all ads on non-gameplay screens
           await adServiceRef.current.hideAllAds();
         }
