@@ -704,75 +704,52 @@ const FishGame = () => {
 
         {/* How to Play Screen */}
         {gameState === 'howToPlay' && (
-          <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded-lg p-4">
-            <Card className="p-4 sm:p-8 text-center bg-blue-900 border-blue-700 max-w-2xl w-full">
-              <h1 className="text-2xl sm:text-4xl font-bold text-white mb-4">
-                📖 How to Play Seaweed Swimmer
+          <div className="flex items-center justify-center w-full h-full p-4">
+            <Card className="p-6 sm:p-8 text-center bg-blue-900 border-blue-700 max-w-lg w-full">
+              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-6">
+                📖 How to Play
               </h1>
 
-              <div className="grid md:grid-cols-2 gap-6 mb-8 text-white">
-                <div className="space-y-4">
-                  <h2 className="text-xl sm:text-2xl font-semibold text-blue-300 mb-3">
-                    🎮 Game Controls
-                  </h2>
-                  <div className="space-y-3 text-sm sm:text-base text-left">
-                    <div className="flex items-start space-x-3">
-                      <span className="text-orange-400 text-lg">📱</span>
-                      <p><strong>Tap anywhere</strong> to make your fish swim upward</p>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <span className="text-green-400 text-lg">🌿</span>
-                      <p><strong>Navigate through</strong> the swaying seaweed obstacles</p>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <span className="text-yellow-400 text-lg">⏱️</span>
-                      <p><strong>Survive as long as possible</strong> - your score is time-based</p>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <span className="text-red-400 text-lg">💥</span>
-                      <p><strong>Avoid collisions</strong> with seaweed or boundaries</p>
-                    </div>
+              <div className="space-y-5 text-white mb-8">
+                <div className="bg-blue-800 rounded-lg p-4">
+                  <div className="flex items-center justify-center space-x-3 mb-2">
+                    <span className="text-4xl">👆</span>
+                    <h2 className="text-2xl font-bold">Tap to Swim</h2>
                   </div>
+                  <p className="text-blue-200">Tap anywhere to make your fish swim upward</p>
                 </div>
 
-                <div className="space-y-4">
-                  <h2 className="text-xl sm:text-2xl font-semibold text-blue-300 mb-3">
-                    ⚡ Difficulty Progression
-                  </h2>
-                  <div className="space-y-3 text-sm sm:text-base text-left">
-                    <div className="flex items-start space-x-3">
-                      <span className="text-blue-400 text-lg">⏰</span>
-                      <p><strong>Every 20 seconds:</strong> Difficulty level increases</p>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <span className="text-purple-400 text-lg">🏃</span>
-                      <p><strong>Seaweed moves faster:</strong> Speed increases by 0.6 per level</p>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <span className="text-pink-400 text-lg">🐟</span>
-                      <p><strong>Fish speed increases:</strong> More responsive but requires precision</p>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <span className="text-cyan-400 text-lg">🌊</span>
-                      <p><strong>Challenge intensifies:</strong> Test your reflexes and endurance!</p>
-                    </div>
+                <div className="bg-blue-800 rounded-lg p-4">
+                  <div className="flex items-center justify-center space-x-3 mb-2">
+                    <span className="text-4xl">🌿</span>
+                    <h2 className="text-2xl font-bold">Avoid Seaweed</h2>
                   </div>
+                  <p className="text-blue-200">Navigate through the swaying obstacles</p>
+                </div>
+
+                <div className="bg-blue-800 rounded-lg p-4">
+                  <div className="flex items-center justify-center space-x-3 mb-2">
+                    <span className="text-4xl">⏱️</span>
+                    <h2 className="text-2xl font-bold">Survive Longer</h2>
+                  </div>
+                  <p className="text-blue-200">Your score = time survived in seconds</p>
+                </div>
+
+                <div className="bg-blue-800 rounded-lg p-4">
+                  <div className="flex items-center justify-center space-x-3 mb-2">
+                    <span className="text-4xl">⚡</span>
+                    <h2 className="text-2xl font-bold">Difficulty Rises</h2>
+                  </div>
+                  <p className="text-blue-200">Game speeds up every 20 seconds</p>
                 </div>
               </div>
-
-              <div className="border-t border-blue-700 pt-6">
-                <div className="text-blue-200 mb-6 text-sm sm:text-base">
-                  <p className="mb-2">🎯 <strong>Goal:</strong> Beat your high score by surviving longer!</p>
-                  <p>🌊 The seaweed moves naturally like real ocean vegetation - watch it sway and time your moves carefully.</p>
-                </div>
                 
-                <Button 
-                  onClick={goToMenu}
-                  className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 text-lg w-full sm:w-auto"
-                >
-                  ← Back to Menu
-                </Button>
-              </div>
+              <Button 
+                onClick={goToMenu}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 text-lg w-full"
+              >
+                ← Back to Menu
+              </Button>
             </Card>
           </div>
         )}
