@@ -852,8 +852,8 @@ const FishGame = () => {
                 ← Back to Menu
               </Button>
             </Card>
-          </div>
-        )}
+        </div>
+      )}
 
         {/* Settings Screen */}
         {gameState === 'settings' && (
