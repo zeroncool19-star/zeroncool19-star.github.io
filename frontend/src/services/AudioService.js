@@ -258,6 +258,105 @@ class AudioService {
     playMelody(startTime);
   }
 
+  // Harmony layer (chord progression for fullness)
+  createHarmonyLayer(startTime) {
+    if (!this.audioContext) return;
+    
+    const chords = [
+      { notes: [220, 277.18, 329.63], duration: 2 },  // Am chord
+      { notes: [146.83, 185, 220], duration: 2 },     // D chord
+      { notes: [164.81, 207.65, 246.94], duration: 2 }, // Em chord
+      { notes: [196, 246.94, 293.66], duration: 2 }   // G chord
+    ];
+    
+    const playChord = (chordIndex, time) => {
+      if (!this.isPlaying) return;
+      
+      const chord = chords[chordIndex];
+      
+      chord.notes.forEach((freq) => {
+        const osc = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        const filter = this.audioContext.createBiquadFilter();
+        
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        
+        filter.type = 'lowpass';
+        filter.frequency.value = 1000;
+        
+        gainNode.gain.value = 0;
+        gainNode.gain.linearRampToValueAtTime(0.05, time + 0.3);
+        gainNode.gain.linearRampToValueAtTime(0.05, time + chord.duration - 0.3);
+        gainNode.gain.linearRampToValueAtTime(0, time + chord.duration);
+        
+        osc.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(this.musicGainNode);
+        
+        osc.start(time);
+        osc.stop(time + chord.duration);
+      });
+      
+      const nextIndex = (chordIndex + 1) % chords.length;
+      const nextTime = time + chord.duration;
+      
+      if (nextTime - this.audioContext.currentTime < 60) {
+        setTimeout(() => playChord(nextIndex, nextTime), (chord.duration - 0.2) * 1000);
+      }
+    };
+    
+    playChord(0, startTime);
+  }
+
+  // Hi-hat layer (adds energy and rhythm)
+  createHiHatLayer(startTime) {
+    if (!this.audioContext) return;
+    
+    const hiHatInterval = 0.2; // Fast hi-hats
+    
+    const playHiHat = (time, isOpen) => {
+      if (!this.isPlaying) return;
+      
+      // White noise for hi-hat
+      const bufferSize = this.audioContext.sampleRate * 0.1;
+      const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      
+      const source = this.audioContext.createBufferSource();
+      const gainNode = this.audioContext.createGain();
+      const filter = this.audioContext.createBiquadFilter();
+      
+      source.buffer = buffer;
+      
+      filter.type = 'highpass';
+      filter.frequency.value = 7000;
+      
+      const volume = isOpen ? 0.08 : 0.05;
+      gainNode.gain.value = volume;
+      gainNode.gain.exponentialRampToValueAtTime(0.001, time + (isOpen ? 0.15 : 0.05));
+      
+      source.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(this.musicGainNode);
+      
+      source.start(time);
+      
+      const nextTime = time + hiHatInterval;
+      const nextIsOpen = Math.random() > 0.7; // Occasional open hi-hat
+      
+      if (nextTime - this.audioContext.currentTime < 60) {
+        setTimeout(() => playHiHat(nextTime, nextIsOpen), (hiHatInterval - 0.05) * 1000);
+      }
+    };
+    
+    playHiHat(startTime, false);
+  }
+
   // Rhythmic percussion layer (lively beat)
   createRhythmLayer(startTime) {
     if (!this.audioContext) return;
