@@ -621,36 +621,42 @@ const FishGame = () => {
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-blue-600 to-blue-800 overflow-hidden">
-      <div className="relative w-full h-full">
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_WIDTH}
-          height={CANVAS_HEIGHT}
-          className="cursor-pointer touch-none select-none"
-          style={{ 
-            width: '100vw', 
-            height: '100vh',
-            objectFit: 'cover'
-          }}
-        />
-        
-        {/* Game UI Overlay */}
-        <div className="absolute top-2 left-2 text-white text-sm sm:text-base sm:top-4 sm:left-4">
-          <div className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Score: {score}</div>
-          <div className="text-base sm:text-lg">High Score: {highScore}</div>
-          <div className="text-xs sm:text-sm opacity-75">Difficulty: {Math.floor(score / 20) + 1}</div>
-        </div>
-
-        {/* Tap to Start Overlay */}
-        {gameState === 'playing' && !gameStarted && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-center bg-black bg-opacity-50 rounded-lg p-8 animate-pulse">
-              <div className="text-6xl font-bold text-white mb-4">👆</div>
-              <div className="text-4xl text-white font-bold mb-2">Tap to Start!</div>
-              <div className="text-xl text-blue-200">Tap screen to swim up</div>
+      {/* Only show game canvas when playing or game over */}
+      {(gameState === 'playing' || gameState === 'gameOver') && (
+        <div className="relative w-full h-full">
+          <canvas
+            ref={canvasRef}
+            width={CANVAS_WIDTH}
+            height={CANVAS_HEIGHT}
+            className="cursor-pointer touch-none select-none"
+            style={{ 
+              width: '100vw', 
+              height: '100vh',
+              objectFit: 'cover'
+            }}
+          />
+          
+          {/* Game UI Overlay */}
+          {gameState === 'playing' && (
+            <div className="absolute top-2 left-2 text-white text-sm sm:text-base sm:top-4 sm:left-4">
+              <div className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Score: {score}</div>
+              <div className="text-base sm:text-lg">High Score: {highScore}</div>
+              <div className="text-xs sm:text-sm opacity-75">Difficulty: {Math.floor(score / 20) + 1}</div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Tap to Start Overlay */}
+          {gameState === 'playing' && !gameStarted && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center bg-black bg-opacity-50 rounded-lg p-8 animate-pulse">
+                <div className="text-6xl font-bold text-white mb-4">👆</div>
+                <div className="text-4xl text-white font-bold mb-2">Tap to Start!</div>
+                <div className="text-xl text-blue-200">Tap screen to swim up</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
         {/* Main Menu */}
         {gameState === 'menu' && (
