@@ -754,9 +754,9 @@ const FishGame = () => {
           </div>
         )}
 
-        {/* High Scores Screen */}
-        {gameState === 'highScores' && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg p-4">
+      {/* High Scores Screen */}
+      {gameState === 'highScores' && (
+        <div className="flex items-center justify-center w-full h-full p-4">
             <Card className="p-6 sm:p-8 text-center bg-blue-900 border-blue-700 max-w-md w-full">
               <h1 className="text-2xl sm:text-3xl font-bold text-white mb-6">
                 🏆 High Scores
