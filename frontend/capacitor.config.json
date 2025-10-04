@@ -1,6 +1,6 @@
 {
   "appId": "com.seaweedswimmer.app",
-  "appName": "Seaweed Sprint",
+  "appName": "Seaweed Swimmer",
   "webDir": "build",
   "server": {
     "androidScheme": "https"
