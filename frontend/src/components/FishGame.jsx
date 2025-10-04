@@ -154,6 +154,8 @@ const FishGame = () => {
     setGameState('menu');
     // Hide all ads on menu screens
     await adServiceRef.current.hideAllAds();
+    // Stop game music
+    audioServiceRef.current.stopMusic();
   }, []);
   
   const goToHowToPlay = useCallback(async () => {
@@ -168,9 +170,18 @@ const FishGame = () => {
     await adServiceRef.current.hideAllAds();
   }, []);
   
+  const goToSettings = useCallback(async () => {
+    setGameState('settings');
+    // Hide all ads on settings screens
+    await adServiceRef.current.hideAllAds();
+  }, []);
+  
   const startGame = useCallback(async () => {
     initGame();
     setGameState('playing');
+    // Initialize and start audio
+    audioServiceRef.current.initialize();
+    audioServiceRef.current.startMusic();
     // Show banner ad after a short delay
     setTimeout(() => {
       adServiceRef.current.showGameplayBannerAd();
