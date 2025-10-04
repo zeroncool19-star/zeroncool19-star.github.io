@@ -602,6 +602,17 @@ const FishGame = () => {
     };
   }, []);
 
+  // Handle intro screen transition
+  useEffect(() => {
+    if (gameState === 'intro') {
+      const timer = setTimeout(() => {
+        setGameState('menu');
+      }, 4000); // Show intro for 4 seconds
+      
+      return () => clearTimeout(timer);
+    }
+  }, [gameState]);
+
   // Handle ad display based on game state
   useEffect(() => {
     const handleAdDisplay = async () => {
