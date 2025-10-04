@@ -127,27 +127,38 @@ const FishGame = () => {
       const adjustedJump = FISH_JUMP * fishSpeedMultiplier;
       
       gameRef.current.fish.velocity = adjustedJump;
-      // Add haptic feedback on mobile
-      try {
-        if (Haptics) {
-          await Haptics.impact({ style: 'light' });
+      
+      // Play swim sound effect
+      audioServiceRef.current.playSwimSound();
+      
+      // Add haptic feedback on mobile (if enabled)
+      if (hapticsEnabled) {
+        try {
+          if (Haptics) {
+            await Haptics.impact({ style: 'light' });
+          }
+        } catch (error) {
+          // Haptics not available, continue without feedback
         }
-      } catch (error) {
-        // Haptics not available, continue without feedback
       }
     } else if (gameState === 'gameOver') {
       initGame();
       setGameState('playing');
-      // Add haptic feedback for menu interaction
-      try {
-        if (Haptics) {
-          await Haptics.impact({ style: 'medium' });
+      // Restart music
+      audioServiceRef.current.initialize();
+      audioServiceRef.current.startMusic();
+      // Add haptic feedback for menu interaction (if enabled)
+      if (hapticsEnabled) {
+        try {
+          if (Haptics) {
+            await Haptics.impact({ style: 'medium' });
+          }
+        } catch (error) {
+          // Haptics not available, continue without feedback
         }
-      } catch (error) {
-        // Haptics not available, continue without feedback
       }
     }
-  }, [gameState, initGame, score, gameStarted]);
+  }, [gameState, initGame, score, gameStarted, hapticsEnabled]);
 
   // Navigation handlers with updated ad integration
   const goToMenu = useCallback(async () => {
