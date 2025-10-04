@@ -632,6 +632,92 @@ const FishGame = () => {
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-blue-600 to-blue-800 overflow-hidden">
+      {/* Intro Screen */}
+      {gameState === 'intro' && (
+        <div className="flex items-center justify-center w-full h-full relative overflow-hidden">
+          {/* Animated water waves in background */}
+          <div className="absolute inset-0 bg-gradient-to-t from-blue-900 via-blue-700 to-blue-500">
+            <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-blue-950 to-transparent opacity-80"></div>
+          </div>
+          
+          {/* Rising text container */}
+          <div className="relative z-10 text-center">
+            {/* Game title - rises from sea */}
+            <div 
+              className="text-5xl sm:text-7xl font-bold text-white mb-4 opacity-0"
+              style={{
+                animation: 'riseFromSea 2s ease-out forwards',
+                textShadow: '0 0 20px rgba(59, 130, 246, 0.8), 0 0 40px rgba(59, 130, 246, 0.6)'
+              }}
+            >
+              🐠 Seaweed Swimmer
+            </div>
+            
+            {/* Created by text - rises with delay */}
+            <div 
+              className="text-2xl sm:text-4xl text-blue-200 opacity-0"
+              style={{
+                animation: 'riseFromSea 2s ease-out 0.8s forwards',
+                textShadow: '0 0 10px rgba(147, 197, 253, 0.6)'
+              }}
+            >
+              Created by <span className="font-bold text-white">Zeron</span>
+            </div>
+          </div>
+          
+          {/* Bubble effects */}
+          <div className="absolute bottom-0 left-0 right-0 h-full pointer-events-none">
+            {[...Array(8)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute rounded-full bg-white opacity-20"
+                style={{
+                  width: `${Math.random() * 20 + 10}px`,
+                  height: `${Math.random() * 20 + 10}px`,
+                  left: `${Math.random() * 100}%`,
+                  animation: `bubble ${3 + Math.random() * 4}s ease-in ${Math.random() * 2}s infinite`,
+                  bottom: '-50px'
+                }}
+              />
+            ))}
+          </div>
+          
+          {/* CSS animations */}
+          <style>{`
+            @keyframes riseFromSea {
+              0% {
+                transform: translateY(100vh);
+                opacity: 0;
+              }
+              50% {
+                opacity: 0.5;
+              }
+              100% {
+                transform: translateY(0);
+                opacity: 1;
+              }
+            }
+            
+            @keyframes bubble {
+              0% {
+                transform: translateY(0) scale(1);
+                opacity: 0;
+              }
+              10% {
+                opacity: 0.3;
+              }
+              90% {
+                opacity: 0.3;
+              }
+              100% {
+                transform: translateY(-100vh) scale(0.5);
+                opacity: 0;
+              }
+            }
+          `}</style>
+        </div>
+      )}
+      
       {/* Only show game canvas when playing or game over */}
       {(gameState === 'playing' || gameState === 'gameOver') && (
         <div className="relative w-full h-full">
