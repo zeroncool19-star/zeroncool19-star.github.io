@@ -620,19 +620,17 @@ const FishGame = () => {
   }, [gameState]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-600 to-blue-800 p-2 sm:p-4">
-      <div className="relative max-w-full">
+    <div className="fixed inset-0 bg-gradient-to-b from-blue-600 to-blue-800 overflow-hidden">
+      <div className="relative w-full h-full">
         <canvas
           ref={canvasRef}
           width={CANVAS_WIDTH}
           height={CANVAS_HEIGHT}
-          className="border-4 border-blue-800 rounded-lg shadow-2xl cursor-pointer touch-none select-none"
+          className="cursor-pointer touch-none select-none"
           style={{ 
-            maxWidth: '100vw', 
-            maxHeight: '70vh',
-            width: 'auto',
-            height: 'auto',
-            aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}`
+            width: '100vw', 
+            height: '100vh',
+            objectFit: 'cover'
           }}
         />
         
