@@ -89,65 +89,62 @@ class AudioService {
     this.createAmbientPad(now);
   }
 
-  // Rhythmic bass line (funky, energetic)
-  createBassLine(startTime) {
+  // Melodic bass line (follows chord progression)
+  createMelodicBassLine(startTime) {
     if (!this.audioContext) return;
     
-    const bassPattern = [
-      { note: 110, duration: 0.3 },   // A2
-      { note: 0, duration: 0.1 },     // Rest
-      { note: 110, duration: 0.2 },   // A2
-      { note: 146.83, duration: 0.3 }, // D3
-      { note: 0, duration: 0.1 },     // Rest
-      { note: 164.81, duration: 0.3 }, // E3
-      { note: 0, duration: 0.1 },     // Rest
-      { note: 130.81, duration: 0.2 }  // C3
+    // Bass follows the theme
+    const bassLine = [
+      { note: 110, duration: 2.0 },   // A2
+      { note: 164.81, duration: 2.0 }, // E3
+      { note: 123.47, duration: 2.0 }, // B2
+      { note: 146.83, duration: 2.0 }, // D3
+      { note: 110, duration: 2.0 },   // A2
+      { note: 164.81, duration: 2.0 }, // E3
+      { note: 123.47, duration: 2.0 }, // B2
+      { note: 82.41, duration: 2.0 }   // E2
     ];
     
-    let currentTime = startTime;
-    
-    const playBassPattern = (time) => {
+    const playBass = (time) => {
       if (!this.isPlaying) return;
       
-      bassPattern.forEach((step, index) => {
-        if (step.note === 0) {
-          currentTime += step.duration;
-          return;
-        }
-        
+      let currentTime = 0;
+      
+      bassLine.forEach((note) => {
         const osc = this.audioContext.createOscillator();
         const gainNode = this.audioContext.createGain();
         const filter = this.audioContext.createBiquadFilter();
         
-        osc.type = 'sawtooth';
-        osc.frequency.value = step.note;
+        osc.type = 'sine';
+        osc.frequency.value = note.note;
         
         filter.type = 'lowpass';
-        filter.frequency.value = 300;
-        filter.Q.value = 3;
+        filter.frequency.value = 250;
         
-        gainNode.gain.value = 0.2;
-        gainNode.gain.exponentialRampToValueAtTime(0.001, time + currentTime + step.duration);
+        gainNode.gain.value = 0;
+        gainNode.gain.linearRampToValueAtTime(0.15, time + currentTime + 0.1);
+        gainNode.gain.linearRampToValueAtTime(0.15, time + currentTime + note.duration - 0.1);
+        gainNode.gain.linearRampToValueAtTime(0, time + currentTime + note.duration);
         
         osc.connect(filter);
         filter.connect(gainNode);
         gainNode.connect(this.musicGainNode);
         
         osc.start(time + currentTime);
-        osc.stop(time + currentTime + step.duration);
+        osc.stop(time + currentTime + note.duration);
         
-        currentTime += step.duration;
+        currentTime += note.duration;
       });
       
-      const patternDuration = bassPattern.reduce((sum, step) => sum + step.duration, 0);
+      const patternDuration = bassLine.reduce((sum, note) => sum + note.duration, 0);
       const nextTime = time + patternDuration;
       
       if (nextTime - this.audioContext.currentTime < 60) {
-        setTimeout(() => playBassPattern(nextTime), (patternDuration - 0.1) * 1000);
+        setTimeout(() => playBass(nextTime), (patternDuration - 0.1) * 1000);
       }
     };
     
-    playBassPattern(startTime);
+    playBass(startTime);
   }
 
   // Bubble sound effects (for ambience)
