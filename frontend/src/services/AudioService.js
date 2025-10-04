@@ -70,20 +70,26 @@ class AudioService {
 
     const now = this.audioContext.currentTime;
 
-    // Deep ocean drone (low frequency)
-    this.createDeepDrone(now);
+    // Bass line (rhythmic foundation)
+    this.createBassLine(now);
     
-    // Bubble sounds (random, periodic)
-    this.scheduleBubbles();
-    
-    // Gentle melodic tones (peaceful)
+    // Melodic lead (main melody)
     this.createMelodicLayer(now);
     
-    // Water movement ambience
-    this.createWaterAmbience(now);
+    // Harmony layer (chord progression)
+    this.createHarmonyLayer(now);
     
     // Rhythmic percussion (upbeat)
     this.createRhythmLayer(now);
+    
+    // Hi-hat/cymbal layer (energy)
+    this.createHiHatLayer(now);
+    
+    // Bubble sounds (ambience)
+    this.scheduleBubbles();
+    
+    // Water movement ambience
+    this.createWaterAmbience(now);
   }
 
   // Deep ocean drone sound
