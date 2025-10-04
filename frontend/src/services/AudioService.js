@@ -190,69 +190,112 @@ class AudioService {
     osc.stop(now + 0.2);
   }
 
-  // Melodic lead layer (catchy, energetic melody)
-  createMelodicLayer(startTime) {
+  // Main theme melody (memorable underwater tune)
+  createThemeMelody(startTime) {
     if (!this.audioContext) return;
     
-    // Catchy melodic pattern
-    const melody = [
-      { note: 659, duration: 0.3 },   // E5
-      { note: 554, duration: 0.3 },   // C#5
-      { note: 494, duration: 0.4 },   // B4
-      { note: 554, duration: 0.3 },   // C#5
+    // 16-bar melodic theme - underwater adventure feel
+    const theme = [
+      // Bar 1-2: Opening phrase
+      { note: 440, duration: 0.5 },   // A4
+      { note: 494, duration: 0.5 },   // B4
+      { note: 554, duration: 0.5 },   // C#5
       { note: 659, duration: 0.5 },   // E5
-      { note: 740, duration: 0.3 },   // F#5
-      { note: 659, duration: 0.3 },   // E5
-      { note: 554, duration: 0.6 },   // C#5
+      
+      // Bar 3-4: Response
+      { note: 740, duration: 0.75 },  // F#5
+      { note: 659, duration: 0.25 },  // E5
+      { note: 554, duration: 1.0 },   // C#5
+      
+      // Bar 5-6: Variation
+      { note: 494, duration: 0.5 },   // B4
+      { note: 554, duration: 0.5 },   // C#5
+      { note: 659, duration: 0.5 },   // E5
+      { note: 740, duration: 0.5 },   // F#5
+      
+      // Bar 7-8: Climax
+      { note: 880, duration: 1.0 },   // A5
+      { note: 740, duration: 0.5 },   // F#5
+      { note: 659, duration: 0.5 },   // E5
+      
+      // Bar 9-10: Descent
+      { note: 554, duration: 0.5 },   // C#5
+      { note: 494, duration: 0.5 },   // B4
+      { note: 440, duration: 0.5 },   // A4
+      { note: 494, duration: 0.5 },   // B4
+      
+      // Bar 11-12: Build
+      { note: 554, duration: 0.75 },  // C#5
+      { note: 659, duration: 0.25 },  // E5
+      { note: 740, duration: 1.0 },   // F#5
+      
+      // Bar 13-14: Final phrase
+      { note: 659, duration: 0.5 },   // E5
+      { note: 554, duration: 0.5 },   // C#5
+      { note: 494, duration: 0.5 },   // B4
+      { note: 440, duration: 0.5 },   // A4
+      
+      // Bar 15-16: Resolution
+      { note: 330, duration: 1.5 },   // E4 (octave down)
+      { note: 0, duration: 0.5 }      // Rest
     ];
     
-    const playMelody = (time) => {
+    const playTheme = (time) => {
       if (!this.isPlaying) return;
       
       let currentTime = 0;
       
-      melody.forEach((note) => {
-        const osc1 = this.audioContext.createOscillator();
-        const osc2 = this.audioContext.createOscillator();
+      theme.forEach((note) => {
+        if (note.note === 0) {
+          currentTime += note.duration;
+          return;
+        }
+        
+        const osc = this.audioContext.createOscillator();
         const gainNode = this.audioContext.createGain();
         const filter = this.audioContext.createBiquadFilter();
         
-        osc1.type = 'triangle';
-        osc1.frequency.value = note.note;
-        osc2.type = 'sine';
-        osc2.frequency.value = note.note * 2; // Octave up for brightness
+        osc.type = 'sine';
+        osc.frequency.value = note.note;
         
-        filter.type = 'bandpass';
-        filter.frequency.value = 2000;
+        // Add subtle vibrato
+        const vibrato = this.audioContext.createOscillator();
+        const vibratoGain = this.audioContext.createGain();
+        vibrato.frequency.value = 5;
+        vibratoGain.gain.value = 3;
+        vibrato.connect(vibratoGain);
+        vibratoGain.connect(osc.frequency);
+        vibrato.start(time + currentTime);
+        vibrato.stop(time + currentTime + note.duration);
+        
+        filter.type = 'lowpass';
+        filter.frequency.value = 3000;
         filter.Q.value = 1;
         
         gainNode.gain.value = 0;
-        gainNode.gain.linearRampToValueAtTime(0.15, time + currentTime + 0.05);
-        gainNode.gain.linearRampToValueAtTime(0.1, time + currentTime + note.duration - 0.05);
+        gainNode.gain.linearRampToValueAtTime(0.18, time + currentTime + 0.05);
+        gainNode.gain.linearRampToValueAtTime(0.15, time + currentTime + note.duration - 0.05);
         gainNode.gain.linearRampToValueAtTime(0, time + currentTime + note.duration);
         
-        osc1.connect(gainNode);
-        osc2.connect(gainNode);
-        gainNode.connect(filter);
-        filter.connect(this.musicGainNode);
+        osc.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(this.musicGainNode);
         
-        osc1.start(time + currentTime);
-        osc1.stop(time + currentTime + note.duration);
-        osc2.start(time + currentTime);
-        osc2.stop(time + currentTime + note.duration);
+        osc.start(time + currentTime);
+        osc.stop(time + currentTime + note.duration);
         
         currentTime += note.duration;
       });
       
-      const patternDuration = melody.reduce((sum, note) => sum + note.duration, 0);
+      const patternDuration = theme.reduce((sum, note) => sum + note.duration, 0);
       const nextTime = time + patternDuration;
       
       if (nextTime - this.audioContext.currentTime < 60) {
-        setTimeout(() => playMelody(nextTime), (patternDuration - 0.1) * 1000);
+        setTimeout(() => playTheme(nextTime), (patternDuration - 0.1) * 1000);
       }
     };
     
-    playMelody(startTime);
+    playTheme(startTime);
   }
 
   // Harmony layer (chord progression for fullness)
