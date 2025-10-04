@@ -193,51 +193,69 @@ class AudioService {
     osc.stop(now + 0.2);
   }
 
-  // Melodic layer (lively, upbeat)
+  // Melodic lead layer (catchy, energetic melody)
   createMelodicLayer(startTime) {
     if (!this.audioContext) return;
     
-    const notes = [330, 370, 415, 494, 554, 659, 740]; // Extended pentatonic scale
-    const noteDuration = 0.8; // Much faster - 0.8 seconds per note
+    // Catchy melodic pattern
+    const melody = [
+      { note: 659, duration: 0.3 },   // E5
+      { note: 554, duration: 0.3 },   // C#5
+      { note: 494, duration: 0.4 },   // B4
+      { note: 554, duration: 0.3 },   // C#5
+      { note: 659, duration: 0.5 },   // E5
+      { note: 740, duration: 0.3 },   // F#5
+      { note: 659, duration: 0.3 },   // E5
+      { note: 554, duration: 0.6 },   // C#5
+    ];
     
-    const playNote = (noteIndex, time) => {
+    const playMelody = (time) => {
       if (!this.isPlaying) return;
       
-      const osc = this.audioContext.createOscillator();
-      const gainNode = this.audioContext.createGain();
-      const filter = this.audioContext.createBiquadFilter();
+      let currentTime = 0;
       
-      osc.type = 'sine';
-      osc.frequency.value = notes[noteIndex];
+      melody.forEach((note) => {
+        const osc1 = this.audioContext.createOscillator();
+        const osc2 = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        const filter = this.audioContext.createBiquadFilter();
+        
+        osc1.type = 'triangle';
+        osc1.frequency.value = note.note;
+        osc2.type = 'sine';
+        osc2.frequency.value = note.note * 2; // Octave up for brightness
+        
+        filter.type = 'bandpass';
+        filter.frequency.value = 2000;
+        filter.Q.value = 1;
+        
+        gainNode.gain.value = 0;
+        gainNode.gain.linearRampToValueAtTime(0.15, time + currentTime + 0.05);
+        gainNode.gain.linearRampToValueAtTime(0.1, time + currentTime + note.duration - 0.05);
+        gainNode.gain.linearRampToValueAtTime(0, time + currentTime + note.duration);
+        
+        osc1.connect(gainNode);
+        osc2.connect(gainNode);
+        gainNode.connect(filter);
+        filter.connect(this.musicGainNode);
+        
+        osc1.start(time + currentTime);
+        osc1.stop(time + currentTime + note.duration);
+        osc2.start(time + currentTime);
+        osc2.stop(time + currentTime + note.duration);
+        
+        currentTime += note.duration;
+      });
       
-      filter.type = 'lowpass';
-      filter.frequency.value = 3000;
-      filter.Q.value = 2;
+      const patternDuration = melody.reduce((sum, note) => sum + note.duration, 0);
+      const nextTime = time + patternDuration;
       
-      gainNode.gain.value = 0;
-      gainNode.gain.linearRampToValueAtTime(0.12, time + 0.1);
-      gainNode.gain.linearRampToValueAtTime(0.12, time + noteDuration - 0.1);
-      gainNode.gain.linearRampToValueAtTime(0, time + noteDuration);
-      
-      osc.connect(filter);
-      filter.connect(gainNode);
-      gainNode.connect(this.musicGainNode);
-      
-      osc.start(time);
-      osc.stop(time + noteDuration);
-      
-      this.musicNodes.push(osc);
-      
-      // Schedule next note
-      const nextIndex = (noteIndex + 1) % notes.length;
-      const nextTime = time + noteDuration;
-      
-      if (nextTime - this.audioContext.currentTime < 60) { // Schedule up to 60 seconds ahead
-        setTimeout(() => playNote(nextIndex, nextTime), (noteDuration - 1) * 1000);
+      if (nextTime - this.audioContext.currentTime < 60) {
+        setTimeout(() => playMelody(nextTime), (patternDuration - 0.1) * 1000);
       }
     };
     
-    playNote(0, startTime);
+    playMelody(startTime);
   }
 
   // Rhythmic percussion layer (lively beat)
