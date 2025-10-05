@@ -987,7 +987,7 @@ const FishGame = () => {
 
               <Button 
                 onClick={goToMenu}
-                className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 text-lg w-full mt-6 mb-4"
+                className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 text-lg w-full mt-4"
               >
                 ← Back to Menu
               </Button>
