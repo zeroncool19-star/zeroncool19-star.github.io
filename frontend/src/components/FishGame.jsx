@@ -923,35 +923,21 @@ const FishGame = () => {
                   <div className="text-center">
                     <div className="text-2xl mb-2">
                       {highScore >= 1000 ? '👑' : 
-                       highScore >= 900 ? '🦈' : 
-                       highScore >= 800 ? '💎' : 
                        highScore >= 700 ? '🌌' : 
-                       highScore >= 600 ? '⚡' : 
                        highScore >= 500 ? '🌟' : 
-                       highScore >= 400 ? '🔱' : 
                        highScore >= 300 ? '🐠' : 
-                       highScore >= 250 ? '🌊' : 
                        highScore >= 200 ? '⭐' : 
-                       highScore >= 150 ? '🏆' : 
-                       highScore >= 100 ? '👑' : 
-                       highScore >= 60 ? '🥇' : 
-                       highScore >= 40 ? '🥈' : '🥉'}
+                       highScore >= 100 ? '🥇' : 
+                       highScore >= 50 ? '🥈' : '🥉'}
                     </div>
                     <div className="text-blue-300 font-semibold">
                       {highScore >= 1000 ? 'Ocean Deity!' : 
-                       highScore >= 900 ? 'Apex Predator!' : 
-                       highScore >= 800 ? 'Diamond Swimmer!' : 
                        highScore >= 700 ? 'Abyssal Master!' : 
-                       highScore >= 600 ? 'Storm Breaker!' : 
                        highScore >= 500 ? 'Legendary Swimmer!' : 
-                       highScore >= 400 ? 'Poseidon\'s Chosen!' : 
                        highScore >= 300 ? 'Fish Whisperer!' : 
-                       highScore >= 250 ? 'Current Rider!' : 
                        highScore >= 200 ? 'Deep Sea Explorer!' : 
-                       highScore >= 150 ? 'Ocean Champion!' : 
-                       highScore >= 100 ? 'Seaweed Master!' : 
-                       highScore >= 60 ? 'Gold Swimmer!' : 
-                       highScore >= 40 ? 'Silver Swimmer!' : 'Bronze Swimmer!'}
+                       highScore >= 100 ? 'Gold Swimmer!' : 
+                       highScore >= 50 ? 'Silver Swimmer!' : 'Bronze Swimmer!'}
                     </div>
                   </div>
                 )}
