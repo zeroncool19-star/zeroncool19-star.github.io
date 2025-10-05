@@ -738,11 +738,6 @@ const FishGame = () => {
       {(gameState === 'playing' || gameState === 'gameOver') && (
         <div 
           className="relative w-full h-full flex items-center justify-center bg-gradient-to-b from-blue-600 to-blue-800 cursor-pointer"
-          onClick={jumpFish}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            jumpFish();
-          }}
         >
           <canvas
             ref={canvasRef}
