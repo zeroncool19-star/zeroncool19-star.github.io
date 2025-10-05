@@ -367,8 +367,9 @@ class AudioService {
       const nextIndex = (chordIndex + 1) % chordProgression.length;
       const nextTime = time + chord.duration;
       
-      if (nextTime - this.audioContext.currentTime < 60) {
-        setTimeout(() => playPad(nextIndex, nextTime), (chord.duration - 0.2) * 1000);
+      if (nextTime - this.audioContext.currentTime < 60 && this.isPlaying) {
+        const timeout = setTimeout(() => playPad(nextIndex, nextTime), (chord.duration - 0.2) * 1000);
+        this.scheduledTimeouts.push(timeout);
       }
     };
     
