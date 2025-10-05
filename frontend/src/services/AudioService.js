@@ -165,8 +165,9 @@ class AudioService {
       const patternDuration = bassLine.reduce((sum, note) => sum + note.duration, 0);
       const nextTime = time + patternDuration;
       
-      if (nextTime - this.audioContext.currentTime < 60) {
-        setTimeout(() => playBass(nextTime), (patternDuration - 0.1) * 1000);
+      if (nextTime - this.audioContext.currentTime < 60 && this.isPlaying) {
+        const timeout = setTimeout(() => playBass(nextTime), (patternDuration - 0.1) * 1000);
+        this.scheduledTimeouts.push(timeout);
       }
     };
     
