@@ -410,8 +410,9 @@ class AudioService {
       const nextIndex = (noteIndex + 1) % arpeggioPattern.length;
       const nextTime = time + noteInterval;
       
-      if (nextTime - this.audioContext.currentTime < 60) {
-        setTimeout(() => playArp(nextIndex, nextTime), (noteInterval - 0.05) * 1000);
+      if (nextTime - this.audioContext.currentTime < 60 && this.isPlaying) {
+        const timeout = setTimeout(() => playArp(nextIndex, nextTime), (noteInterval - 0.05) * 1000);
+        this.scheduledTimeouts.push(timeout);
       }
     };
     
