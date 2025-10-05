@@ -693,7 +693,10 @@ class AudioService {
     localStorage.setItem('seaweedSwimmerMusic', enabled.toString());
     
     if (this.musicGainNode) {
-      this.musicGainNode.gain.value = enabled ? 0.3 : 0;
+      const now = this.audioContext.currentTime;
+      this.musicGainNode.gain.cancelScheduledValues(now);
+      this.musicGainNode.gain.setValueAtTime(this.musicGainNode.gain.value, now);
+      this.musicGainNode.gain.linearRampToValueAtTime(enabled ? 0.25 : 0, now + 0.1);
     }
     
     if (enabled && !this.isPlaying) {
@@ -709,7 +712,10 @@ class AudioService {
     localStorage.setItem('seaweedSwimmerSfx', enabled.toString());
     
     if (this.sfxGainNode) {
-      this.sfxGainNode.gain.value = enabled ? 0.4 : 0;
+      const now = this.audioContext.currentTime;
+      this.sfxGainNode.gain.cancelScheduledValues(now);
+      this.sfxGainNode.gain.setValueAtTime(this.sfxGainNode.gain.value, now);
+      this.sfxGainNode.gain.linearRampToValueAtTime(enabled ? 0.35 : 0, now + 0.05);
     }
   }
 
