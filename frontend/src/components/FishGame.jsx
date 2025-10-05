@@ -264,8 +264,8 @@ const FishGame = () => {
         setScore(newScore);
       }
 
-      // Update difficulty every 30 points and increase fish speed
-      game.difficulty = Math.floor(newScore / 30) + 1;
+      // Update difficulty every 20 points and increase fish speed (max difficulty 30)
+      game.difficulty = Math.min(Math.floor(newScore / 20) + 1, 30);
       const currentSpeed = (BASE_SEAWEED_SPEED + (game.difficulty - 1) * 0.6) * clampedDelta;
       
       // Increase fish movement speed slightly with difficulty
