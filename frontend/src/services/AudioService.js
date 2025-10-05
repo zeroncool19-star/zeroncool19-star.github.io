@@ -314,8 +314,9 @@ class AudioService {
       const patternDuration = theme.reduce((sum, note) => sum + note.duration, 0);
       const nextTime = time + patternDuration;
       
-      if (nextTime - this.audioContext.currentTime < 60) {
-        setTimeout(() => playTheme(nextTime), (patternDuration - 0.1) * 1000);
+      if (nextTime - this.audioContext.currentTime < 60 && this.isPlaying) {
+        const timeout = setTimeout(() => playTheme(nextTime), (patternDuration - 0.1) * 1000);
+        this.scheduledTimeouts.push(timeout);
       }
     };
     
