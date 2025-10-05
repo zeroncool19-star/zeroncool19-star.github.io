@@ -751,7 +751,7 @@ const FishGame = () => {
             <div className="absolute top-12 left-4 text-white text-sm sm:text-base sm:top-16 sm:left-6 z-10 bg-black bg-opacity-40 rounded-lg p-3">
               <div className="text-xl sm:text-2xl font-bold mb-1">Score: {score}</div>
               <div className="text-base sm:text-lg">High Score: {highScore}</div>
-              <div className="text-xs sm:text-sm opacity-75">Difficulty: {Math.floor(score / 20) + 1}</div>
+              <div className="text-xs sm:text-sm opacity-75">Difficulty: {Math.floor(score / 30) + 1}</div>
             </div>
           )}
 
