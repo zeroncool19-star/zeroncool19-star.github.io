@@ -1051,6 +1051,30 @@ const FishGame = () => {
                 </Button>
                 
                 <Button 
+                  onClick={() => {
+                    const shareText = `I just scored ${score} seconds in Seaweed Swimmer! 🐠🌊 ${
+                      score >= 1000 ? '👑 Ocean Deity status achieved!' :
+                      score >= 700 ? '🌌 Abyssal Master level!' :
+                      score >= 500 ? '🌟 Legendary Swimmer!' :
+                      score >= 300 ? '🐠 Fish Whisperer!' :
+                      score >= 200 ? '⭐ Deep Sea Explorer!' :
+                      score >= 100 ? '🥇 Gold Swimmer!' :
+                      score >= 50 ? '🥈 Silver Swimmer!' :
+                      score >= 20 ? '🥉 Bronze Swimmer!' :
+                      'Can you beat my score?'
+                    } Can you beat my score?`;
+                    
+                    const facebookPageUrl = 'https://www.facebook.com/share/1A5wVWQuSn/';
+                    const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(facebookPageUrl)}&quote=${encodeURIComponent(shareText)}`;
+                    
+                    window.open(shareUrl, '_blank', 'width=600,height=400');
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 sm:px-8 py-2 sm:py-3 text-sm sm:text-lg w-full flex items-center justify-center gap-2"
+                >
+                  📱 Share Score on Facebook
+                </Button>
+                
+                <Button 
                   onClick={goToMenu}
                   variant="outline"
                   className="border-blue-400 text-blue-300 hover:bg-blue-800 px-6 sm:px-8 py-2 sm:py-3 text-sm sm:text-lg w-full"
