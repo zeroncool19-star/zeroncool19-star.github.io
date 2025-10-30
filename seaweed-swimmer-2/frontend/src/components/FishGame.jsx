@@ -50,9 +50,9 @@ const FishGame = () => {
   const lastMilestoneRef = useRef(0);
 
   // Game constants
-  const FISH_SIZE = 0.8;
-  const SEAWEED_WIDTH = 1.5;
-  const SEAWEED_GAP = 4;
+  const FISH_SIZE = 1.5;  // Increased from 0.8
+  const SEAWEED_WIDTH = 2.0;  // Increased from 1.5
+  const SEAWEED_GAP = 5;  // Increased from 4
   const GRAVITY = 0.008;
   const FISH_JUMP = -0.22;
   const BASE_SEAWEED_SPEED = 0.08;
