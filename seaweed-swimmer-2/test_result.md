@@ -183,15 +183,18 @@ frontend:
 
   - task: "Online Leaderboard Integration"
     implemented: true
-    working: "unknown"
+    working: false
     file: "/app/seaweed-swimmer-2/frontend/src/components/FishGame.jsx"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "unknown"
           agent: "main"
           comment: "Implemented leaderboard screen, username prompt, score submission, global top 100 display with rank highlighting"
+        - working: false
+          agent: "testing"
+          comment: "❌ LEADERBOARD INTEGRATION NOT WORKING: 'Share Score' button exists on game over screen but clicking it does not trigger username prompt or API calls. No network requests detected to backend leaderboard API. No 'Online Leaderboard' button found in main menu. Score submission functionality appears to be disconnected from backend API despite backend being functional."
 
   - task: "Username Management"
     implemented: true
