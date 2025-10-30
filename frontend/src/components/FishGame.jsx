@@ -607,8 +607,20 @@ const FishGame = () => {
     ctx.translate(game.fish.x, game.fish.y);
     ctx.rotate(game.fish.rotation * Math.PI / 180);
     
-    // Add subtle swimming animation
-    const swimOffset = Math.sin(Date.now() / 150) * 2;
+    // Calculate tail animation based on tap timing
+    const timeSinceTap = Date.now() - game.fish.swimAnimTime;
+    const tapAnimActive = timeSinceTap < 300; // Animation lasts 300ms after tap
+    
+    // Swim animation - more pronounced when tapped
+    let swimOffset;
+    if (tapAnimActive) {
+      // Rapid tail flap after tap (0 to 300ms)
+      const tapProgress = timeSinceTap / 300;
+      swimOffset = Math.sin(tapProgress * Math.PI * 4) * (10 * (1 - tapProgress)); // Decreasing amplitude
+    } else {
+      // Gentle idle swimming
+      swimOffset = Math.sin(Date.now() / 150) * 2;
+    }
     
     // Shadow for depth
     ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
@@ -644,26 +656,26 @@ const FishGame = () => {
       ctx.fillRect(stripeX, -FISH_SIZE / 4, 2, FISH_SIZE / 2);
     }
     
-    // Tail with gradient and animation
+    // Tail with gradient and tap-responsive animation
     const tailGradient = ctx.createLinearGradient(-FISH_SIZE / 2, 0, -FISH_SIZE, 0);
     tailGradient.addColorStop(0, '#ff4500');
     tailGradient.addColorStop(1, '#ff6633');
     ctx.fillStyle = tailGradient;
     ctx.beginPath();
     ctx.moveTo(-FISH_SIZE / 2, 0);
-    ctx.lineTo(-FISH_SIZE - swimOffset, -FISH_SIZE / 3);
-    ctx.lineTo(-FISH_SIZE - swimOffset, FISH_SIZE / 3);
+    ctx.lineTo(-FISH_SIZE - swimOffset, -FISH_SIZE / 3 + swimOffset / 3);
+    ctx.lineTo(-FISH_SIZE - swimOffset, FISH_SIZE / 3 - swimOffset / 3);
     ctx.closePath();
     ctx.fill();
     ctx.strokeStyle = '#cc2200';
     ctx.lineWidth = 1.5;
     ctx.stroke();
     
-    // Top fin
+    // Top fin (also responds to swimming)
     ctx.fillStyle = '#ff6633';
     ctx.beginPath();
     ctx.moveTo(-FISH_SIZE / 6, -FISH_SIZE / 3);
-    ctx.lineTo(FISH_SIZE / 8, -FISH_SIZE / 2 - swimOffset / 2);
+    ctx.lineTo(FISH_SIZE / 8, -FISH_SIZE / 2 - (tapAnimActive ? swimOffset / 3 : swimOffset / 2));
     ctx.lineTo(FISH_SIZE / 4, -FISH_SIZE / 3);
     ctx.closePath();
     ctx.fill();
@@ -671,11 +683,12 @@ const FishGame = () => {
     ctx.lineWidth = 1;
     ctx.stroke();
     
-    // Bottom fin (animated)
+    // Bottom fin (animated with tap)
+    const bottomFinOffset = tapAnimActive ? Math.abs(swimOffset) / 2 : Math.abs(swimOffset) / 4;
     ctx.fillStyle = '#ff7744';
     ctx.beginPath();
     ctx.moveTo(-FISH_SIZE / 8, FISH_SIZE / 4);
-    ctx.lineTo(FISH_SIZE / 12, FISH_SIZE / 3 + Math.abs(swimOffset) / 2);
+    ctx.lineTo(FISH_SIZE / 12, FISH_SIZE / 3 + bottomFinOffset);
     ctx.lineTo(FISH_SIZE / 6, FISH_SIZE / 4);
     ctx.closePath();
     ctx.fill();
