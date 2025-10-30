@@ -46,7 +46,7 @@ const FishGame = () => {
   const FISH_JUMP = -4.5; // Reduced from -5.5 for less rapid movement
   const BASE_SEAWEED_SPEED = 2;
 
-  // Daily challenge initialization
+  // Daily challenge initialization - Progressive difficulty
   useEffect(() => {
     const today = new Date().toDateString();
     const savedChallenge = localStorage.getItem('seaweedSwimmerDailyChallenge');
@@ -57,19 +57,47 @@ const FishGame = () => {
         setDailyChallenge(challenge);
         return;
       }
+      
+      // New day - check if previous challenge was completed
+      if (challenge.completed) {
+        // Previous challenge completed - increase difficulty
+        const lastStreak = challenge.streak || 0;
+        const newTarget = Math.min(challenge.target + 20, 300); // Start at 20, increase by 20, max 300
+        
+        const newChallenge = {
+          date: today,
+          target: newTarget,
+          completed: false,
+          streak: 0,
+          lastStreak: lastStreak
+        };
+        
+        localStorage.setItem('seaweedSwimmerDailyChallenge', JSON.stringify(newChallenge));
+        setDailyChallenge(newChallenge);
+        return;
+      } else {
+        // Previous challenge not completed - reset streak, keep same difficulty
+        const newChallenge = {
+          date: today,
+          target: challenge.target,
+          completed: false,
+          streak: 0,
+          lastStreak: 0
+        };
+        
+        localStorage.setItem('seaweedSwimmerDailyChallenge', JSON.stringify(newChallenge));
+        setDailyChallenge(newChallenge);
+        return;
+      }
     }
     
-    // Generate new daily challenge
-    const targets = [100, 150, 200, 250, 300];
-    const randomTarget = targets[Math.floor(Math.random() * targets.length)];
-    const lastStreak = savedChallenge ? JSON.parse(savedChallenge).streak || 0 : 0;
-    
+    // First time player - start with easy challenge
     const newChallenge = {
       date: today,
-      target: randomTarget,
+      target: 20,
       completed: false,
       streak: 0,
-      lastStreak: lastStreak
+      lastStreak: 0
     };
     
     localStorage.setItem('seaweedSwimmerDailyChallenge', JSON.stringify(newChallenge));
