@@ -815,6 +815,39 @@ const FishGame = () => {
               </div>
             </div>
           )}
+
+          {/* Milestone Popup */}
+          {milestonePopup && gameState === 'playing' && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg p-6 shadow-2xl animate-bounce">
+                <div className="text-5xl font-bold text-white mb-2">{milestonePopup.score}</div>
+                <div className="text-2xl text-white font-bold">{milestonePopup.text}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Near-Miss Flash Effect */}
+          {nearMissEffect && gameState === 'playing' && (
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute inset-0 bg-red-500 opacity-20 animate-ping"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-3xl font-bold text-red-500 animate-pulse">Close Call!</div>
+              </div>
+            </div>
+          )}
+
+          {/* Daily Challenge Display */}
+          {dailyChallenge && gameState === 'playing' && (
+            <div className="absolute top-12 right-4 text-white text-xs sm:text-sm sm:top-16 sm:right-6 z-10 bg-purple-900 bg-opacity-80 rounded-lg p-2 sm:p-3">
+              <div className="font-bold mb-1">📅 Daily Challenge</div>
+              <div className="text-blue-200">
+                Target: {dailyChallenge.target}s
+                {dailyChallenge.lastStreak > 0 && (
+                  <div className="text-yellow-400 text-xs">🔥 {dailyChallenge.lastStreak} day streak</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
