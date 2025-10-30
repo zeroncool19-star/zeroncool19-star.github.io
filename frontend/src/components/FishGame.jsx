@@ -360,7 +360,10 @@ const FishGame = () => {
         setGameState('gameOver');
         if (newScore > highScore) {
           setHighScore(newScore);
+          setIsNewHighScore(true);
           localStorage.setItem('seaweedSwimmerHighScore', newScore.toString());
+        } else {
+          setIsNewHighScore(false);
         }
         // Play collision sound and stop music
         audioServiceRef.current.playCollisionSound();
