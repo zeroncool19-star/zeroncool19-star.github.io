@@ -1,20 +1,8 @@
 import axios from 'axios';
 
-// For SW2, use port 8002 if in development, or append port to production URL
-const getBackendURL = () => {
-  const baseURL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8002';
-  
-  // If we're in development/local, use the base URL as-is
-  if (baseURL.includes('localhost')) {
-    return baseURL;
-  }
-  
-  // For production, we need to route to port 8002
-  // This might need proxy configuration on the server side
-  return baseURL; // Assuming server-side routing handles port 8002
-};
-
-const API_BASE_URL = getBackendURL();
+// For SW2, always use localhost:8002 in this environment
+// In production deployment, this would be configured differently
+const API_BASE_URL = 'http://localhost:8002';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -22,6 +10,8 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+console.log('SW2 API Service - Backend URL:', API_BASE_URL);
 
 export const leaderboardAPI = {
   // Submit score to leaderboard
