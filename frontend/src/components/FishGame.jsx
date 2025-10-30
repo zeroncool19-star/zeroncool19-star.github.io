@@ -321,6 +321,25 @@ const FishGame = () => {
       const newScore = Math.floor(gameRunningTime / 1000);
       if (newScore !== score) {
         setScore(newScore);
+        
+        // Check for milestone (every 100 seconds)
+        if (newScore > 0 && newScore % 100 === 0 && newScore !== lastMilestoneRef.current) {
+          lastMilestoneRef.current = newScore;
+          const milestones = {
+            100: 'Century! 💯',
+            200: 'Double Century! 🔥',
+            300: 'Triple Century! ⚡',
+            400: 'Quadruple! 💪',
+            500: 'Half Thousand! 🌟',
+            600: 'Six Hundred! 🚀',
+            700: 'Seven Hundred! 🌌',
+            800: 'Eight Hundred! 💎',
+            900: 'Nine Hundred! 👑',
+            1000: 'LEGENDARY! 🏆'
+          };
+          setMilestonePopup({ score: newScore, text: milestones[newScore] || `${newScore} Seconds! 🎉` });
+          setTimeout(() => setMilestonePopup(null), 2000);
+        }
       }
 
       // Update difficulty every 20 points and increase fish speed (max difficulty 20)
