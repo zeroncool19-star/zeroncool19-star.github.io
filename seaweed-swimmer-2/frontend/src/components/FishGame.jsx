@@ -270,10 +270,11 @@ const FishGame = () => {
     const seaweedGroup = new BABYLON.TransformNode('seaweed', scene);
     seaweedGroup.position.x = x;
 
-    // Material
+    // Material - brighter green for better visibility
     const mat = new BABYLON.StandardMaterial('seaweedMat', scene);
-    mat.diffuseColor = new BABYLON.Color3(0.13, 0.77, 0.37); // Bright green
-    mat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+    mat.diffuseColor = new BABYLON.Color3(0.2, 1.0, 0.5); // Brighter neon green
+    mat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.15); // Slight glow
+    mat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
 
     // Top seaweed (from top to gap)
     const topHeight = WORLD_HEIGHT / 2 - gapY;
