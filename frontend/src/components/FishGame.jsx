@@ -123,8 +123,8 @@ const FishGame = () => {
         gameRef.current.startTime = Date.now(); // Reset start time on first tap
       }
       
-      // Scale jump force with difficulty for consistent feel (max difficulty 30)
-      const currentDifficulty = Math.min(Math.floor(score / 20) + 1, 30);
+      // Scale jump force with difficulty for consistent feel (max difficulty 20)
+      const currentDifficulty = Math.min(Math.floor(score / 20) + 1, 20);
       const fishSpeedMultiplier = 1 + (currentDifficulty - 1) * 0.05;
       const adjustedJump = FISH_JUMP * fishSpeedMultiplier;
       
