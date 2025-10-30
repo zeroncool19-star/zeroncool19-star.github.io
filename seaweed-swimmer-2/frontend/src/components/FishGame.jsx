@@ -280,9 +280,9 @@ const FishGame = () => {
     // Top seaweed (from top to gap)
     const topHeight = WORLD_HEIGHT / 2 - gapY;
     const topSeaweed = BABYLON.MeshBuilder.CreateBox('topSeaweed', {
-      width: SEAWEED_WIDTH * 0.5,
+      width: SEAWEED_WIDTH,  // Full width, not 0.5x
       height: topHeight,
-      depth: 0.5
+      depth: 1.0  // Thicker for better visibility
     }, scene);
     topSeaweed.position.y = WORLD_HEIGHT / 2 - topHeight / 2;
     topSeaweed.parent = seaweedGroup;
@@ -291,9 +291,9 @@ const FishGame = () => {
     // Bottom seaweed (from gap to bottom)
     const bottomHeight = WORLD_HEIGHT / 2 - (gapY + SEAWEED_GAP);
     const bottomSeaweed = BABYLON.MeshBuilder.CreateBox('bottomSeaweed', {
-      width: SEAWEED_WIDTH * 0.5,
+      width: SEAWEED_WIDTH,  // Full width, not 0.5x
       height: bottomHeight,
-      depth: 0.5
+      depth: 1.0  // Thicker for better visibility
     }, scene);
     bottomSeaweed.position.y = -WORLD_HEIGHT / 2 + bottomHeight / 2;
     bottomSeaweed.parent = seaweedGroup;
