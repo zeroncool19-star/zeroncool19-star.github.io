@@ -219,6 +219,9 @@ const FishGame = () => {
       
       gameRef.current.fish.velocity = adjustedJump;
       
+      // Trigger tail swim animation
+      gameRef.current.fish.swimAnimTime = Date.now();
+      
       // Play swim sound effect
       audioServiceRef.current.playSwimSound();
       
