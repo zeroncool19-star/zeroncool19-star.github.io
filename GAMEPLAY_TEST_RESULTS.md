@@ -4,7 +4,7 @@
 
 ## Test Environment
 - **Platform:** Web Preview
-- **URL:** https://seaweed-swimmer-1.preview.emergentagent.com
+- **URL:** https://swim-challenge.preview.emergentagent.com
 - **Testing Method:** Automated Playwright + Visual Verification
 
 ---
