@@ -45,6 +45,36 @@ const FishGame = () => {
   const FISH_JUMP = -4.5; // Reduced from -5.5 for less rapid movement
   const BASE_SEAWEED_SPEED = 2;
 
+  // Daily challenge initialization
+  useEffect(() => {
+    const today = new Date().toDateString();
+    const savedChallenge = localStorage.getItem('seaweedSwimmerDailyChallenge');
+    
+    if (savedChallenge) {
+      const challenge = JSON.parse(savedChallenge);
+      if (challenge.date === today) {
+        setDailyChallenge(challenge);
+        return;
+      }
+    }
+    
+    // Generate new daily challenge
+    const targets = [100, 150, 200, 250, 300];
+    const randomTarget = targets[Math.floor(Math.random() * targets.length)];
+    const lastStreak = savedChallenge ? JSON.parse(savedChallenge).streak || 0 : 0;
+    
+    const newChallenge = {
+      date: today,
+      target: randomTarget,
+      completed: false,
+      streak: 0,
+      lastStreak: lastStreak
+    };
+    
+    localStorage.setItem('seaweedSwimmerDailyChallenge', JSON.stringify(newChallenge));
+    setDailyChallenge(newChallenge);
+  }, []);
+
   // Game state
   const gameRef = useRef({
     fish: {
