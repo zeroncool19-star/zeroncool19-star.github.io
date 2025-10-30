@@ -198,15 +198,18 @@ frontend:
 
   - task: "Username Management"
     implemented: true
-    working: "unknown"
+    working: false
     file: "/app/seaweed-swimmer-2/frontend/src/components/FishGame.jsx"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "unknown"
           agent: "main"
           comment: "Implemented username input with validation, localStorage persistence, unique username checking"
+        - working: false
+          agent: "testing"
+          comment: "❌ USERNAME MANAGEMENT NOT ACCESSIBLE: Username prompt does not appear when clicking 'Share Score' button. Cannot test username validation, localStorage persistence, or unique username checking as the UI flow is not triggered. Related to leaderboard integration issue."
 
   - task: "Daily Challenges (v43 port)"
     implemented: true
