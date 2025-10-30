@@ -597,47 +597,127 @@ const FishGame = () => {
       drawSeaweedFrond(seaweed.x, seaweed.gapY + SEAWEED_GAP, bottomHeight, false);
     });
 
-    // Draw fish (optimized rendering)
+    // Draw fish (enhanced graphics with gradients and details)
     ctx.save();
     ctx.translate(game.fish.x, game.fish.y);
     ctx.rotate(game.fish.rotation * Math.PI / 180);
     
-    // Fish body (main shape)
-    ctx.fillStyle = '#ff6b35';
+    // Add subtle swimming animation
+    const swimOffset = Math.sin(Date.now() / 150) * 2;
+    
+    // Shadow for depth
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.beginPath();
+    ctx.ellipse(2, 4, FISH_SIZE / 2, FISH_SIZE / 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Fish body with gradient
+    const bodyGradient = ctx.createRadialGradient(FISH_SIZE / 6, -FISH_SIZE / 8, 5, 0, 0, FISH_SIZE / 2);
+    bodyGradient.addColorStop(0, '#ffaa66');
+    bodyGradient.addColorStop(0.5, '#ff7744');
+    bodyGradient.addColorStop(1, '#ff4422');
+    ctx.fillStyle = bodyGradient;
     ctx.beginPath();
     ctx.ellipse(0, 0, FISH_SIZE / 2, FISH_SIZE / 3, 0, 0, Math.PI * 2);
     ctx.fill();
     
-    // Fish stripes (batch render for performance)
-    ctx.fillStyle = '#ff8c5a';
-    ctx.fillRect(-FISH_SIZE / 4, -FISH_SIZE / 6, 3, FISH_SIZE / 3);
-    ctx.fillRect(0, -FISH_SIZE / 6, 3, FISH_SIZE / 3);
+    // Add subtle outline for definition
+    ctx.strokeStyle = '#cc3311';
+    ctx.lineWidth = 2;
+    ctx.stroke();
     
-    // Fish tail
-    ctx.fillStyle = '#ff4500';
+    // Belly highlight
+    ctx.fillStyle = 'rgba(255, 220, 200, 0.5)';
+    ctx.beginPath();
+    ctx.ellipse(FISH_SIZE / 8, FISH_SIZE / 6, FISH_SIZE / 4, FISH_SIZE / 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Fish stripes (more detailed)
+    ctx.fillStyle = 'rgba(255, 100, 50, 0.6)';
+    for (let i = 0; i < 3; i++) {
+      const stripeX = -FISH_SIZE / 4 + i * (FISH_SIZE / 6);
+      ctx.fillRect(stripeX, -FISH_SIZE / 4, 2, FISH_SIZE / 2);
+    }
+    
+    // Tail with gradient and animation
+    const tailGradient = ctx.createLinearGradient(-FISH_SIZE / 2, 0, -FISH_SIZE, 0);
+    tailGradient.addColorStop(0, '#ff4500');
+    tailGradient.addColorStop(1, '#ff6633');
+    ctx.fillStyle = tailGradient;
     ctx.beginPath();
     ctx.moveTo(-FISH_SIZE / 2, 0);
-    ctx.lineTo(-FISH_SIZE, -FISH_SIZE / 4);
-    ctx.lineTo(-FISH_SIZE, FISH_SIZE / 4);
+    ctx.lineTo(-FISH_SIZE - swimOffset, -FISH_SIZE / 3);
+    ctx.lineTo(-FISH_SIZE - swimOffset, FISH_SIZE / 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#cc2200';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Top fin
+    ctx.fillStyle = '#ff6633';
+    ctx.beginPath();
+    ctx.moveTo(-FISH_SIZE / 6, -FISH_SIZE / 3);
+    ctx.lineTo(FISH_SIZE / 8, -FISH_SIZE / 2 - swimOffset / 2);
+    ctx.lineTo(FISH_SIZE / 4, -FISH_SIZE / 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#cc2200';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // Bottom fin (animated)
+    ctx.fillStyle = '#ff7744';
+    ctx.beginPath();
+    ctx.moveTo(-FISH_SIZE / 8, FISH_SIZE / 4);
+    ctx.lineTo(FISH_SIZE / 12, FISH_SIZE / 3 + Math.abs(swimOffset) / 2);
+    ctx.lineTo(FISH_SIZE / 6, FISH_SIZE / 4);
     ctx.closePath();
     ctx.fill();
     
-    // Fish eye (simplified for performance)
+    // Eye outer (larger, more detailed)
     ctx.fillStyle = 'white';
     ctx.beginPath();
-    ctx.arc(FISH_SIZE / 6, -FISH_SIZE / 8, 6, 0, Math.PI * 2);
+    ctx.arc(FISH_SIZE / 4, -FISH_SIZE / 8, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // Eye iris
+    ctx.fillStyle = '#0066cc';
+    ctx.beginPath();
+    ctx.arc(FISH_SIZE / 4 + 1, -FISH_SIZE / 8, 5, 0, Math.PI * 2);
     ctx.fill();
     
+    // Eye pupil
     ctx.fillStyle = 'black';
     ctx.beginPath();
-    ctx.arc(FISH_SIZE / 6 + 2, -FISH_SIZE / 8, 3, 0, Math.PI * 2);
+    ctx.arc(FISH_SIZE / 4 + 2, -FISH_SIZE / 8 - 1, 3, 0, Math.PI * 2);
     ctx.fill();
     
-    // Fish fins
-    ctx.fillStyle = '#ff8c5a';
+    // Eye highlight
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.beginPath();
-    ctx.ellipse(0, FISH_SIZE / 4, 8, 4, Math.PI / 4, 0, Math.PI * 2);
+    ctx.arc(FISH_SIZE / 4 + 3, -FISH_SIZE / 8 - 2, 2, 0, Math.PI * 2);
     ctx.fill();
+    
+    // Mouth
+    ctx.strokeStyle = '#cc3311';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(FISH_SIZE / 2 - 5, 0, 5, 0, Math.PI / 2);
+    ctx.stroke();
+    
+    // Scales detail (small circles for texture)
+    ctx.fillStyle = 'rgba(255, 150, 100, 0.3)';
+    for (let i = -1; i < 2; i++) {
+      for (let j = -1; j < 2; j++) {
+        ctx.beginPath();
+        ctx.arc(i * 8, j * 6, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
     
     ctx.restore();
 
