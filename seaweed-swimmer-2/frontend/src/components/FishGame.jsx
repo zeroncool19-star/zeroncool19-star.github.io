@@ -227,10 +227,11 @@ const FishGame = () => {
       depth: FISH_SIZE * 0.5
     }, scene);
 
-    // Orange/red material with low-res texture
+    // Orange/red material with better visibility
     const mat = new BABYLON.StandardMaterial('fishMat', scene);
-    mat.diffuseColor = new BABYLON.Color3(1, 0.42, 0.21);
-    mat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+    mat.diffuseColor = new BABYLON.Color3(1, 0.5, 0.2); // Brighter orange
+    mat.emissiveColor = new BABYLON.Color3(0.3, 0.1, 0); // Slight glow
+    mat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
     fish.material = mat;
 
     // Add triangle tail
