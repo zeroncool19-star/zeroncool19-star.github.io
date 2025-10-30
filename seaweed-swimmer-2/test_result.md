@@ -107,39 +107,48 @@ user_problem_statement: "Create Seaweed Swimmer 2, a 2.5D underwater game with B
 backend:
   - task: "FastAPI Leaderboard API"
     implemented: true
-    working: "unknown"
+    working: true
     file: "/app/seaweed-swimmer-2/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "unknown"
           agent: "main"
           comment: "Implemented leaderboard endpoints: submit score, get global leaderboard, check username availability, get user rank. Using Motor for async MongoDB."
+        - working: true
+          agent: "testing"
+          comment: "✅ COMPREHENSIVE TESTING COMPLETE: All core API endpoints working correctly. Health check (✅), score submission (✅), leaderboard retrieval with correct sorting (✅), user rank lookup (✅). Backend running on port 8002 via supervisor. Minor: Error handling returns 500 instead of 400/422 for validation errors, but validation logic works correctly."
 
   - task: "Username Validation"
     implemented: true
-    working: "unknown"
+    working: true
     file: "/app/seaweed-swimmer-2/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "unknown"
           agent: "main"
           comment: "Implemented username validation: 3-15 characters, alphanumeric + spaces only, unique usernames enforced"
+        - working: true
+          agent: "testing"
+          comment: "✅ USERNAME VALIDATION WORKING: All validation rules correctly implemented - rejects too short (2 chars), too long (16 chars), invalid characters (@), allows spaces. Unique username checking works (existing users show available=false). Validation logic is sound."
 
   - task: "Score Update Logic"
     implemented: true
-    working: "unknown"
+    working: true
     file: "/app/seaweed-swimmer-2/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "unknown"
           agent: "main"
           comment: "Implemented logic to update score only if new score is higher than existing for same username"
+        - working: true
+          agent: "testing"
+          comment: "✅ SCORE UPDATE LOGIC WORKING: Tested Player1 initial score (100), higher score update (200), lower score rejection (remained 200). Multiple users (Player2-5) submitted successfully. Leaderboard correctly sorted: Player3 (300) #1, Player4 (250) #2, Player1 (200) #3."
 
 frontend:
   - task: "Babylon.js 2.5D Game Engine"
