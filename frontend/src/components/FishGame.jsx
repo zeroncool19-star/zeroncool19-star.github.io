@@ -727,10 +727,10 @@ const FishGame = () => {
           </div>
           
           {/* Rising text container */}
-          <div className="relative z-10 text-center">
+          <div className="relative z-10 text-center px-4">
             {/* Game title - rises from sea */}
             <div 
-              className="text-5xl sm:text-7xl font-bold text-white mb-4 opacity-0"
+              className="text-4xl xs:text-5xl sm:text-6xl md:text-7xl font-bold text-white mb-4 opacity-0 leading-tight"
               style={{
                 animation: 'riseFromSea 2s ease-out forwards',
                 textShadow: '0 0 20px rgba(59, 130, 246, 0.8), 0 0 40px rgba(59, 130, 246, 0.6)'
@@ -741,7 +741,7 @@ const FishGame = () => {
             
             {/* Created by text - rises with delay */}
             <div 
-              className="text-2xl sm:text-4xl text-blue-200 opacity-0"
+              className="text-lg xs:text-xl sm:text-2xl md:text-3xl text-blue-200 opacity-0"
               style={{
                 animation: 'riseFromSea 2s ease-out 0.8s forwards',
                 textShadow: '0 0 10px rgba(147, 197, 253, 0.6)'
