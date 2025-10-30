@@ -259,6 +259,29 @@ const FishGame = () => {
     return false;
   };
 
+  // Check near-miss (within 10px of collision)
+  const checkNearMiss = (fish, seaweed) => {
+    const fishTop = fish.y - FISH_SIZE / 2;
+    const fishBottom = fish.y + FISH_SIZE / 2;
+    const fishCenter = fish.x;
+    
+    const seaweedCenter = seaweed.x;
+    const topSeaweedBottom = seaweed.gapY;
+    const bottomSeaweedTop = seaweed.gapY + SEAWEED_GAP;
+    
+    // Check if fish is passing through seaweed
+    const isPassingThrough = Math.abs(fishCenter - seaweedCenter) < 20;
+    
+    if (isPassingThrough) {
+      // Check distance from top or bottom edges
+      const distFromTop = Math.abs(fishTop - topSeaweedBottom);
+      const distFromBottom = Math.abs(fishBottom - bottomSeaweedTop);
+      
+      return distFromTop < 10 || distFromBottom < 10;
+    }
+    return false;
+  };
+
   // Game loop with performance optimizations
   const gameLoop = useCallback(() => {
     const canvas = canvasRef.current;
