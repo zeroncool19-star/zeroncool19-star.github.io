@@ -808,14 +808,30 @@ const FishGame = () => {
     };
   }, []);
 
-  // Handle intro screen transition
+  // Handle intro screen transition - wait for image to load
   useEffect(() => {
     if (gameState === 'intro') {
-      const timer = setTimeout(() => {
-        setGameState('menu');
-      }, 4000); // Show intro for 4 seconds
+      // Preload the intro image first
+      const img = new Image();
+      img.src = '/seaweed-intro.png';
       
-      return () => clearTimeout(timer);
+      img.onload = () => {
+        // Start timer only after image loads
+        const timer = setTimeout(() => {
+          setGameState('menu');
+        }, 5000); // Show intro for 5 seconds (increased from 4)
+        
+        return () => clearTimeout(timer);
+      };
+      
+      // Fallback if image fails to load
+      img.onerror = () => {
+        const timer = setTimeout(() => {
+          setGameState('menu');
+        }, 5000);
+        
+        return () => clearTimeout(timer);
+      };
     }
   }, [gameState]);
 
