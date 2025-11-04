@@ -17,10 +17,6 @@
       "androidSplashResourceName": "splash",
       "backgroundColor": "#1e40af"
     },
-    "StatusBar": {
-      "style": "dark",
-      "backgroundColor": "#1e40af"
-    },
     "AdMob": {
       "appId": "ca-app-pub-9069068945892968~9222701474",
       "initializeForTesting": false
