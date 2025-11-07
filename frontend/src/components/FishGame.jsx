@@ -41,7 +41,7 @@ const FishGame = () => {
   const FISH_SIZE = 40;
   const SEAWEED_WIDTH = 80;
   const SEAWEED_GAP = 200;
-  const GRAVITY = 0.15;
+  const GRAVITY = 0.20; // Increased from 0.15 for faster drop speed
   const FISH_JUMP = -4.5; // Reduced from -5.5 for less rapid movement
   const BASE_SEAWEED_SPEED = 2;
 
