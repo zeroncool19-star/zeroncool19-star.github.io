@@ -49,9 +49,26 @@ All marketing screenshots are located in `/app/marketing_assets/`
 4. Text is large and readable even on mobile preview
 
 ## 🎥 Video Assets:
-- Gameplay demo videos are available in `/app/`
-- `seaweed_swimmer_demo_final.mp4` - 30-second gameplay demo
-- `seaweed_swimmer_demo_v2.mp4` - Alternative gameplay demo
+
+### Available Demo Videos:
+1. **seaweed_swimmer_demo_final.mp4** (442KB, 30 seconds)
+   - Original 30-second gameplay demo
+   - Shows actual gameplay footage
+
+2. **seaweed_swimmer_screenshots_demo.mp4** (261KB, 30 seconds) ✨ NEW
+   - Created from marketing screenshots with text overlays
+   - Professional transitions and fades
+   - Perfect for app store preview video with captions
+   - Shows: Intro → Menu → Instructions → Gameplay → Game Over
+
+3. **seaweed_swimmer_demo_improved.mp4** (207KB, 30 seconds)
+   - Alternative slideshow version
+   - Clean transitions between game states
+
+### Recommended Usage:
+- **Google Play Store**: Use `seaweed_swimmer_screenshots_demo.mp4` (has text overlays)
+- **Social Media**: Use `seaweed_swimmer_demo_final.mp4` (actual gameplay)
+- **Website**: Either video works well
 
 ## 📦 App Package:
 - Latest build: `seaweed_swimmer_v51.zip`
