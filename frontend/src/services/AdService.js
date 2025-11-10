@@ -3,7 +3,7 @@ import { AdMob, BannerAdSize, BannerAdPosition, AdmobConsentStatus, AdmobConsent
 class AdService {
   constructor() {
     this.isAdMobInitialized = false;
-    this.isTestMode = false; // Set to false for production with real ads
+    this.isTestMode = true; // Set to true for testing, false for production with real ads
     
     // Test IDs (use in development)
     this.testBannerAdId = 'ca-app-pub-3940256099942544/6300978111';
