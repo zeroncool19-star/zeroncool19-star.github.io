@@ -247,6 +247,35 @@ body {
     box-shadow: 0 8px 20px rgba(0,0,0,0.2);
 }
 
+
+.contact h2 {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+}
+
+.contact p {
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+    opacity: 0.95;
+}
+
+.contact-btn {
+    display: inline-block;
+    background: white;
+    color: #2a5298;
+    padding: 15px 40px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-size: 1.2rem;
+    font-weight: 600;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.contact-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+}
+
 /* Screenshots Section */
 .screenshots {
     padding: 60px 20px;
