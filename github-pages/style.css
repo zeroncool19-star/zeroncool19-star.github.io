@@ -164,6 +164,39 @@ body {
     margin-bottom: 20px;
 }
 
+.screenshot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 30px;
+    max-width: 1000px;
+    margin: 30px auto 0;
+}
+
+.screenshot-item {
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+
+.screenshot-item:hover {
+    transform: translateY(-5px);
+}
+
+.screenshot-item img {
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.screenshot-item p {
+    color: #2a5298;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
 /* Footer */
 footer {
     background: #1e3c72;
