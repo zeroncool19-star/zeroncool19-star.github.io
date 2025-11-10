@@ -1,0 +1,62 @@
+🐠 SEAWEED SWIMMER - GITHUB PAGES DEPLOYMENT CHECKLIST
+=====================================================
+
+📋 PRE-DEPLOYMENT
+[ ] Created repository: seaweedswimmer.github.io on GitHub
+[ ] All files are in /app/github-pages/ folder
+[ ] Have GitHub username ready
+[ ] Have GitHub Personal Access Token ready (or know how to create one)
+
+🚀 DEPLOYMENT STEPS
+[ ] Open terminal/command prompt
+[ ] Navigate to /app/github-pages
+[ ] Run: ./deploy.sh (or follow manual steps)
+[ ] Enter GitHub username when prompted
+[ ] Authenticate with Personal Access Token
+[ ] Wait for push to complete
+
+✅ POST-DEPLOYMENT VERIFICATION (Wait 2 minutes first!)
+[ ] Visit: https://seaweedswimmer.github.io
+      → Should see your landing page ✨
+      
+[ ] Visit: https://seaweedswimmer.github.io/app-ads.txt
+      → Should see: google.com, pub-9069068945892968, DIRECT, f08c47fec0942fa0
+      
+[ ] Visit: https://seaweedswimmer.github.io/privacy-policy.html
+      → Should see privacy policy page
+
+📱 GOOGLE PLAY STORE UPDATE
+[ ] Go to Play Console
+[ ] Navigate to: Store presence → Store listing
+[ ] Add website: https://seaweedswimmer.github.io
+[ ] Save changes
+
+🔐 ADMOB VERIFICATION
+[ ] Go to AdMob console
+[ ] Check app settings
+[ ] Verify developer website is set
+[ ] Wait 24 hours for app-ads.txt verification
+[ ] Check for green checkmark/verified status
+
+🎉 COMPLETION
+[ ] Website is live
+[ ] app-ads.txt is accessible
+[ ] Google Play Store updated
+[ ] AdMob verification pending/complete
+
+⏰ TIMELINE:
+- Now: Deploy
+- 2 minutes: Site live
+- 24 hours: AdMob verified
+- Done! ✅
+
+💡 TIPS:
+• Bookmark your website URL
+• Save your Personal Access Token securely
+• Check AdMob after 24 hours
+• Update website content anytime by committing and pushing again
+
+📞 NEED HELP?
+• Read DEPLOYMENT_GUIDE.md for detailed instructions
+• Check GitHub Pages docs: https://pages.github.com
+• GitHub tokens: https://github.com/settings/tokens
