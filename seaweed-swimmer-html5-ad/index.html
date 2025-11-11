@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="ad.size" content="width=320,height=480">
+    <title>Seaweed Swimmer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            overflow: hidden;
+            background: linear-gradient(180deg, #1e40af 0%, #1d4ed8 50%, #2563eb 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            touch-action: none;
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(180deg, #1e40af 0%, #2563eb 100%);
+            cursor: pointer;
+            max-width: 100%;
+            max-height: 100vh;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #startScreen h1, #gameOverScreen h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+        }
+
+        #startScreen p, #gameOverScreen p {
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
+
+        .button {
+            padding: 15px 40px;
+            font-size: 24px;
+            background: #ff6600;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+
+        .button:hover {
+            transform: scale(1.05);
+        }
+
+        .button:active {
+            transform: scale(0.95);
+        }
+
+        .emoji {
+            font-size: 64px;
+            margin-bottom: 20px;
+            animation: bounce 1s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        #installCTA {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #10b981;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: bold;
+            text-decoration: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 1000;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.05); }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui">
+        <div>Score: <span id="score">0</span></div>
+        <div style="font-size: 16px;">High: <span id="highScore">0</span></div>
+    </div>
+
+    <div id="startScreen">
+        <div class="emoji">🐠</div>
+        <h1>Seaweed Swimmer</h1>
+        <p>Tap to swim! Avoid the seaweed!</p>
+        <button class="button" onclick="startGame()">Start Game</button>
+    </div>
+
+    <div id="gameOverScreen" style="display: none;">
+        <div class="emoji">💀</div>
+        <h1>Game Over!</h1>
+        <p>Score: <span id="finalScore">0</span></p>
+        <p id="newHighScore" style="color: #ffd700; display: none;">🏆 New High Score!</p>
+        <button class="button" onclick="restartGame()">Play Again</button>
+    </div>
+
+    <a id="installCTA" href="https://play.google.com/store/apps/details?id=com.seaweedswimmer.app" target="_blank" style="display: none;">
+        Get Full Game on Google Play
+    </a>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const highScoreEl = document.getElementById('highScore');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const finalScoreEl = document.getElementById('finalScore');
+        const newHighScoreEl = document.getElementById('newHighScore');
+        const installCTA = document.getElementById('installCTA');
+
+        // Canvas setup
+        canvas.width = 800;
+        canvas.height = 600;
+
+        // Game constants
+        const FISH_SIZE = 40;
+        const SEAWEED_WIDTH = 80;
+        const SEAWEED_GAP = 200;
+        const GRAVITY = 0.20;
+        const JUMP_FORCE = -4.5;
+        const BASE_SPEED = 2;
+
+        // Game state
+        let gameState = 'start'; // start, playing, gameOver
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('seaweedSwimmerHighScore') || '0');
+        let gameStarted = false;
+        let lastFrameTime = Date.now();
+
+        // Game objects
+        let fish = {
+            x: 150,
+            y: canvas.height / 2,
+            velocity: 0,
+            rotation: 0
+        };
+
+        let seaweeds = [];
+        let bubbles = [];
+
+        // Initialize
+        highScoreEl.textContent = highScore;
+
+        // Create seaweed
+        function createSeaweed(x) {
+            const minGapY = 120;
+            const maxGapY = canvas.height - SEAWEED_GAP - 120;
+            const gapY = Math.random() * (maxGapY - minGapY) + minGapY;
+            
+            return {
+                x: x,
+                gapY: gapY,
+                passed: false
+            };
+        }
+
+        // Create bubble
+        function createBubble() {
+            return {
+                x: Math.random() * canvas.width,
+                y: canvas.height + 20,
+                size: Math.random() * 8 + 4,
+                speed: Math.random() * 2 + 1,
+                opacity: Math.random() * 0.6 + 0.2
+            };
+        }
+
+        // Initialize game
+        function initGame() {
+            fish = {
+                x: 150,
+                y: canvas.height / 2,
+                velocity: 0,
+                rotation: 0
+            };
+            seaweeds = [createSeaweed(canvas.width)];
+            bubbles = Array.from({ length: 8 }, () => createBubble());
+            score = 0;
+            gameStarted = false;
+            scoreEl.textContent = score;
+            lastFrameTime = Date.now();
+        }
+
+        // Start game
+        function startGame() {
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            installCTA.style.display = 'none';
+            gameState = 'playing';
+            initGame();
+            gameLoop();
+        }
+
+        // Restart game
+        function restartGame() {
+            startGame();
+        }
+
+        // Jump
+        function jump() {
+            if (gameState === 'playing') {
+                if (!gameStarted) {
+                    gameStarted = true;
+                }
+                fish.velocity = JUMP_FORCE;
+            }
+        }
+
+        // Check collision
+        function checkCollision(fish, seaweed) {
+            const fishLeft = fish.x - FISH_SIZE / 2;
+            const fishRight = fish.x + FISH_SIZE / 2;
+            const fishTop = fish.y - FISH_SIZE / 2;
+            const fishBottom = fish.y + FISH_SIZE / 2;
+
+            const seaweedLeft = seaweed.x - SEAWEED_WIDTH / 3;
+            const seaweedRight = seaweed.x + SEAWEED_WIDTH / 3;
+            
+            const topSeaweedBottom = seaweed.gapY;
+            const bottomSeaweedTop = seaweed.gapY + SEAWEED_GAP;
+
+            if (fishRight > seaweedLeft && fishLeft < seaweedRight) {
+                if (fishTop < topSeaweedBottom || fishBottom > bottomSeaweedTop) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Draw fish
+        function drawFish() {
+            ctx.save();
+            ctx.translate(fish.x, fish.y);
+            ctx.rotate(fish.rotation * Math.PI / 180);
+            
+            // Body
+            ctx.fillStyle = '#ff7744';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, FISH_SIZE / 2, FISH_SIZE / 3, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Tail
+            ctx.fillStyle = '#ff4500';
+            ctx.beginPath();
+            ctx.moveTo(-FISH_SIZE / 2, 0);
+            ctx.lineTo(-FISH_SIZE, -FISH_SIZE / 3);
+            ctx.lineTo(-FISH_SIZE, FISH_SIZE / 3);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Eye
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(FISH_SIZE / 4, -FISH_SIZE / 8, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(FISH_SIZE / 4 + 2, -FISH_SIZE / 8, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        // Draw seaweed
+        function drawSeaweed(seaweed) {
+            const time = Date.now() * 0.001;
+            const sway = Math.sin(time * 2 + seaweed.x * 0.01) * 15;
+            
+            // Top seaweed
+            for (let i = 0; i < 3; i++) {
+                const x = seaweed.x + (i - 1) * 25;
+                ctx.strokeStyle = i === 1 ? '#22c55e' : '#16a34a';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                
+                ctx.beginPath();
+                ctx.moveTo(x, seaweed.gapY);
+                for (let y = seaweed.gapY; y >= 0; y -= 15) {
+                    const swayOffset = sway * ((seaweed.gapY - y) / seaweed.gapY);
+                    ctx.lineTo(x + swayOffset, y);
+                }
+                ctx.stroke();
+            }
+            
+            // Bottom seaweed
+            for (let i = 0; i < 3; i++) {
+                const x = seaweed.x + (i - 1) * 25;
+                ctx.strokeStyle = i === 1 ? '#22c55e' : '#16a34a';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                
+                ctx.beginPath();
+                ctx.moveTo(x, seaweed.gapY + SEAWEED_GAP);
+                for (let y = seaweed.gapY + SEAWEED_GAP; y <= canvas.height; y += 15) {
+                    const swayOffset = sway * ((y - seaweed.gapY - SEAWEED_GAP) / (canvas.height - seaweed.gapY - SEAWEED_GAP));
+                    ctx.lineTo(x + swayOffset, y);
+                }
+                ctx.stroke();
+            }
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (gameState !== 'playing') return;
+
+            const currentTime = Date.now();
+            const deltaTime = (currentTime - lastFrameTime) / 16.67;
+            lastFrameTime = currentTime;
+
+            // Clear canvas
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#1e40af');
+            gradient.addColorStop(0.5, '#1d4ed8');
+            gradient.addColorStop(1, '#2563eb');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Update bubbles
+            bubbles.forEach(bubble => {
+                bubble.y -= bubble.speed;
+                if (bubble.y < -20) {
+                    bubble.y = canvas.height + 20;
+                    bubble.x = Math.random() * canvas.width;
+                }
+                
+                ctx.fillStyle = `rgba(135, 206, 235, ${bubble.opacity})`;
+                ctx.beginPath();
+                ctx.arc(bubble.x, bubble.y, bubble.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            if (gameStarted) {
+                // Update fish
+                fish.velocity += GRAVITY * deltaTime;
+                fish.y += fish.velocity * deltaTime;
+                fish.rotation = Math.max(-30, Math.min(30, fish.velocity * 3));
+
+                // Update score
+                const newScore = Math.floor((currentTime - lastFrameTime) / 100);
+                if (score < 999) score++;
+                scoreEl.textContent = score;
+
+                // Check bounds
+                if (fish.y < 0 || fish.y > canvas.height) {
+                    endGame();
+                    return;
+                }
+
+                // Update seaweeds
+                const speed = BASE_SPEED * deltaTime;
+                seaweeds.forEach((seaweed, index) => {
+                    seaweed.x -= speed;
+                    
+                    // Check collision
+                    if (checkCollision(fish, seaweed)) {
+                        endGame();
+                        return;
+                    }
+                    
+                    // Check if passed
+                    if (!seaweed.passed && seaweed.x < fish.x) {
+                        seaweed.passed = true;
+                    }
+                    
+                    // Remove off-screen
+                    if (seaweed.x < -SEAWEED_WIDTH) {
+                        seaweeds.splice(index, 1);
+                    }
+                });
+                
+                // Add new seaweed
+                const lastSeaweed = seaweeds[seaweeds.length - 1];
+                if (!lastSeaweed || lastSeaweed.x < canvas.width - 400) {
+                    seaweeds.push(createSeaweed(canvas.width + SEAWEED_WIDTH));
+                }
+            }
+
+            // Draw seaweeds
+            seaweeds.forEach(seaweed => drawSeaweed(seaweed));
+
+            // Draw fish
+            drawFish();
+
+            // Draw "Tap to Start" if not started
+            if (!gameStarted) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(canvas.width / 2 - 150, canvas.height / 2 - 60, 300, 120);
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 32px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Tap to Start!', canvas.width / 2, canvas.height / 2 - 10);
+                ctx.font = '20px Arial';
+                ctx.fillText('Tap screen to swim', canvas.width / 2, canvas.height / 2 + 30);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // End game
+        function endGame() {
+            gameState = 'gameOver';
+            gameOverScreen.style.display = 'flex';
+            installCTA.style.display = 'block';
+            finalScoreEl.textContent = score;
+            
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('seaweedSwimmerHighScore', highScore);
+                highScoreEl.textContent = highScore;
+                newHighScoreEl.style.display = 'block';
+            } else {
+                newHighScoreEl.style.display = 'none';
+            }
+        }
+
+        // Event listeners
+        canvas.addEventListener('click', jump);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            jump();
+        });
+
+        // Resize canvas
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const scale = Math.min(
+                window.innerWidth / canvas.width,
+                window.innerHeight / canvas.height
+            );
+            canvas.style.width = (canvas.width * scale) + 'px';
+            canvas.style.height = (canvas.height * scale) + 'px';
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+    </script>
+</body>
+</html>
