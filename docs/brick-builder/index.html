@@ -1325,7 +1325,7 @@ function placeCamera() {
 function toggleView() { thirdPerson = !thirdPerson; saveChar(); toast(thirdPerson ? 'Third-person view' : 'First-person view'); }
 
 // Character creator screen
-let charOpen = false, charReturn = false, prevR = null, prevScene, prevCam, prevFig, prevDrag = null, prevSpin = 0.5;
+let charOpen = false, charReturn = false, charFirst = false, prevR = null, prevScene, prevCam, prevFig, prevDrag = null, prevSpin = 0.5;
 function ensurePreview() {
   const cv = $('charCanvas');
   if (!prevR) {
@@ -1383,14 +1383,14 @@ $('charRandom').onclick = () => {
 };
 function openChar(fromGame) {
   initAudio();
-  charOpen = true; charReturn = fromGame; touchPlaying = false; invOpen = false; resetTouchInput(); setHud();
+  charOpen = true; charReturn = fromGame; charFirst = !charSaved; touchPlaying = false; invOpen = false; resetTouchInput(); setHud();
   menu.classList.add('hidden'); inv.classList.add('hidden'); $('charUI').classList.remove('hidden');
   if (locked) document.exitPointerLock();
   buildCharUI(); requestAnimationFrame(ensurePreview);
 }
 function closeChar() {
   charOpen = false; $('charUI').classList.add('hidden');
-  const first = !charSaved; if (first) thirdPerson = true;
+  const first = charFirst; charFirst = false; if (first) thirdPerson = true;
   saveChar();
   if (charReturn) { play(); if (first) toast('Press P (or 👁) to switch camera view'); } else menu.classList.remove('hidden');
 }
