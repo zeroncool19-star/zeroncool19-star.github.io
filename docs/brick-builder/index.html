@@ -915,6 +915,13 @@ function computeTarget(ndc = CENTER) {
   }
   const ok = (x, y, z) => canPlace(p, x, y, z, rot) && !playerOverlaps(cellsOf(p, x, y, z, rot));
   let valid = ok(x0, y0, z0);
+  // Top hits next to other bricks: slide the footprint to the nearest free spot that still covers the aimed stud.
+  if (!valid && ay >= ax && ay >= az && (w > 1 || d > 1)) {
+    const cx = Math.floor(pt.x), cz = Math.floor(pt.z), opts = [];
+    for (let x = cx - w + 1; x <= cx; x++) for (let z = cz - d + 1; z <= cz; z++) opts.push([Math.hypot(x - x0, z - z0), x, z]);
+    opts.sort((a, b) => a[0] - b[0]);
+    for (const [, x, z] of opts) if (ok(x, y0, z)) { x0 = x; z0 = z; valid = true; break; }
+  }
   // Side hits in the hairline gaps between bricks: fall back to stacking on top of the brick that was hit.
   if (!valid && brick && ay < ax + az) {
     const tx = Math.round(pt.x - n.x * 0.05 - w / 2), tz = Math.round(pt.z - n.z * 0.05 - d / 2), ty = brick.y + brick.p.H;
@@ -946,19 +953,57 @@ function doOp(op, inverse) {
   if (add) return !!addBrick(PIECES[op.d[0]], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5]);
   const b = findBrick(op.d); if (b) removeBrick(b); return !!b;
 }
-function undo() { const op = undoStack.pop(); if (!op) return toast('Nothing to undo'); doOp(op, true); redoStack.push(op); sfx('pop'); saveSoon(); }
-function redo() { const op = redoStack.pop(); if (!op) return toast('Nothing to redo'); doOp(op, false); undoStack.push(op); sfx('click'); saveSoon(); }
+function undo() { const op = undoStack.pop(); if (!op) return toast('Nothing to undo'); doOp(op, true); redoStack.push(op); brickSound(op.t === 'add' ? 'remove' : 'place', PIECES[op.d[0]]); saveSoon(); }
+function redo() { const op = redoStack.pop(); if (!op) return toast('Nothing to redo'); doOp(op, false); undoStack.push(op); brickSound(op.t === 'add' ? 'place' : 'remove', PIECES[op.d[0]]); saveSoon(); }
 function record(op) { undoStack.push(op); if (undoStack.length > 500) undoStack.shift(); redoStack.length = 0; saveSoon(); }
+
+// ---- Snap-in / pop-off animations -----------------------------------------
+// A placed brick drops onto the studs, squashes a touch as it locks on, then settles.
+const SNAP_FALL = 85, SNAP_SETTLE = 110, SNAP_HEIGHT = 0.5;
+const snaps = [], pops = [], _ss = new THREE.Vector3();
+function poseBrick(b, dy, sy, sxz) {
+  const [w, d] = dims(b.p, b.r);
+  _q.setFromAxisAngle(Y_AXIS, b.r * Math.PI / 2);
+  _m.compose(_v.set(b.x + w / 2, b.y * P + dy, b.z + d / 2), _q, _ss.set(sxz, sy, sxz));
+  for (const sl of b.slots) { sl.batch.mesh.setMatrixAt(sl.index, _m); sl.batch.mesh.instanceMatrix.needsUpdate = true; }
+}
+function snapIn(b) { snaps.push({ b, t0: performance.now() }); poseBrick(b, SNAP_HEIGHT, 1, 1); }
+function popOut(b) {
+  const g = new THREE.Group(), col = COLORS[b.c], [w, d] = dims(b.p, b.r);
+  for (const part of b.p.built)
+    g.add(new THREE.Mesh(part.geo, new THREE.MeshStandardMaterial({ color: part.fixed || col.h, roughness: 0.3, transparent: true, opacity: col.t ? 0.5 : 1, depthWrite: !col.t })));
+  g.position.set(b.x + w / 2, b.y * P, b.z + d / 2); g.rotation.y = b.r * Math.PI / 2; g.userData.y0 = g.position.y;
+  g.userData.spin = (Math.random() - 0.5) * 0.6; g.userData.op = col.t ? 0.5 : 1;
+  scene.add(g); pops.push({ g, t0: performance.now() });
+}
+function updateSnaps(now) {
+  for (let i = snaps.length - 1; i >= 0; i--) {
+    const a = snaps[i], t = now - a.t0;
+    if (!bricks.has(a.b)) { snaps.splice(i, 1); continue; }
+    if (t < SNAP_FALL) { const u = t / SNAP_FALL; poseBrick(a.b, SNAP_HEIGHT * (1 - u * u), 1, 1); }
+    else if (t < SNAP_FALL + SNAP_SETTLE) {
+      const u = (t - SNAP_FALL) / SNAP_SETTLE, k = Math.sin(u * Math.PI) * Math.exp(-u * 2.5);
+      poseBrick(a.b, 0, 1 - 0.07 * k, 1 + 0.035 * k);
+    } else { poseBrick(a.b, 0, 1, 1); for (const sl of a.b.slots) sl.batch.mesh.boundingSphere = null; snaps.splice(i, 1); }
+  }
+  for (let i = pops.length - 1; i >= 0; i--) {
+    const { g, t0 } = pops[i], u = (now - t0) / 220;
+    if (u >= 1) { scene.remove(g); g.children.forEach(c => c.material.dispose()); pops.splice(i, 1); continue; }
+    g.position.y = g.userData.y0 + 0.9 * (1 - (1 - u) * (1 - u));
+    g.rotation.z = g.userData.spin * u; g.scale.setScalar(1 - 0.15 * u);
+    g.children.forEach(c => c.material.opacity = g.userData.op * (1 - u));
+  }
+}
 
 function placeAction(t = target) {
   if (!t) return;
   if (!t.valid) return sfx('bad');
   const b = addBrick(t.piece, colorIdx, t.x0, t.y0, t.z0, rot);
-  if (b) { record({ t: 'add', d: brickData(b) }); sfx('click'); }
+  if (b) { record({ t: 'add', d: brickData(b) }); snapIn(b); brickSound('place', b.p, SNAP_FALL / 1000); }
 }
 function removeAction(t = target) {
   if (!t || !t.brick) return;
-  const d = brickData(t.brick); removeBrick(t.brick); record({ t: 'remove', d }); sfx('pop');
+  const d = brickData(t.brick); popOut(t.brick); brickSound('remove', t.brick.p); removeBrick(t.brick); record({ t: 'remove', d });
 }
 function pickAction(t = target) {
   if (!t || !t.brick) return false;
@@ -1486,7 +1531,47 @@ applyTouchMode();
 
 // ---------------------------------------------------------------- sound
 let actx = null;
-function initAudio() { if (!actx) try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} if (actx && actx.state === 'suspended') actx.resume(); }
+let master = null, noiseBuf = null;
+function initAudio() {
+  if (!actx) try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    master = actx.createDynamicsCompressor(); master.threshold.value = -12; master.ratio.value = 4; master.connect(actx.destination);
+    const len = Math.floor(actx.sampleRate * 0.25); noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
+    const ch = noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+  } catch (e) {}
+  if (actx && actx.state === 'suspended') actx.resume();
+}
+// A plastic "click": a very short, bright noise transient through a resonant band-pass (the stud snapping in)...
+function clickTransient(t, freq, q, gain, decay) {
+  const src = actx.createBufferSource(), bp = actx.createBiquadFilter(), hp = actx.createBiquadFilter(), g = actx.createGain();
+  src.buffer = noiseBuf; bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q; hp.type = 'highpass'; hp.frequency.value = 900;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain, t + 0.0008); g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+  src.connect(bp).connect(hp).connect(g).connect(master); src.start(t, Math.random() * 0.2); src.stop(t + decay + 0.02);
+}
+// ...plus a hollow "tock" from the brick body ringing briefly.
+function bodyTock(t, f0, f1, gain, decay) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + decay);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain, t + 0.001); g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+  o.connect(g).connect(master); o.start(t); o.stop(t + decay + 0.02);
+}
+function brickSound(kind, piece, delay = 0) {
+  if (!actx || !master) return;
+  const t = actx.currentTime + delay + 0.005;
+  const size = piece ? piece.W * piece.D * (piece.H >= 3 ? 1.5 : 1) : 4;     // bigger bricks sound lower and fuller
+  const k = Math.pow(4 / Math.max(1, size), 0.18), j = 1 + (Math.random() - 0.5) * 0.14;
+  if (kind === 'place') {
+    clickTransient(t, 4200 * k * j, 2.2, 0.9, 0.016);                        // first stud engages
+    const t2 = t + 0.012 + Math.random() * 0.012;
+    clickTransient(t2, 3000 * k * j, 2.6, 0.75, 0.022);                      // clutch locks: the satisfying second click
+    bodyTock(t2, 1700 * k * j, 650 * k, 0.32, 0.045);
+    bodyTock(t2, 520 * k, 260 * k, 0.12, 0.06);
+  } else {
+    bodyTock(t, 500 * k * j, 1100 * k * j, 0.12, 0.035);                     // pulling apart
+    clickTransient(t + 0.02, 2400 * k * j, 2.0, 0.5, 0.018);
+    clickTransient(t + 0.034, 5200 * k * j, 3.0, 0.35, 0.012);               // little "tick" as it pops free
+  }
+}
 function sfx(kind) {
   if (!actx) return;
   const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
@@ -1579,6 +1664,7 @@ function frame() {
   updateFigure(dt);
   if (charOpen) renderPreview(dt);
   updateTarget();
+  updateSnaps(performance.now());
   night += (nightTarget - night) * Math.min(1, dt * 2.5); applyLight();
   sky.position.copy(camera.position);
   sun.target.position.set(player.x, 0, player.z);
