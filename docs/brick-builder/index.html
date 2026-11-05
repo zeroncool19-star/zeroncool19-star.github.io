@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Brick Builder World</title>
 <meta name="description" content="A free-form, open world brick building game. Explore an island and build anything with dozens of brick types.">
 <style>
@@ -18,7 +20,7 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd0ff; color: var(--text);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; user-select: none; }
-  canvas#game { display: block; width: 100vw; height: 100vh; }
+  canvas#game { display: block; width: 100vw; height: 100vh; touch-action: none; }
   .hidden { display: none !important; }
 
   /* HUD */
@@ -62,6 +64,33 @@
     border: 1px solid var(--line); border-bottom-width: 2px; color: var(--text); font-family: inherit; font-size: 12px; }
   #touchNote { color: var(--danger); }
 
+  /* Touch / mobile */
+  .touchOnly { display: none; }
+  body.touch .touchOnly { display: block; }
+  body.touch .deskOnly { display: none; }
+  #touchUI { display: none; }
+  body.touch.playing #touchUI { display: block; }
+  body.touch #info, body.touch #crosshair { display: none !important; }
+  body.touch.playing #crosshair { display: block !important; }
+  body.touch #bottom { top: calc(6px + env(safe-area-inset-top)); bottom: auto; pointer-events: auto; }
+  body.touch #bottom #label { order: 2; font-size: 12px; }
+  body.touch .slot { width: min(40px, calc((100vw - 72px) / 10)); height: min(40px, calc((100vw - 72px) / 10)); }
+  body.touch .slot .k { display: none; }
+  #joy { position: fixed; left: calc(22px + env(safe-area-inset-left)); bottom: calc(22px + env(safe-area-inset-bottom)); width: 136px; height: 136px; border-radius: 50%;
+    background: rgba(255,255,255,.14); border: 2px solid rgba(255,255,255,.35); touch-action: none; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: rgba(255,255,255,.55); box-shadow: 0 2px 8px rgba(0,0,0,.3); pointer-events: none; }
+  #tbtns { position: fixed; right: calc(14px + env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(3, 56px); gap: 10px; }
+  #ttop { position: fixed; right: calc(10px + env(safe-area-inset-right)); top: calc(70px + env(safe-area-inset-top)); display: flex; flex-direction: column; gap: 8px; }
+  .tb { width: 56px; height: 56px; border-radius: 50%; padding: 0; background: rgba(20,24,32,.6); border: 2px solid rgba(255,255,255,.35); color: #fff;
+    font-size: 22px; display: flex; align-items: center; justify-content: center; touch-action: none; -webkit-tap-highlight-color: transparent; }
+  .tb small { font-size: 9px; display: block; line-height: 1; }
+  .tb.big { grid-column: span 1; background: rgba(255, 207, 51, .85); color: #241c00; border-color: var(--accent); }
+  .tb.on { background: var(--accent); color: #241c00; border-color: var(--accent); }
+  .tb.remove.on { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .tb:active { transform: scale(.94); }
+  #ttop .tb { width: 46px; height: 46px; font-size: 19px; }
+  @media (orientation: portrait) { #tbtns { grid-template-columns: repeat(2, 56px); } }
+
   /* Inventory */
   #inv .card { width: min(980px, 100%); }
   .invHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -99,7 +128,7 @@
   <div class="card">
     <h1>Brick Builder <span>World</span></h1>
     <p>An open island to explore and build on. Snap together bricks, plates, slopes, arches, windows, doors and more. Build anything you like.</p>
-    <p id="touchNote" class="hidden">This game needs a keyboard and mouse. It works best on a laptop or desktop computer.</p>
+    <p class="touchOnly" style="color:var(--accent)">📱 Touch controls are on. Turn your phone sideways for the best view.</p>
     <div class="btns">
       <button id="playBtn" class="primary">▶ Play</button>
       <button id="dayBtn">☀ / ☾ Day–Night</button>
@@ -107,9 +136,20 @@
       <button id="importBtn">⬆ Import world</button>
       <button id="newBtn" class="danger">New island</button>
       <button id="emptyBtn" class="danger">Empty island</button>
+      <button id="touchBtn">📱 Touch controls: Off</button>
     </div>
     <h2>Controls</h2>
-    <div class="keys">
+    <div class="keys touchOnly">
+      <div>🕹 <b>Left joystick</b> – walk (push far to run)</div>
+      <div>👆 <b>Drag the screen</b> – look around</div>
+      <div>👆 <b>Tap</b> – place a brick where you tap</div>
+      <div>✖ <b>Remove mode</b> – then tap bricks to remove them</div>
+      <div>✋ <b>Press and hold</b> a brick – copy it</div>
+      <div>⬆ Jump / fly up · ⬇ fly down · 🕊 fly on/off</div>
+      <div>↻ Rotate · ↶ Undo · 🧱 All bricks &amp; colours</div>
+      <div>Tap the hotbar at the top to switch bricks</div>
+    </div>
+    <div class="keys deskOnly">
       <div><kbd>W A S D</kbd>Move</div>
       <div><kbd>Mouse</kbd>Look around</div>
       <div><kbd>Space</kbd>Jump / fly up</div>
@@ -127,6 +167,22 @@
       <div><kbd>Esc</kbd>Pause</div>
     </div>
     <p style="margin-top:14px;font-size:12px">Your world saves automatically in this browser.</p>
+  </div>
+</div>
+
+<div id="touchUI">
+  <div id="joy"><div id="knob"></div></div>
+  <div id="tbtns">
+    <button class="tb" id="tbUndo" title="Undo">↶</button>
+    <button class="tb" id="tbRot" title="Rotate">↻</button>
+    <button class="tb remove" id="tbMode" title="Remove mode">✖</button>
+    <button class="tb" id="tbFly" title="Fly">🕊</button>
+    <button class="tb hidden" id="tbDown" title="Down">⬇</button>
+    <button class="tb big" id="tbJump" title="Jump">⬆</button>
+  </div>
+  <div id="ttop">
+    <button class="tb" id="tbPause" title="Pause">⏸</button>
+    <button class="tb" id="tbInv" title="Bricks">🧱</button>
   </div>
 </div>
 
@@ -156,6 +212,7 @@ const P = 0.4;            // plate height (1 stud = 1 unit wide)
 const WORLD = 128;        // island spans -WORLD..WORLD studs
 const MAXY = 450;         // max build height in plates
 const SAVE_KEY = 'brick-builder-world-v1';
+let touchMode = (() => { try { const v = localStorage.getItem('brick-builder-touch'); if (v !== null) return v === '1'; } catch (e) {} return matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches; })();
 const PR = 0.6, PH = 3.4, EYE = 3.0, STEP = 0.85, GRAV = 32, JUMPV = 10.2, REACH = 22;
 
 const COLORS = [
@@ -430,7 +487,7 @@ for (const p of PIECES) p.built = p.parts();
 // ---------------------------------------------------------------- renderer / scene
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, touchMode ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -453,7 +510,7 @@ const hemi = new THREE.HemisphereLight(0xdff1ff, 0x5a7a3a, 1.1);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff4e0, 2.2);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(touchMode ? 1024 : 2048, touchMode ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 1, far: 320 });
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
@@ -736,20 +793,22 @@ function tryHorizontal(nx, nz) {
     }
   }
 }
-const keys = {};
+const keys = {}, joy = { x: 0, y: 0 };
+let touchJump = false, touchDown = false;
 function updatePlayer(dt) {
-  const fwd = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
-  const str = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+  const fwd = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - joy.y;
+  const str = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
   const sy = Math.sin(player.yaw), cy = Math.cos(player.yaw);
   let vx = -sy * fwd + cy * str, vz = -cy * fwd - sy * str;
-  const len = Math.hypot(vx, vz) || 1;
-  const sprint = keys.ShiftLeft || keys.ShiftRight;
+  const mag = Math.hypot(vx, vz), len = Math.max(1, mag);
+  const sprint = keys.ShiftLeft || keys.ShiftRight || touchDown || (!player.fly && Math.hypot(joy.x, joy.y) > 0.95);
   const speed = player.fly ? 16 : (sprint ? 12 : 7);
   vx = vx / len * speed; vz = vz / len * speed;
   let vy;
-  if (player.fly) { vy = ((keys.Space ? 1 : 0) - (sprint ? 1 : 0)) * 12; if (!fwd && !str) { vx = 0; vz = 0; } }
+  const up = keys.Space || touchJump, down = keys.ShiftLeft || keys.ShiftRight || touchDown;
+  if (player.fly) { vy = ((up ? 1 : 0) - (down ? 1 : 0)) * 12; if (!fwd && !str) { vx = 0; vz = 0; } }
   else {
-    if (keys.Space && player.ground) { player.vy = JUMPV; player.ground = false; }
+    if (up && player.ground) { player.vy = JUMPV; player.ground = false; }
     player.vy = Math.max(player.vy - GRAV * dt, -50); vy = player.vy;
     if (!fwd && !str) { vx = 0; vz = 0; }
   }
@@ -795,9 +854,9 @@ hl.visible = false; scene.add(hl);
 const raycaster = new THREE.Raycaster(); raycaster.far = REACH;
 const CENTER = new THREE.Vector2(0, 0);
 let target = null;
-function computeTarget() {
+function computeTarget(ndc = CENTER) {
   if (pickDirty) { pickables = [ground, ...[...batches.values()].map(b => b.mesh)]; pickDirty = false; }
-  raycaster.setFromCamera(CENTER, camera);
+  raycaster.setFromCamera(ndc, camera);
   const hit = raycaster.intersectObjects(pickables, false).find(h => h.object === ground || h.instanceId !== undefined);
   if (!hit) return null;
   let brick = null, n;
@@ -814,11 +873,17 @@ function computeTarget() {
   } else {
     z0 = n.z > 0 ? Math.round(pt.z) : Math.round(pt.z) - d; x0 = Math.round(pt.x - w / 2); y0 = brick ? brick.y : 0;
   }
-  const valid = canPlace(p, x0, y0, z0, rot) && !playerOverlaps(cellsOf(p, x0, y0, z0, rot));
+  const ok = (x, y, z) => canPlace(p, x, y, z, rot) && !playerOverlaps(cellsOf(p, x, y, z, rot));
+  let valid = ok(x0, y0, z0);
+  // Side hits in the hairline gaps between bricks: fall back to stacking on top of the brick that was hit.
+  if (!valid && brick && ay < ax + az) {
+    const tx = Math.round(pt.x - n.x * 0.05 - w / 2), tz = Math.round(pt.z - n.z * 0.05 - d / 2), ty = brick.y + brick.p.H;
+    if (ok(tx, ty, tz)) { x0 = tx; y0 = ty; z0 = tz; valid = true; }
+  }
   return { brick, x0, y0, z0, valid, piece: p };
 }
 function updateTarget() {
-  target = locked ? computeTarget() : null;
+  target = isActive() ? computeTarget() : null;
   if (!target) { ghost.visible = false; hl.visible = false; return; }
   rebuildGhost();
   const p = target.piece, [w, d] = dims(p, rot);
@@ -845,22 +910,22 @@ function undo() { const op = undoStack.pop(); if (!op) return toast('Nothing to 
 function redo() { const op = redoStack.pop(); if (!op) return toast('Nothing to redo'); doOp(op, false); undoStack.push(op); sfx('click'); saveSoon(); }
 function record(op) { undoStack.push(op); if (undoStack.length > 500) undoStack.shift(); redoStack.length = 0; saveSoon(); }
 
-function placeAction() {
-  if (!target) return;
-  if (!target.valid) return sfx('bad');
-  const b = addBrick(target.piece, colorIdx, target.x0, target.y0, target.z0, rot);
+function placeAction(t = target) {
+  if (!t) return;
+  if (!t.valid) return sfx('bad');
+  const b = addBrick(t.piece, colorIdx, t.x0, t.y0, t.z0, rot);
   if (b) { record({ t: 'add', d: brickData(b) }); sfx('click'); }
 }
-function removeAction() {
-  if (!target || !target.brick) return;
-  const d = brickData(target.brick); removeBrick(target.brick); record({ t: 'remove', d }); sfx('pop');
+function removeAction(t = target) {
+  if (!t || !t.brick) return;
+  const d = brickData(t.brick); removeBrick(t.brick); record({ t: 'remove', d }); sfx('pop');
 }
-function pickAction() {
-  if (!target || !target.brick) return;
-  const b = target.brick;
+function pickAction(t = target) {
+  if (!t || !t.brick) return false;
+  const b = t.brick;
   const existing = hotbar.indexOf(b.p.id);
   if (existing >= 0) slot = existing; else hotbar[slot] = b.p.id;
-  colorIdx = b.c; rot = b.r; refreshUI(true); showLabel();
+  colorIdx = b.c; rot = b.r; refreshUI(true); showLabel(); return true;
 }
 
 // ---------------------------------------------------------------- thumbnails
@@ -907,7 +972,7 @@ let thumbColor = -1, labelTimer = 0;
 function refreshUI(thumbsToo) {
   if (thumbsToo && thumbColor !== colorIdx) { renderThumbs(); thumbColor = colorIdx; }
   hotbarEl.innerHTML = hotbar.map((id, i) =>
-    `<div class="slot${i === slot ? ' sel' : ''}"><span class="k">${(i + 1) % 10}</span><img src="${thumbs[id]}" alt=""></div>`).join('');
+    `<div class="slot${i === slot ? ' sel' : ''}" data-hot="${i}"><span class="k">${(i + 1) % 10}</span><img src="${thumbs[id]}" alt=""></div>`).join('');
   if (!$('inv').classList.contains('hidden')) buildInventory();
 }
 function showLabel() {
@@ -939,20 +1004,30 @@ $('inv').addEventListener('click', (e) => {
 });
 
 // ---------------------------------------------------------------- pointer lock & input
-let locked = false, invOpen = false;
+let locked = false, invOpen = false, touchPlaying = false;
+const isActive = () => locked || touchPlaying;
 const menu = $('menu'), inv = $('inv'), cross = $('crosshair');
+function setHud() { cross.classList.toggle('hidden', !isActive()); document.body.classList.toggle('playing', isActive()); }
 function lock() { initAudio(); const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); }
-function openInv() { invOpen = true; buildInventory(); inv.classList.remove('hidden'); menu.classList.add('hidden'); if (locked) document.exitPointerLock(); }
-function closeInv() { invOpen = false; inv.classList.add('hidden'); lock(); }
+function play() { if (touchMode) startTouch(); else lock(); }
+function startTouch() {
+  initAudio(); touchPlaying = true; invOpen = false;
+  menu.classList.add('hidden'); inv.classList.add('hidden'); setHud();
+  const el = document.documentElement;
+  if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
+}
+function pauseTouch() { touchPlaying = false; resetTouchInput(); menu.classList.remove('hidden'); setHud(); save(); }
+function openInv() { invOpen = true; touchPlaying = false; resetTouchInput(); setHud(); buildInventory(); inv.classList.remove('hidden'); menu.classList.add('hidden'); if (locked) document.exitPointerLock(); }
+function closeInv() { invOpen = false; inv.classList.add('hidden'); play(); }
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
-  cross.classList.toggle('hidden', !locked);
+  setHud();
   if (locked) { menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; }
   else { for (const k in keys) keys[k] = false; if (!invOpen) { menu.classList.remove('hidden'); save(); } }
 });
-$('playBtn').onclick = lock;
+$('playBtn').onclick = play;
 $('invClose').onclick = closeInv;
-canvas.addEventListener('click', () => { if (!locked && !invOpen) lock(); });
+canvas.addEventListener('click', () => { if (!touchMode && !locked && !invOpen) lock(); });
 document.addEventListener('mousemove', (e) => {
   if (!locked) return;
   player.yaw -= e.movementX * 0.0022;
@@ -970,18 +1045,19 @@ document.addEventListener('wheel', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.code === 'Tab' || (e.code === 'KeyE' && !e.repeat)) {
     e.preventDefault();
-    if (invOpen) closeInv(); else if (locked) openInv();
+    if (invOpen) closeInv(); else if (isActive()) openInv();
     return;
   }
   if (e.code === 'Escape' && invOpen) { closeInv(); return; }
-  if (!locked) return;
+  if (e.code === 'Escape' && touchPlaying) { pauseTouch(); return; }
+  if (!isActive()) return;
   keys[e.code] = true;
   if (e.code === 'Space') e.preventDefault();
   if (e.repeat) return;
   if (/^Digit[0-9]$/.test(e.code)) { const n = +e.code[5]; slot = n === 0 ? 9 : n - 1; rot = 0; refreshUI(); showLabel(); }
   switch (e.code) {
     case 'KeyR': rot = (rot + 1) % 4; showLabel(); break;
-    case 'KeyF': player.fly = !player.fly; player.vy = 0; toast(player.fly ? 'Flying on' : 'Flying off'); break;
+    case 'KeyF': player.fly = !player.fly; player.vy = 0; $('tbFly').classList.toggle('on', player.fly); $('tbDown').classList.toggle('hidden', !player.fly); toast(player.fly ? 'Flying on' : 'Flying off'); break;
     case 'KeyX': removeAction(); break;
     case 'KeyG': pickAction(); break;
     case 'KeyC': colorIdx = (colorIdx - 1 + COLORS.length) % COLORS.length; refreshUI(true); showLabel(); break;
@@ -993,6 +1069,86 @@ document.addEventListener('keydown', (e) => {
 });
 document.addEventListener('keyup', (e) => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+// ---------------------------------------------------------------- touch controls
+let removeMode = false;
+function resetTouchInput() { joy.x = joy.y = 0; touchJump = touchDown = false; $('knob').style.transform = ''; looks.clear(); }
+function applyTouchMode() {
+  document.body.classList.toggle('touch', touchMode);
+  $('touchBtn').textContent = `📱 Touch controls: ${touchMode ? 'On' : 'Off'}`;
+}
+$('touchBtn').onclick = () => {
+  touchMode = !touchMode; try { localStorage.setItem('brick-builder-touch', touchMode ? '1' : '0'); } catch (e) {}
+  applyTouchMode();
+};
+// Joystick
+{
+  const el = $('joy'), knob = $('knob'); let id = null;
+  const move = (e) => {
+    const r = el.getBoundingClientRect(), R = r.width / 2;
+    let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R); const d = Math.hypot(dx, dy), m = R * 0.75;
+    if (d > m) { dx *= m / d; dy *= m / d; }
+    joy.x = dx / m; joy.y = dy / m; knob.style.transform = `translate(${dx}px, ${dy}px)`;
+  };
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); id = e.pointerId; el.setPointerCapture(id); move(e); });
+  el.addEventListener('pointermove', (e) => { if (e.pointerId === id) move(e); });
+  const end = (e) => { if (e.pointerId !== id) return; id = null; joy.x = joy.y = 0; knob.style.transform = ''; };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+}
+// Buttons
+function holdBtn(id, set) {
+  const el = $(id);
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); set(true); el.classList.add('on'); });
+  const up = () => { set(false); el.classList.remove('on'); };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+}
+function tapBtn(id, fn) { $(id).addEventListener('pointerdown', (e) => { e.preventDefault(); fn(); }); }
+holdBtn('tbJump', (v) => touchJump = v);
+holdBtn('tbDown', (v) => touchDown = v);
+tapBtn('tbRot', () => { rot = (rot + 1) % 4; showLabel(); });
+tapBtn('tbUndo', undo);
+tapBtn('tbFly', () => {
+  player.fly = !player.fly; player.vy = 0; $('tbFly').classList.toggle('on', player.fly); $('tbDown').classList.toggle('hidden', !player.fly);
+  toast(player.fly ? 'Flying on' : 'Flying off');
+});
+tapBtn('tbMode', () => { removeMode = !removeMode; $('tbMode').classList.toggle('on', removeMode); toast(removeMode ? 'Remove mode: tap bricks to remove' : 'Build mode: tap to place'); });
+tapBtn('tbPause', pauseTouch);
+tapBtn('tbInv', openInv);
+hotbarEl.addEventListener('click', (e) => {
+  const s = e.target.closest('[data-hot]'); if (!s || !isActive()) return;
+  slot = +s.dataset.hot; rot = 0; refreshUI(); showLabel();
+});
+// Drag to look, tap to build, press-and-hold to copy
+const looks = new Map();
+const toNdc = (x, y) => new THREE.Vector2(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1);
+canvas.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' || !touchPlaying) return;
+  e.preventDefault(); try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  const t = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, time: e.timeStamp, drag: false, done: false };
+  t.hold = setTimeout(() => {
+    if (t.drag || t.done) return; t.done = true;
+    if (pickAction(computeTarget(toNdc(t.sx, t.sy)))) { toast('Copied brick'); navigator.vibrate?.(30); }
+  }, 650);
+  looks.set(e.pointerId, t);
+});
+canvas.addEventListener('pointermove', (e) => {
+  const t = looks.get(e.pointerId); if (!t) return;
+  if (!t.drag && Math.hypot(e.clientX - t.sx, e.clientY - t.sy) > 12) { t.drag = true; clearTimeout(t.hold); }
+  if (t.drag) {
+    player.yaw -= (e.clientX - t.x) * 0.0055;
+    player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - (e.clientY - t.y) * 0.0055));
+  }
+  t.x = e.clientX; t.y = e.clientY;
+});
+const endLook = (e) => {
+  const t = looks.get(e.pointerId); if (!t) return; looks.delete(e.pointerId); clearTimeout(t.hold);
+  if (t.drag || t.done || e.type === 'pointercancel' || e.timeStamp - t.time > 600) return;
+  const tg = computeTarget(toNdc(t.sx, t.sy));
+  if (removeMode) removeAction(tg); else placeAction(tg);
+};
+canvas.addEventListener('pointerup', endLook); canvas.addEventListener('pointercancel', endLook);
+document.addEventListener('visibilitychange', () => { if (document.hidden) { resetTouchInput(); save(); } });
+applyTouchMode();
 
 // ---------------------------------------------------------------- sound
 let actx = null;
@@ -1071,7 +1227,6 @@ $('emptyBtn').onclick = () => {
 addEventListener('beforeunload', save);
 
 // ---------------------------------------------------------------- boot
-if (matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches) $('touchNote').classList.remove('hidden');
 let loaded = false;
 try { const s = localStorage.getItem(SAVE_KEY); if (s) { load(JSON.parse(s)); loaded = true; } } catch (e) { console.warn('Load failed', e); }
 if (!loaded) generateWorld(1234);
@@ -1086,7 +1241,7 @@ const clock = new THREE.Clock();
 let infoT = 0;
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
-  if (locked) updatePlayer(dt); else { camera.position.set(player.x, player.y + EYE, player.z); camera.rotation.set(player.pitch, player.yaw, 0); }
+  if (isActive()) updatePlayer(dt); else { camera.position.set(player.x, player.y + EYE, player.z); camera.rotation.set(player.pitch, player.yaw, 0); }
   updateTarget();
   night += (nightTarget - night) * Math.min(1, dt * 2.5); applyLight();
   sky.position.copy(camera.position);
