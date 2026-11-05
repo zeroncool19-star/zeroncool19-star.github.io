@@ -91,7 +91,11 @@
   .tb.place small { font-size: 8px; font-weight: 700; letter-spacing: .5px; margin-top: -2px; }
   .tb:active { transform: scale(.94); }
   #ttop .tb { width: 46px; height: 46px; font-size: 19px; }
-  @media (orientation: portrait) { #tbtns { grid-template-columns: repeat(2, 56px); } }
+  #tbtns { grid-template-columns: repeat(4, 56px); grid-template-areas: "stack undo rot fly" "down remove place jump"; }
+  #tbStack { grid-area: stack; } #tbUndo { grid-area: undo; } #tbRot { grid-area: rot; } #tbFly { grid-area: fly; }
+  #tbDown { grid-area: down; } #tbRemove { grid-area: remove; } #tbPlace { grid-area: place; } #tbJump { grid-area: jump; }
+  .tb.stack { font-size: 22px; flex-direction: column; } .tb.stack small { font-size: 8px; font-weight: 700; letter-spacing: .5px; margin-top: -2px; }
+  @media (orientation: portrait) { #tbtns { grid-template-columns: repeat(3, 56px); grid-template-areas: "stack undo rot" "fly remove down" ". place jump"; } }
   @media (orientation: landscape) { #ttop { right: auto; left: calc(10px + env(safe-area-inset-left)); top: calc(8px + env(safe-area-inset-top)); display: grid; grid-template-columns: repeat(2, 46px); } }
 
   /* Character creator */
@@ -159,7 +163,8 @@
     <div class="keys touchOnly">
       <div>🕹 <b>Left joystick</b> – walk (push far to run)</div>
       <div>👆 <b>Drag the screen</b> – look around</div>
-      <div>🧱 <b>Place button</b> – puts a brick where the crosshair (+) points</div>
+      <div>🧱 <b>Place button</b> – puts a brick where the crosshair (+) points. <b>Hold it</b> to keep building</div>
+      <div>⇪ <b>Stack</b> – when on, holding Place builds a tower on your last brick</div>
       <div>✖ <b>Remove button</b> – removes the brick at the crosshair</div>
       <div>✋ <b>Press and hold</b> a brick – copy it</div>
       <div>⬆ Jump / fly up · ⬇ fly down · 🕊 fly on/off</div>
@@ -177,6 +182,8 @@
       <div><kbd>Right click</kbd> or <kbd>X</kbd>Remove brick</div>
       <div><kbd>Middle click</kbd> or <kbd>G</kbd>Copy brick</div>
       <div><kbd>R</kbd>Rotate brick</div>
+      <div><kbd>Hold left click</kbd>Keep placing</div>
+      <div><kbd>B</kbd>Stack mode (hold to build up)</div>
       <div><kbd>1–0</kbd> / <kbd>Wheel</kbd>Choose hotbar slot</div>
       <div><kbd>E</kbd> / <kbd>Tab</kbd>All bricks &amp; colours</div>
       <div><kbd>C</kbd> / <kbd>V</kbd>Previous / next colour</div>
@@ -193,9 +200,9 @@
 <div id="touchUI">
   <div id="joy"><div id="knob"></div></div>
   <div id="tbtns">
+    <button class="tb stack" id="tbStack" title="Stack mode">⇪<small>STACK</small></button>
     <button class="tb" id="tbUndo" title="Undo">↶</button>
     <button class="tb" id="tbRot" title="Rotate">↻</button>
-
     <button class="tb" id="tbFly" title="Fly">🕊</button>
     <button class="tb hidden" id="tbDown" title="Down">⬇</button>
     <button class="tb remove" id="tbRemove" title="Remove brick">✖</button>
@@ -995,11 +1002,43 @@ function updateSnaps(now) {
   }
 }
 
+let lastPlaced = null, stackMode = false, repeatTimer = null;
+function placeAt(p, x0, y0, z0) {
+  const b = addBrick(p, colorIdx, x0, y0, z0, rot);
+  if (b) { record({ t: 'add', d: brickData(b) }); snapIn(b); brickSound('place', b.p, SNAP_FALL / 1000); lastPlaced = b; }
+  return b;
+}
 function placeAction(t = target) {
-  if (!t) return;
-  if (!t.valid) return sfx('bad');
-  const b = addBrick(t.piece, colorIdx, t.x0, t.y0, t.z0, rot);
-  if (b) { record({ t: 'add', d: brickData(b) }); snapIn(b); brickSound('place', b.p, SNAP_FALL / 1000); }
+  if (!t) return false;
+  if (!t.valid) { sfx('bad'); return false; }
+  return !!placeAt(t.piece, t.x0, t.y0, t.z0);
+}
+// Stack: put the current brick straight on top of the last one placed, centred over it.
+function stackAction() {
+  const L = lastPlaced;
+  if (!L || !bricks.has(L)) return placeAction();
+  const p = currentPiece(), [w, d] = dims(p, rot), [lw, ld] = dims(L.p, L.r);
+  const x0 = L.x + Math.floor((lw - w) / 2), z0 = L.z + Math.floor((ld - d) / 2), y0 = L.y + L.p.H;
+  if (!canPlace(p, x0, y0, z0, rot) || playerOverlaps(cellsOf(p, x0, y0, z0, rot))) { sfx('bad'); toast('Stack blocked'); return false; }
+  return !!placeAt(p, x0, y0, z0);
+}
+// Hold to build: place now, then keep placing while held (stacking upward in stack mode).
+function startRepeat() {
+  stopRepeat();
+  placeAction();
+  const tick = () => {
+    if (!isActive()) return stopRepeat();
+    const ok = stackMode ? stackAction() : placeAction();
+    if (!ok && stackMode) return stopRepeat();
+    navigator.vibrate?.(8);
+    repeatTimer = setTimeout(tick, 160);
+  };
+  repeatTimer = setTimeout(tick, 380);
+}
+function stopRepeat() { clearTimeout(repeatTimer); repeatTimer = null; }
+function toggleStack() {
+  stackMode = !stackMode; $('tbStack').classList.toggle('on', stackMode);
+  toast(stackMode ? 'Stack on: hold Place to build upwards' : 'Stack off');
 }
 function removeAction(t = target) {
   if (!t || !t.brick) return;
@@ -1120,8 +1159,9 @@ document.addEventListener('mousemove', (e) => {
 });
 document.addEventListener('mousedown', (e) => {
   if (!locked) return;
-  if (e.button === 0) placeAction(); else if (e.button === 2) removeAction(); else if (e.button === 1) { e.preventDefault(); pickAction(); }
+  if (e.button === 0) startRepeat(); else if (e.button === 2) removeAction(); else if (e.button === 1) { e.preventDefault(); pickAction(); }
 });
+document.addEventListener('mouseup', (e) => { if (e.button === 0) stopRepeat(); });
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('wheel', (e) => {
   if (!locked) return;
@@ -1143,6 +1183,7 @@ document.addEventListener('keydown', (e) => {
   if (/^Digit[0-9]$/.test(e.code)) { const n = +e.code[5]; slot = n === 0 ? 9 : n - 1; rot = 0; refreshUI(); showLabel(); }
   switch (e.code) {
     case 'KeyR': rot = (rot + 1) % 4; showLabel(); break;
+    case 'KeyB': toggleStack(); break;
     case 'KeyF': player.fly = !player.fly; player.vy = 0; $('tbFly').classList.toggle('on', player.fly); $('tbDown').classList.toggle('hidden', !player.fly); toast(player.fly ? 'Flying on' : 'Flying off'); break;
     case 'KeyX': removeAction(); break;
     case 'KeyG': pickAction(); break;
@@ -1156,7 +1197,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 document.addEventListener('keyup', (e) => { keys[e.code] = false; });
-addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; stopRepeat(); });
 
 // ---------------------------------------------------------------- character
 const CHAR_KEY = 'brick-builder-character-v1';
@@ -1489,7 +1530,13 @@ tapBtn('tbFly', () => {
   toast(player.fly ? 'Flying on' : 'Flying off');
 });
 function flash(id) { const el = $(id); el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 150); }
-tapBtn('tbPlace', () => { flash('tbPlace'); placeAction(); navigator.vibrate?.(15); });
+{
+  const el = $('tbPlace');
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (err) {} el.classList.add('on'); navigator.vibrate?.(15); startRepeat(); });
+  const up = () => { el.classList.remove('on'); stopRepeat(); };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+}
+tapBtn('tbStack', toggleStack);
 tapBtn('tbRemove', () => { flash('tbRemove'); removeAction(); });
 tapBtn('tbPause', pauseTouch);
 tapBtn('tbInv', openInv);
