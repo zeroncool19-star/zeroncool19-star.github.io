@@ -87,9 +87,12 @@
   .tb.big { grid-column: span 1; background: rgba(255, 207, 51, .85); color: #241c00; border-color: var(--accent); }
   .tb.on { background: var(--accent); color: #241c00; border-color: var(--accent); }
   .tb.remove.on { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .tb.place { background: rgba(47, 158, 68, .9); border-color: #7be08f; font-size: 26px; flex-direction: column; }
+  .tb.place small { font-size: 8px; font-weight: 700; letter-spacing: .5px; margin-top: -2px; }
   .tb:active { transform: scale(.94); }
   #ttop .tb { width: 46px; height: 46px; font-size: 19px; }
   @media (orientation: portrait) { #tbtns { grid-template-columns: repeat(2, 56px); } }
+  @media (orientation: landscape) { #ttop { right: auto; left: calc(10px + env(safe-area-inset-left)); top: calc(8px + env(safe-area-inset-top)); display: grid; grid-template-columns: repeat(2, 46px); } }
 
   /* Character creator */
   #charUI .card { width: min(1000px, 100%); }
@@ -156,8 +159,8 @@
     <div class="keys touchOnly">
       <div>🕹 <b>Left joystick</b> – walk (push far to run)</div>
       <div>👆 <b>Drag the screen</b> – look around</div>
-      <div>👆 <b>Tap</b> – place a brick where you tap</div>
-      <div>✖ <b>Remove mode</b> – then tap bricks to remove them</div>
+      <div>🧱 <b>Place button</b> – puts a brick where the crosshair (+) points</div>
+      <div>✖ <b>Remove button</b> – removes the brick at the crosshair</div>
       <div>✋ <b>Press and hold</b> a brick – copy it</div>
       <div>⬆ Jump / fly up · ⬇ fly down · 🕊 fly on/off</div>
       <div>↻ Rotate · ↶ Undo · 🧱 All bricks &amp; colours</div>
@@ -192,9 +195,11 @@
   <div id="tbtns">
     <button class="tb" id="tbUndo" title="Undo">↶</button>
     <button class="tb" id="tbRot" title="Rotate">↻</button>
-    <button class="tb remove" id="tbMode" title="Remove mode">✖</button>
+
     <button class="tb" id="tbFly" title="Fly">🕊</button>
     <button class="tb hidden" id="tbDown" title="Down">⬇</button>
+    <button class="tb remove" id="tbRemove" title="Remove brick">✖</button>
+    <button class="tb place" id="tbPlace" title="Place brick">＋<small>PLACE</small></button>
     <button class="tb big" id="tbJump" title="Jump">⬆</button>
   </div>
   <div id="ttop">
@@ -247,7 +252,7 @@ const P = 0.4;            // plate height (1 stud = 1 unit wide)
 const WORLD = 128;        // island spans -WORLD..WORLD studs
 const MAXY = 450;         // max build height in plates
 const SAVE_KEY = 'brick-builder-world-v1';
-let touchMode = (() => { try { const v = localStorage.getItem('brick-builder-touch'); if (v !== null) return v === '1'; } catch (e) {} return matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches; })();
+let touchMode = (() => { const q = new URLSearchParams(location.search).get('touch'); if (q === '1' || q === '0') return q === '1'; try { const v = localStorage.getItem('brick-builder-touch'); if (v !== null) return v === '1'; } catch (e) {} return matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches; })();
 const PR = 0.6, PH = 3.4, EYE = 3.0, STEP = 0.85, GRAV = 32, JUMPV = 10.2, REACH = 22;
 
 const COLORS = [
@@ -1399,7 +1404,6 @@ $('charBtn').onclick = () => openChar(false);
 addEventListener('resize', () => { if (charOpen) ensurePreview(); });
 
 // ---------------------------------------------------------------- touch controls
-let removeMode = false;
 function resetTouchInput() { joy.x = joy.y = 0; touchJump = touchDown = false; $('knob').style.transform = ''; looks.clear(); }
 function applyTouchMode() {
   document.body.classList.toggle('touch', touchMode);
@@ -1439,7 +1443,9 @@ tapBtn('tbFly', () => {
   player.fly = !player.fly; player.vy = 0; $('tbFly').classList.toggle('on', player.fly); $('tbDown').classList.toggle('hidden', !player.fly);
   toast(player.fly ? 'Flying on' : 'Flying off');
 });
-tapBtn('tbMode', () => { removeMode = !removeMode; $('tbMode').classList.toggle('on', removeMode); toast(removeMode ? 'Remove mode: tap bricks to remove' : 'Build mode: tap to place'); });
+function flash(id) { const el = $(id); el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 150); }
+tapBtn('tbPlace', () => { flash('tbPlace'); placeAction(); navigator.vibrate?.(15); });
+tapBtn('tbRemove', () => { flash('tbRemove'); removeAction(); });
 tapBtn('tbPause', pauseTouch);
 tapBtn('tbInv', openInv);
 tapBtn('tbView', toggleView);
@@ -1472,9 +1478,7 @@ canvas.addEventListener('pointermove', (e) => {
 });
 const endLook = (e) => {
   const t = looks.get(e.pointerId); if (!t) return; looks.delete(e.pointerId); clearTimeout(t.hold);
-  if (t.drag || t.done || e.type === 'pointercancel' || e.timeStamp - t.time > 600) return;
-  const tg = computeTarget(toNdc(t.sx, t.sy));
-  if (removeMode) removeAction(tg); else placeAction(tg);
+  // A plain tap only looks/aims; building happens with the Place and Remove buttons.
 };
 canvas.addEventListener('pointerup', endLook); canvas.addEventListener('pointercancel', endLook);
 document.addEventListener('visibilitychange', () => { if (document.hidden) { resetTouchInput(); save(); } });
