@@ -91,6 +91,19 @@
   #ttop .tb { width: 46px; height: 46px; font-size: 19px; }
   @media (orientation: portrait) { #tbtns { grid-template-columns: repeat(2, 56px); } }
 
+  /* Character creator */
+  #charUI .card { width: min(1000px, 100%); }
+  .charWrap { display: grid; grid-template-columns: minmax(240px, 1fr) 1.25fr; gap: 18px; align-items: start; margin-top: 10px; }
+  #charCanvas { width: 100%; height: min(58vh, 460px); border-radius: 14px; background: radial-gradient(circle at 50% 35%, #3a4a66, #121722); touch-action: none; cursor: grab; display: block; }
+  .optRow { display: grid; grid-template-columns: 110px 40px 1fr 40px; align-items: center; gap: 6px; margin: 6px 0; }
+  .optRow span, .colRow span { font-size: 13px; color: var(--muted); }
+  .optRow b { text-align: center; font-size: 15px; background: rgba(255,255,255,.06); border-radius: 8px; padding: 8px 4px; }
+  .optRow button { padding: 6px 0; font-size: 16px; }
+  .colRow { margin: 10px 0 4px; }
+  .colRow .colors { margin-top: 5px; gap: 5px; }
+  .colRow .color { width: 26px; height: 26px; border-radius: 7px; }
+  @media (max-width: 720px) { .charWrap { grid-template-columns: 1fr; } #charCanvas { height: 34vh; } .optRow { grid-template-columns: 90px 40px 1fr 40px; } }
+
   /* Inventory */
   #inv .card { width: min(980px, 100%); }
   .invHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -137,6 +150,7 @@
       <button id="newBtn" class="danger">New island</button>
       <button id="emptyBtn" class="danger">Empty island</button>
       <button id="touchBtn">📱 Touch controls: Off</button>
+      <button id="charBtn">🧍 Character</button>
     </div>
     <h2>Controls</h2>
     <div class="keys touchOnly">
@@ -148,6 +162,7 @@
       <div>⬆ Jump / fly up · ⬇ fly down · 🕊 fly on/off</div>
       <div>↻ Rotate · ↶ Undo · 🧱 All bricks &amp; colours</div>
       <div>Tap the hotbar at the top to switch bricks</div>
+      <div>👁 Switch first / third person · 🧍 Edit character</div>
     </div>
     <div class="keys deskOnly">
       <div><kbd>W A S D</kbd>Move</div>
@@ -164,6 +179,8 @@
       <div><kbd>C</kbd> / <kbd>V</kbd>Previous / next colour</div>
       <div><kbd>Z</kbd> / <kbd>Y</kbd>Undo / redo</div>
       <div><kbd>T</kbd>Day / night</div>
+      <div><kbd>P</kbd>First / third person view</div>
+      <div><kbd>K</kbd>Edit your character</div>
       <div><kbd>Esc</kbd>Pause</div>
     </div>
     <p style="margin-top:14px;font-size:12px">Your world saves automatically in this browser.</p>
@@ -183,6 +200,24 @@
   <div id="ttop">
     <button class="tb" id="tbPause" title="Pause">⏸</button>
     <button class="tb" id="tbInv" title="Bricks">🧱</button>
+    <button class="tb" id="tbView" title="Camera view">👁</button>
+    <button class="tb" id="tbChar" title="Character">🧍</button>
+  </div>
+</div>
+
+<div id="charUI" class="overlay hidden">
+  <div class="card">
+    <div class="invHead">
+      <h1 style="font-size:24px">Create your character</h1>
+      <div class="btns" style="margin:0">
+        <button id="charRandom">🎲 Random</button>
+        <button id="charDone" class="primary" style="font-size:15px;padding:9px 18px">Done ✓</button>
+      </div>
+    </div>
+    <div class="charWrap">
+      <canvas id="charCanvas"></canvas>
+      <div id="charOpts"></div>
+    </div>
   </div>
 </div>
 
@@ -832,8 +867,7 @@ function updatePlayer(dt) {
   player.x = Math.min(WORLD - PR, Math.max(-WORLD + PR, player.x));
   player.z = Math.min(WORLD - PR, Math.max(-WORLD + PR, player.z));
   player.y = Math.min(MAXY * P + 20, player.y);
-  camera.position.set(player.x, player.y + EYE, player.z);
-  camera.rotation.set(player.pitch, player.yaw, 0);
+  placeCamera();
 }
 
 // ---------------------------------------------------------------- building: target, ghost, highlight
@@ -856,6 +890,7 @@ const CENTER = new THREE.Vector2(0, 0);
 let target = null;
 function computeTarget(ndc = CENTER) {
   if (pickDirty) { pickables = [ground, ...[...batches.values()].map(b => b.mesh)]; pickDirty = false; }
+  raycaster.far = REACH + camDist;
   raycaster.setFromCamera(ndc, camera);
   const hit = raycaster.intersectObjects(pickables, false).find(h => h.object === ground || h.instanceId !== undefined);
   if (!hit) return null;
@@ -1023,9 +1058,9 @@ document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   setHud();
   if (locked) { menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; }
-  else { for (const k in keys) keys[k] = false; if (!invOpen) { menu.classList.remove('hidden'); save(); } }
+  else { for (const k in keys) keys[k] = false; if (!invOpen && !charOpen) { menu.classList.remove('hidden'); save(); } }
 });
-$('playBtn').onclick = play;
+$('playBtn').onclick = () => { if (!charSaved) openChar(true); else play(); };
 $('invClose').onclick = closeInv;
 canvas.addEventListener('click', () => { if (!touchMode && !locked && !invOpen) lock(); });
 document.addEventListener('mousemove', (e) => {
@@ -1043,6 +1078,7 @@ document.addEventListener('wheel', (e) => {
   slot = (slot + (e.deltaY > 0 ? 1 : -1) + hotbar.length) % hotbar.length; rot = 0; refreshUI(); showLabel();
 }, { passive: true });
 document.addEventListener('keydown', (e) => {
+  if (charOpen) { if (e.code === 'Escape' || e.code === 'Enter') { e.preventDefault(); closeChar(); } return; }
   if (e.code === 'Tab' || (e.code === 'KeyE' && !e.repeat)) {
     e.preventDefault();
     if (invOpen) closeInv(); else if (isActive()) openInv();
@@ -1065,10 +1101,302 @@ document.addEventListener('keydown', (e) => {
     case 'KeyZ': undo(); break;
     case 'KeyY': redo(); break;
     case 'KeyT': toggleNight(); break;
+    case 'KeyP': toggleView(); break;
+    case 'KeyK': openChar(true); break;
   }
 });
 document.addEventListener('keyup', (e) => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+// ---------------------------------------------------------------- character
+const CHAR_KEY = 'brick-builder-character-v1';
+const SKINS = [['Sunny', '#f2cd37'], ['Light', '#f6d7b0'], ['Peach', '#e8b48a'], ['Tan', '#c98e5d'], ['Brown', '#8a5434'], ['Dark', '#4f3020'],
+               ['Alien green', '#7cc35a'], ['Sky blue', '#6fc3ea'], ['Robot grey', '#a3a7ab']].map(([n, h]) => ({ n, h }));
+const CLOTH = COLORS.filter(c => !c.t);
+const HEADS = ['Round', 'Block', 'Tall', 'Robot'];
+const FACES = ['Smile', 'Big grin', 'Wink', 'Sunglasses', 'Surprised', 'Cheeky', 'Sleepy', 'Moustache', 'Robot visor', 'Angry'];
+const HAIRS = ['None', 'Short hair', 'Long hair', 'Ponytail', 'Spiky hair', 'Cap', 'Top hat', 'Crown', 'Helmet', 'Wizard hat', 'Headphones'];
+const BODIES = ['T-shirt', 'Suit & tie', 'Hoodie', 'Armour', 'Overalls', 'Striped jumper'];
+const LEGS = ['Trousers', 'Shorts', 'Skirt', 'Boots', 'Robot legs'];
+const OPT_ROWS = [['Head', 'head', HEADS], ['Face', 'face', FACES], ['Hair & hats', 'hair', HAIRS], ['Body', 'body', BODIES], ['Legs', 'legs', LEGS]];
+const COL_ROWS = [['Skin', 'skin', SKINS], ['Hair / hat colour', 'hairC', CLOTH], ['Top colour', 'topC', CLOTH], ['Legs colour', 'legC', CLOTH]];
+const DEFAULT_CHAR = { head: 1, face: 0, hair: 1, body: 0, legs: 0, skin: '#e8b48a', hairC: '#7a4b26', topC: '#c91a09', legC: '#1e5aa8' };
+let charCfg = { ...DEFAULT_CHAR }, charSaved = false, thirdPerson = false, camDist = 0;
+try {
+  const c = JSON.parse(localStorage.getItem(CHAR_KEY) || 'null');
+  if (c && c.cfg) { charCfg = { ...DEFAULT_CHAR, ...c.cfg }; charSaved = true; thirdPerson = !!c.third; }
+} catch (e) {}
+for (const [, k, list] of OPT_ROWS) charCfg[k] = Math.max(0, Math.min(list.length - 1, charCfg[k] | 0));
+function saveChar() { charSaved = true; try { localStorage.setItem(CHAR_KEY, JSON.stringify({ cfg: charCfg, third: thirdPerson })); } catch (e) {} }
+
+// Faces are drawn on a canvas and stuck on the front of the head.
+const faceCache = {};
+function faceTexture(i) {
+  if (faceCache[i]) return faceCache[i];
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  const ink = '#1e1f22'; g.lineCap = 'round'; g.lineJoin = 'round';
+  const dot = (x, y, r, col = ink) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); };
+  const eyes = (r = 15) => { dot(92, 108, r); dot(164, 108, r); dot(97, 102, r * 0.3, '#fff'); dot(169, 102, r * 0.3, '#fff'); };
+  const arc = (x, y, rad, a0, a1, w = 10, col = ink) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.arc(x, y, rad, a0, a1); g.stroke(); };
+  const line = (x0, y0, x1, y1, w = 9, col = ink) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); };
+  const smile = () => arc(128, 140, 44, Math.PI * 0.18, Math.PI * 0.82);
+  switch (FACES[i]) {
+    case 'Smile': eyes(); smile(); break;
+    case 'Big grin': eyes(); g.fillStyle = ink; g.beginPath(); g.arc(128, 145, 46, 0, Math.PI); g.fill();
+      g.fillStyle = '#fff'; g.fillRect(90, 145, 76, 12); g.fillStyle = '#e8657a'; g.beginPath(); g.arc(128, 180, 18, Math.PI, 0); g.fill(); break;
+    case 'Wink': arc(92, 112, 15, Math.PI * 1.1, Math.PI * 1.9, 8); dot(164, 108, 15); dot(169, 102, 4.5, '#fff'); smile(); break;
+    case 'Sunglasses':
+      g.fillStyle = ink; g.beginPath(); g.roundRect(54, 86, 66, 44, 14); g.roundRect(136, 86, 66, 44, 14); g.fill(); line(118, 98, 138, 98, 8);
+      g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(64, 94, 18, 8); g.fillRect(146, 94, 18, 8); arc(128, 150, 32, Math.PI * 0.2, Math.PI * 0.8, 9); break;
+    case 'Surprised': eyes(18); line(70, 72, 108, 66, 7); line(148, 66, 186, 72, 7); dot(128, 168, 20); dot(128, 168, 11, '#7a2a2a'); break;
+    case 'Cheeky': eyes(); smile(); g.fillStyle = '#e8657a'; g.beginPath(); g.ellipse(146, 178, 16, 20, 0, 0, Math.PI * 2); g.fill();
+      dot(62, 148, 15, 'rgba(240,110,120,.45)'); dot(194, 148, 15, 'rgba(240,110,120,.45)'); break;
+    case 'Sleepy': line(74, 112, 110, 112, 8); line(146, 112, 182, 112, 8); arc(92, 104, 18, Math.PI * 0.2, Math.PI * 0.8, 6); arc(164, 104, 18, Math.PI * 0.2, Math.PI * 0.8, 6);
+      line(110, 162, 146, 162, 8); g.fillStyle = ink; g.font = 'bold 34px sans-serif'; g.fillText('z', 196, 70); break;
+    case 'Moustache': eyes(); g.fillStyle = '#4a2c17'; g.beginPath(); g.ellipse(106, 150, 30, 13, -0.25, 0, Math.PI * 2); g.ellipse(150, 150, 30, 13, 0.25, 0, Math.PI * 2); g.fill();
+      arc(128, 150, 30, Math.PI * 0.25, Math.PI * 0.75, 7); break;
+    case 'Robot visor': g.fillStyle = '#0b1220'; g.beginPath(); g.roundRect(44, 84, 168, 52, 22); g.fill();
+      g.fillStyle = '#4ff0ff'; g.shadowColor = '#4ff0ff'; g.shadowBlur = 16; g.beginPath(); g.roundRect(60, 98, 136, 22, 11); g.fill(); g.shadowBlur = 0;
+      g.fillStyle = ink; for (let k = 0; k < 5; k++) g.fillRect(90 + k * 16, 160, 8, 28); break;
+    case 'Angry': eyes(); line(66, 74, 112, 90, 9); line(144, 90, 190, 74, 9); arc(128, 190, 40, Math.PI * 1.2, Math.PI * 1.8, 10); break;
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return (faceCache[i] = t);
+}
+
+const HEAD_DIMS = [
+  { top: 3.52, w: 0.5, d: 0.5 },   // Round
+  { top: 3.46, w: 0.48, d: 0.43 }, // Block
+  { top: 3.66, w: 0.42, d: 0.42 }, // Tall
+  { top: 3.46, w: 0.48, d: 0.43 }, // Robot
+];
+function buildFigure(c) {
+  const fig = new THREE.Group();
+  const M = (hex, o = {}) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.35, ...o });
+  const skin = M(c.skin), top = M(c.topC), leg = M(c.legC), hair = M(c.hairC), dark = M('#1e1f22'), white = M('#f2f2f2'),
+        metal = M('#a3a7ab', { metalness: 0.55, roughness: 0.3 }), gold = M('#e0b62f', { metalness: 0.6, roughness: 0.3 });
+  const rb = (w, h, d, r = 0.07) => new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2 - 0.005, h / 2 - 0.005, d / 2 - 0.005));
+  const add = (parent, geo, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; parent.add(o); return o; };
+
+  // Legs (each hangs from a hip pivot so it can swing)
+  const ls = LEGS[c.legs], robo = ls === 'Robot legs';
+  add(fig, rb(1.0, 0.3, 0.56), robo ? metal : leg, 0, 1.12, 0);
+  const legPiv = [];
+  for (const side of [-1, 1]) {
+    const p = new THREE.Group(); p.position.set(side * 0.26, 1.05, 0); fig.add(p); legPiv.push(p);
+    if (robo) {
+      add(p, rb(0.26, 0.9, 0.26), metal, 0, -0.48, 0); add(p, new THREE.SphereGeometry(0.17, 14, 10), dark, 0, -0.45, 0);
+      add(p, rb(0.42, 0.18, 0.62), dark, 0, -0.95, 0.06);
+    } else if (ls === 'Shorts') {
+      add(p, rb(0.47, 0.46, 0.52), leg, 0, -0.2, 0); add(p, rb(0.38, 0.5, 0.42), skin, 0, -0.66, 0); add(p, rb(0.46, 0.16, 0.6), dark, 0, -0.96, 0.05);
+    } else if (ls === 'Boots') {
+      add(p, rb(0.47, 0.7, 0.52), leg, 0, -0.33, 0); add(p, rb(0.5, 0.38, 0.62), dark, 0, -0.84, 0.05);
+    } else {
+      add(p, rb(0.47, 0.98, 0.52), leg, 0, -0.5, 0); add(p, rb(0.48, 0.09, 0.56), dark, 0, -1.0, 0.02);
+    }
+  }
+  if (ls === 'Skirt') add(fig, new THREE.CylinderGeometry(0.52, 0.74, 0.78, 22), leg, 0, 0.82, 0);
+
+  // Torso
+  const bs = BODIES[c.body], armour = bs === 'Armour';
+  const torso = add(fig, rb(1.15, 1.2, 0.62, 0.1), armour ? metal : top, 0, 1.87, 0);
+  torso.scale.set(1, 1, 1);
+  if (bs === 'Suit & tie') {
+    add(fig, new THREE.BoxGeometry(0.34, 0.9, 0.04), white, 0, 2.0, 0.315);
+    add(fig, new THREE.BoxGeometry(0.12, 0.7, 0.05), c.topC.toLowerCase() === '#c91a09' ? dark : M('#c91a09'), 0, 1.95, 0.34);
+    add(fig, new THREE.BoxGeometry(0.1, 0.1, 0.05), dark, 0.36, 1.5, 0.32); add(fig, new THREE.BoxGeometry(0.1, 0.1, 0.05), dark, 0.36, 1.75, 0.32);
+  } else if (bs === 'Hoodie') {
+    add(fig, new THREE.TorusGeometry(0.34, 0.12, 10, 24), top, 0, 2.42, -0.16).rotation.x = Math.PI / 2.4;
+    add(fig, rb(0.66, 0.3, 0.06, 0.03), M(c.topC, { roughness: 0.6 }), 0, 1.52, 0.32);
+    add(fig, new THREE.CylinderGeometry(0.025, 0.025, 0.35, 6), white, -0.12, 2.2, 0.33); add(fig, new THREE.CylinderGeometry(0.025, 0.025, 0.35, 6), white, 0.12, 2.2, 0.33);
+  } else if (armour) {
+    add(fig, rb(0.86, 0.66, 0.08, 0.04), M('#d6d8db', { metalness: 0.6, roughness: 0.25 }), 0, 2.0, 0.33);
+    add(fig, new THREE.CylinderGeometry(0.17, 0.17, 0.05, 20).rotateX(Math.PI / 2), top, 0, 2.02, 0.38);
+    for (const side of [-1, 1]) add(fig, new THREE.SphereGeometry(0.3, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), metal, side * 0.6, 2.38, 0);
+  } else if (bs === 'Overalls') {
+    add(fig, rb(0.78, 0.6, 0.06, 0.03), leg, 0, 1.6, 0.31);
+    for (const side of [-1, 1]) { add(fig, new THREE.BoxGeometry(0.13, 0.62, 0.05), leg, side * 0.3, 2.15, 0.315); add(fig, new THREE.SphereGeometry(0.05, 8, 6), gold, side * 0.3, 1.9, 0.35); }
+  } else if (bs === 'Striped jumper') {
+    for (const y of [1.55, 1.85, 2.15]) add(fig, new THREE.BoxGeometry(1.17, 0.11, 0.64), white, 0, y, 0);
+  }
+
+  // Arms (pivot at the shoulder)
+  const armPiv = [];
+  for (const side of [-1, 1]) {
+    const p = new THREE.Group(); p.position.set(side * 0.72, 2.32, 0); p.rotation.z = side * 0.1; fig.add(p); armPiv.push(p);
+    const sleeve = armour ? metal : top;
+    if (bs === 'T-shirt' || bs === 'Overalls') { add(p, rb(0.3, 0.42, 0.34), sleeve, 0, -0.17, 0); add(p, rb(0.26, 0.48, 0.3), skin, 0, -0.6, 0); }
+    else { add(p, rb(0.3, 0.88, 0.34), sleeve, 0, -0.4, 0); if (bs === 'Striped jumper') add(p, new THREE.BoxGeometry(0.32, 0.1, 0.36), white, 0, -0.5, 0); }
+    add(p, new THREE.SphereGeometry(0.17, 14, 10), robo || HEADS[c.head] === 'Robot' ? metal : skin, 0, -0.92, 0.02);
+  }
+
+  // Neck & head
+  add(fig, new THREE.CylinderGeometry(0.18, 0.2, 0.16, 14), skin, 0, 2.54, 0);
+  const H = HEAD_DIMS[c.head], faceMat = new THREE.MeshStandardMaterial({ map: faceTexture(c.face), transparent: true, roughness: 0.4, polygonOffset: true, polygonOffsetFactor: -2 });
+  const headType = HEADS[c.head];
+  if (headType === 'Round') {
+    add(fig, new THREE.SphereGeometry(0.5, 28, 18).scale(1, 0.92, 1), skin, 0, 3.06, 0);
+    add(fig, new THREE.SphereGeometry(0.505, 20, 14, Math.PI / 2 - 0.75, 1.5, Math.PI / 2 - 0.62, 1.24).scale(1, 0.92, 1), faceMat, 0, 3.06, 0);
+  } else if (headType === 'Tall') {
+    add(fig, new THREE.CylinderGeometry(0.42, 0.42, 0.9, 28), skin, 0, 3.07, 0);
+    add(fig, new THREE.SphereGeometry(0.42, 28, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.35, 1), skin, 0, 3.52, 0);
+    add(fig, new THREE.CylinderGeometry(0.425, 0.425, 0.8, 20, 1, true, -0.8, 1.6), faceMat, 0, 3.07, 0);
+  } else {
+    const robot = headType === 'Robot';
+    add(fig, rb(0.96, 0.86, 0.86, robot ? 0.03 : 0.14), robot ? M(c.skin, { metalness: 0.45, roughness: 0.3 }) : skin, 0, 3.03, 0);
+    add(fig, new THREE.PlaneGeometry(0.82, 0.74), faceMat, 0, 3.03, 0.432);
+    if (robot) {
+      add(fig, new THREE.CylinderGeometry(0.03, 0.03, 0.35, 8), metal, 0.2, 3.62, 0); add(fig, new THREE.SphereGeometry(0.08, 12, 8), M('#ff3b30', { emissive: '#ff3b30', emissiveIntensity: 0.6 }), 0.2, 3.82, 0);
+      for (const side of [-1, 1]) add(fig, new THREE.CylinderGeometry(0.11, 0.11, 0.08, 14).rotateZ(Math.PI / 2), metal, side * 0.5, 3.05, 0);
+    }
+  }
+
+  // Hair & hats
+  const hs = HAIRS[c.hair], t = H.top, w = H.w, d = H.d;
+  const cap = () => add(fig, new THREE.SphereGeometry(1, 26, 12, 0, Math.PI * 2, 0, Math.PI / 2).scale(w * 1.1, 0.34, d * 1.12), hair, 0, t - 0.2, 0);
+  const backHair = (h) => add(fig, rb(w * 2.12, h, 0.16, 0.06), hair, 0, t - 0.12 - h / 2, -d - 0.03);
+  switch (hs) {
+    case 'Short hair': cap(); backHair(0.4); break;
+    case 'Long hair': cap(); backHair(0.95);
+      for (const side of [-1, 1]) add(fig, rb(0.14, 0.75, d * 1.6, 0.05), hair, side * (w + 0.06), t - 0.5, -0.05); break;
+    case 'Ponytail': cap(); backHair(0.3); add(fig, new THREE.SphereGeometry(0.17, 14, 10), hair, 0, t - 0.25, -d - 0.16);
+      add(fig, new THREE.CylinderGeometry(0.12, 0.05, 0.75, 12), hair, 0, t - 0.7, -d - 0.2); break;
+    case 'Spiky hair': cap(); backHair(0.35);
+      for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2; add(fig, new THREE.ConeGeometry(0.11, 0.38, 8), hair, Math.cos(a) * w * 0.55, t + 0.06, Math.sin(a) * d * 0.55).rotation.set(Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5); }
+      add(fig, new THREE.ConeGeometry(0.13, 0.45, 8), hair, 0, t + 0.12, 0); break;
+    case 'Cap': add(fig, new THREE.SphereGeometry(1, 26, 12, 0, Math.PI * 2, 0, Math.PI / 2).scale(w * 1.12, 0.4, d * 1.14), hair, 0, t - 0.2, 0);
+      add(fig, new THREE.CylinderGeometry(w * 0.85, w * 0.85, 0.05, 24, 1, false, -Math.PI / 2, Math.PI), hair, 0, t - 0.18, d * 0.75); break;
+    case 'Top hat': add(fig, new THREE.CylinderGeometry(w * 1.3, w * 1.3, 0.06, 28), hair, 0, t, 0);
+      add(fig, new THREE.CylinderGeometry(w * 0.82, w * 0.82, 0.72, 28), hair, 0, t + 0.38, 0); add(fig, new THREE.CylinderGeometry(w * 0.84, w * 0.84, 0.12, 28), dark, 0, t + 0.1, 0); break;
+    case 'Crown': add(fig, new THREE.CylinderGeometry(w * 0.82, w * 0.82, 0.24, 28, 1, true), gold, 0, t + 0.08, 0);
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; add(fig, new THREE.ConeGeometry(0.09, 0.24, 6), gold, Math.cos(a) * w * 0.8, t + 0.3, Math.sin(a) * w * 0.8);
+        add(fig, new THREE.SphereGeometry(0.05, 8, 6), M(k % 2 ? '#c91a09' : '#1e5aa8'), Math.cos(a) * w * 0.84, t + 0.08, Math.sin(a) * w * 0.84); } break;
+    case 'Helmet': add(fig, new THREE.SphereGeometry(1, 26, 14, 0, Math.PI * 2, 0, Math.PI * 0.56).scale(w * 1.2, 0.62, d * 1.2), hair, 0, t - 0.32, 0);
+      add(fig, new THREE.TorusGeometry(w * 1.12, 0.05, 8, 32).rotateX(Math.PI / 2).scale(1, 1, d / w), dark, 0, t - 0.36, 0); break;
+    case 'Wizard hat': add(fig, new THREE.CylinderGeometry(w * 1.45, w * 1.45, 0.05, 28), hair, 0, t - 0.02, 0);
+      add(fig, new THREE.ConeGeometry(w * 0.95, 1.15, 28), hair, 0, t + 0.56, 0); add(fig, new THREE.OctahedronGeometry(0.1), gold, 0.18, t + 0.45, w * 0.55); break;
+    case 'Headphones': add(fig, new THREE.TorusGeometry(w + 0.1, 0.05, 8, 26, Math.PI), hair, 0, t - 0.42, 0);
+      for (const side of [-1, 1]) add(fig, new THREE.CylinderGeometry(0.18, 0.18, 0.14, 18).rotateZ(Math.PI / 2), hair, side * (w + 0.1), t - 0.45, 0); break;
+  }
+  fig.userData = { legPiv, armPiv, phase: 0 };
+  return fig;
+}
+function disposeFigure(fig) {
+  fig.traverse(o => { if (o.isMesh) { o.geometry.dispose(); if (!o.material.map) o.material.dispose(); else o.material.dispose(); } });
+}
+function animateFigure(fig, speed, dt, airborne, flying) {
+  const u = fig.userData, amt = Math.min(1, speed / 7);
+  u.phase += dt * (3 + speed * 1.2);
+  const sw = Math.sin(u.phase) * 0.75 * amt;
+  u.legPiv[0].rotation.x = flying ? 0.15 : airborne ? -0.35 : sw;
+  u.legPiv[1].rotation.x = flying ? 0.15 : airborne ? 0.25 : -sw;
+  u.armPiv[0].rotation.x = airborne && !flying ? -2.4 : -sw * 0.8;
+  u.armPiv[1].rotation.x = airborne && !flying ? -2.4 : sw * 0.8;
+  u.armPiv[0].rotation.z = flying ? -1.1 : -0.1; u.armPiv[1].rotation.z = flying ? 1.1 : 0.1;
+}
+
+// The player's figure in the world (seen in third person)
+let fig = buildFigure(charCfg); scene.add(fig);
+let lastPos = { x: player.x, z: player.z };
+function rebuildPlayerFigure() { scene.remove(fig); disposeFigure(fig); fig = buildFigure(charCfg); scene.add(fig); }
+function updateFigure(dt) {
+  fig.visible = thirdPerson;
+  const sp = dt > 0 ? Math.hypot(player.x - lastPos.x, player.z - lastPos.z) / dt : 0; lastPos = { x: player.x, z: player.z };
+  fig.position.set(player.x, player.y, player.z); fig.rotation.y = player.yaw + Math.PI;
+  animateFigure(fig, isActive() ? sp : 0, dt, !player.ground && !player.fly, player.fly);
+  $('tbView').classList.toggle('on', thirdPerson);
+}
+const _eye = new THREE.Vector3(), _back = new THREE.Vector3(), _right = new THREE.Vector3();
+function placeCamera() {
+  camera.rotation.set(player.pitch, player.yaw, 0);
+  if (!thirdPerson) { camera.position.set(player.x, player.y + EYE, player.z); camDist = 0; return; }
+  _right.set(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
+  _eye.set(player.x, player.y + EYE + 0.55, player.z).addScaledVector(_right, 0.9);
+  _back.set(0, 0, 1).applyEuler(camera.rotation);
+  let dist = 0;
+  for (let dd = 0.25; dd <= 7; dd += 0.25) {
+    const x = _eye.x + _back.x * dd, y = _eye.y + _back.y * dd, z = _eye.z + _back.z * dd;
+    if (y < 0.3 || solidAt(Math.floor(x), Math.floor(y / P), Math.floor(z))) break;
+    dist = dd;
+  }
+  dist = Math.max(0, dist - 0.3);
+  camera.position.copy(_eye).addScaledVector(_back, dist); camDist = dist;
+}
+function toggleView() { thirdPerson = !thirdPerson; saveChar(); toast(thirdPerson ? 'Third-person view' : 'First-person view'); }
+
+// Character creator screen
+let charOpen = false, charReturn = false, prevR = null, prevScene, prevCam, prevFig, prevDrag = null, prevSpin = 0.5;
+function ensurePreview() {
+  const cv = $('charCanvas');
+  if (!prevR) {
+    prevR = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+    prevR.setPixelRatio(Math.min(devicePixelRatio, 2)); prevR.shadowMap.enabled = true;
+    prevScene = new THREE.Scene();
+    prevScene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.3));
+    const dl = new THREE.DirectionalLight(0xffffff, 2.2); dl.position.set(3, 7, 5); dl.castShadow = true; prevScene.add(dl);
+    const base = new THREE.Mesh(merge([new THREE.CylinderGeometry(1.5, 1.5, 0.3, 40).translate(0, -0.15, 0)]), new THREE.MeshStandardMaterial({ color: '#2f9e44', roughness: 0.4 }));
+    base.receiveShadow = true; prevScene.add(base);
+    prevCam = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+    cv.addEventListener('pointerdown', (e) => { prevDrag = e.clientX; try { cv.setPointerCapture(e.pointerId); } catch (err) {} cv.style.cursor = 'grabbing'; });
+    cv.addEventListener('pointermove', (e) => { if (prevDrag === null || !prevFig) return; prevFig.rotation.y += (e.clientX - prevDrag) * 0.012; prevDrag = e.clientX; });
+    const up = () => { prevDrag = null; cv.style.cursor = 'grab'; };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  }
+  const w = cv.clientWidth || 300, h = cv.clientHeight || 300;
+  prevR.setSize(w, h, false); prevCam.aspect = w / h;
+  const fit = Math.max(1, 0.85 / Math.min(1, w / h));
+  prevCam.position.set(0, 2.5, 9.2 * fit); prevCam.lookAt(0, 1.95, 0); prevCam.updateProjectionMatrix();
+  rebuildPreview();
+}
+function rebuildPreview() {
+  const rotY = prevFig ? prevFig.rotation.y : 0.5;
+  if (prevFig) { prevScene.remove(prevFig); disposeFigure(prevFig); }
+  prevFig = buildFigure(charCfg); prevFig.rotation.y = rotY; prevScene.add(prevFig);
+}
+function renderPreview(dt) {
+  if (!prevR || !prevFig) return;
+  if (prevDrag === null) prevFig.rotation.y += dt * prevSpin;
+  const u = prevFig.userData; u.phase += dt * 2;
+  u.armPiv[1].rotation.x = -0.25 + Math.sin(u.phase) * 0.12; u.armPiv[0].rotation.x = 0.1;
+  prevR.render(prevScene, prevCam);
+}
+function buildCharUI() {
+  $('charOpts').innerHTML = OPT_ROWS.map(([label, k, list]) =>
+    `<div class="optRow"><span>${label}</span><button data-step="${k}" data-d="-1" aria-label="Previous ${label}">◀</button><b>${list[charCfg[k]]}</b><button data-step="${k}" data-d="1" aria-label="Next ${label}">▶</button></div>`).join('') +
+    COL_ROWS.map(([label, k, list]) => `<div class="colRow"><span>${label}</span><div class="colors">` +
+      list.map(c => `<div class="color${charCfg[k].toLowerCase() === c.h.toLowerCase() ? ' sel' : ''}" data-ck="${k}" data-cv="${c.h}" title="${c.n}" style="background-color:${c.h}"></div>`).join('') + '</div></div>').join('');
+}
+function charChanged() { buildCharUI(); rebuildPreview(); rebuildPlayerFigure(); saveChar(); }
+$('charOpts').addEventListener('click', (e) => {
+  const st = e.target.closest('[data-step]'), col = e.target.closest('[data-ck]');
+  if (st) { const k = st.dataset.step, n = OPT_ROWS.find(o => o[1] === k)[2].length; charCfg[k] = (charCfg[k] + +st.dataset.d + n) % n; }
+  else if (col) charCfg[col.dataset.ck] = col.dataset.cv;
+  else return;
+  sfx('click'); charChanged();
+});
+$('charRandom').onclick = () => {
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  for (const [, k, list] of OPT_ROWS) charCfg[k] = Math.floor(Math.random() * list.length);
+  if (Math.random() < 0.6) charCfg.head = Math.random() < 0.5 ? 0 : 1;
+  charCfg.skin = pick(SKINS).h; charCfg.hairC = pick(CLOTH).h; charCfg.topC = pick(CLOTH).h; charCfg.legC = pick(CLOTH).h;
+  sfx('pop'); charChanged();
+};
+function openChar(fromGame) {
+  initAudio();
+  charOpen = true; charReturn = fromGame; touchPlaying = false; invOpen = false; resetTouchInput(); setHud();
+  menu.classList.add('hidden'); inv.classList.add('hidden'); $('charUI').classList.remove('hidden');
+  if (locked) document.exitPointerLock();
+  buildCharUI(); requestAnimationFrame(ensurePreview);
+}
+function closeChar() {
+  charOpen = false; $('charUI').classList.add('hidden');
+  const first = !charSaved; if (first) thirdPerson = true;
+  saveChar();
+  if (charReturn) { play(); if (first) toast('Press P (or 👁) to switch camera view'); } else menu.classList.remove('hidden');
+}
+$('charDone').onclick = closeChar;
+$('charBtn').onclick = () => openChar(false);
+addEventListener('resize', () => { if (charOpen) ensurePreview(); });
 
 // ---------------------------------------------------------------- touch controls
 let removeMode = false;
@@ -1114,6 +1442,8 @@ tapBtn('tbFly', () => {
 tapBtn('tbMode', () => { removeMode = !removeMode; $('tbMode').classList.toggle('on', removeMode); toast(removeMode ? 'Remove mode: tap bricks to remove' : 'Build mode: tap to place'); });
 tapBtn('tbPause', pauseTouch);
 tapBtn('tbInv', openInv);
+tapBtn('tbView', toggleView);
+tapBtn('tbChar', () => openChar(true));
 hotbarEl.addEventListener('click', (e) => {
   const s = e.target.closest('[data-hot]'); if (!s || !isActive()) return;
   slot = +s.dataset.hot; rot = 0; refreshUI(); showLabel();
@@ -1241,7 +1571,9 @@ const clock = new THREE.Clock();
 let infoT = 0;
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
-  if (isActive()) updatePlayer(dt); else { camera.position.set(player.x, player.y + EYE, player.z); camera.rotation.set(player.pitch, player.yaw, 0); }
+  if (isActive()) updatePlayer(dt); else placeCamera();
+  updateFigure(dt);
+  if (charOpen) renderPreview(dt);
   updateTarget();
   night += (nightTarget - night) * Math.min(1, dt * 2.5); applyLight();
   sky.position.copy(camera.position);
@@ -1253,7 +1585,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
