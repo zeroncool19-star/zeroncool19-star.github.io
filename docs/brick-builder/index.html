@@ -91,6 +91,7 @@
   .tb.place small { font-size: 8px; font-weight: 700; letter-spacing: .5px; margin-top: -2px; }
   .tb:active { transform: scale(.94); }
   #ttop .tb { width: 46px; height: 46px; font-size: 19px; }
+  #ttop .tb.hidden { display: none; }
   #tbtns { grid-template-columns: repeat(4, 56px); grid-template-areas: "stack undo rot fly" "down remove place jump"; }
   #tbStack { grid-area: stack; } #tbUndo { grid-area: undo; } #tbRot { grid-area: rot; } #tbFly { grid-area: fly; }
   #tbDown { grid-area: down; } #tbRemove { grid-area: remove; } #tbPlace { grid-area: place; } #tbJump { grid-area: jump; }
@@ -109,6 +110,30 @@
   body.touch.driving #carUI { top: calc(12px + env(safe-area-inset-top)); }
   body.driving #tbtns .tb:not(#tbJump) { display: none !important; }
   body.touch.playing.driving #crosshair, body.driving #crosshair { display: none !important; }
+
+  /* Garage */
+  #garage { padding: 0; background: #1b2230; backdrop-filter: none; }
+  .gWrap { display: grid; grid-template-columns: 1fr minmax(320px, 400px); width: 100%; height: 100%; }
+  .gView { position: relative; min-height: 0; }
+  #gCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
+  .gPanel { background: var(--panel-solid); border-left: 1px solid var(--line); padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); overflow: auto; min-height: 0; }
+  .gHead { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .gHead input { flex: 1 1 140px; min-width: 0; font: inherit; font-size: 15px; color: var(--text); background: rgba(255,255,255,.07); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; }
+  .gTools { position: absolute; right: calc(12px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 8px; align-items: center; }
+  .gTools .tb { width: 54px; height: 54px; }
+  .gTools .tb.place { width: 66px; height: 66px; }
+  .gHint { position: absolute; left: 12px; top: 10px; font-size: 12px; color: var(--muted); background: rgba(0,0,0,.35); padding: 4px 10px; border-radius: 999px; pointer-events: none; }
+  #gParts { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); }
+  #gParts .piece img { width: 56px; height: 56px; }
+  .gRow { display: flex; align-items: center; gap: 6px; margin: 5px 0; }
+  .gRow span { flex: 1; font-size: 14px; } .gRow small { color: var(--muted); }
+  .gRow button { padding: 6px 10px; }
+  .gMix { display: grid; grid-template-columns: 70px 1fr; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+  .gMix select, #gCat { font: inherit; font-size: 14px; color: var(--text); background: #232b3a; border: 1px solid var(--line); border-radius: 8px; padding: 7px; width: 100%; }
+  @media (max-width: 720px), (orientation: portrait) {
+    .gWrap { grid-template-columns: 1fr; grid-template-rows: 46vh 1fr; }
+    .gPanel { border-left: 0; border-top: 1px solid var(--line); }
+  }
 
   /* Character creator */
   #charUI .card { width: min(1000px, 100%); }
@@ -170,6 +195,7 @@
       <button id="emptyBtn" class="danger">Empty island</button>
       <button id="touchBtn">📱 Touch controls: Off</button>
       <button id="charBtn">🧍 Character</button>
+      <button id="garageBtn">🚘 Garage</button>
     </div>
     <h2>Controls</h2>
     <div class="keys touchOnly">
@@ -182,7 +208,7 @@
       <div>⬆ Jump / fly up · ⬇ fly down · 🕊 fly on/off</div>
       <div>↻ Rotate · ↶ Undo · 🧱 All bricks &amp; colours</div>
       <div>Tap the hotbar at the top to switch bricks</div>
-      <div>👁 Switch first / third person · 🧍 Edit character</div>
+      <div>👁 Switch first / third person · 🧍 Edit character · 🚘 Garage</div>
       <div>🚗 Walk up to a car and tap <b>Drive</b>. Joystick steers, 🛑 brakes</div>
     </div>
     <div class="keys deskOnly">
@@ -206,6 +232,7 @@
       <div><kbd>W A S D</kbd> in a car: drive · <kbd>Space</kbd> brake · <kbd>H</kbd> horn</div>
       <div><kbd>P</kbd>First / third person view</div>
       <div><kbd>K</kbd>Edit your character</div>
+      <div><kbd>M</kbd>Garage: design &amp; save cars</div>
       <div><kbd>Esc</kbd>Pause</div>
     </div>
     <p style="margin-top:14px;font-size:12px">Your world saves automatically in this browser.</p>
@@ -229,6 +256,7 @@
     <button class="tb" id="tbInv" title="Bricks">🧱</button>
     <button class="tb" id="tbView" title="Camera view">👁</button>
     <button class="tb" id="tbChar" title="Character">🧍</button>
+    <button class="tb" id="tbGarage" title="Garage">🚘</button>
   </div>
 </div>
 
@@ -244,6 +272,49 @@
     <div class="charWrap">
       <canvas id="charCanvas"></canvas>
       <div id="charOpts"></div>
+    </div>
+  </div>
+</div>
+
+<div id="garage" class="overlay hidden">
+  <div class="gWrap">
+    <div class="gView">
+      <canvas id="gCanvas"></canvas>
+      <div class="gHint">Drag to turn · pinch / scroll to zoom · tap to aim</div>
+      <div class="gTools">
+        <button class="tb" id="gUndoBtn" title="Undo">↶</button>
+        <button class="tb" id="gRotBtn" title="Rotate">↻</button>
+        <button class="tb remove" id="gRemoveBtn" title="Remove">✖</button>
+        <button class="tb place" id="gPlaceBtn" title="Place">＋<small>PLACE</small></button>
+      </div>
+    </div>
+    <div class="gPanel">
+      <div class="gHead">
+        <input id="gName" maxlength="40" placeholder="Car name" aria-label="Car name">
+        <button id="gSave">💾 Save</button>
+        <button id="gDrive" class="primary" style="font-size:15px;padding:9px 14px">🚗 Drive it!</button>
+        <button id="gClose" aria-label="Close garage">✕</button>
+      </div>
+      <h2>Parts</h2>
+      <select id="gCat" aria-label="Part category"></select>
+      <div id="gParts" class="grid" style="margin-top:8px"></div>
+      <h2>Colour</h2>
+      <div id="gColors" class="colors"></div>
+      <h2>Start from</h2>
+      <div class="btns" style="margin-top:0">
+        <button data-gstart="0">🏎 Red Racer</button><button data-gstart="1">🏖 Beach Buggy</button><button data-gstart="2">🛻 Pickup Truck</button>
+        <button data-gnew="carbase4x8">➕ New 4×8</button><button data-gnew="carbase6x12">➕ New 6×12</button>
+        <button id="gNearby" class="hidden">📋 Copy car next to me</button>
+      </div>
+      <h2>My cars</h2>
+      <div id="gMine"></div>
+      <h2>Mix &amp; match</h2>
+      <div class="gMix">
+        <span>Front</span><select id="gMixF" aria-label="Front from"></select>
+        <span>Middle</span><select id="gMixM" aria-label="Middle from"></select>
+        <span>Back</span><select id="gMixB" aria-label="Back from"></select>
+      </div>
+      <div class="btns"><button id="gMixBtn">🔀 Mix them</button></div>
     </div>
   </div>
 </div>
@@ -1211,7 +1282,7 @@ document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   setHud();
   if (locked) { menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; }
-  else { for (const k in keys) keys[k] = false; if (!invOpen && !charOpen) { menu.classList.remove('hidden'); save(); } }
+  else { for (const k in keys) keys[k] = false; if (!invOpen && !charOpen && !gOpen) { menu.classList.remove('hidden'); save(); } }
 });
 $('playBtn').onclick = () => { if (!charSaved) openChar(true); else play(); };
 $('invClose').onclick = closeInv;
@@ -1234,6 +1305,12 @@ document.addEventListener('wheel', (e) => {
 }, { passive: true });
 document.addEventListener('keydown', (e) => {
   if (charOpen) { if (e.code === 'Escape' || e.code === 'Enter') { e.preventDefault(); closeChar(); } return; }
+  if (gOpen) {
+    if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Escape') e.target.blur(); return; }
+    if (e.code === 'Escape') closeGarage(false); else if (e.code === 'KeyR') { gRot = (gRot + 1) % 4; gReaim(); }
+    else if (e.code === 'KeyZ') gUndoAction(); else if (e.code === 'KeyX' || e.code === 'Delete') gRemoveAction(); else if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); gPlaceAction(); }
+    return;
+  }
   if (e.code === 'Tab' || (e.code === 'KeyE' && !e.repeat)) {
     e.preventDefault();
     if (invOpen) closeInv(); else if (isActive()) openInv();
@@ -1262,6 +1339,7 @@ document.addEventListener('keydown', (e) => {
     case 'KeyT': toggleNight(); break;
     case 'KeyP': toggleView(); break;
     case 'KeyK': openChar(true); break;
+    case 'KeyM': openGarage(true); break;
   }
 });
 document.addEventListener('keyup', (e) => { keys[e.code] = false; });
@@ -1713,7 +1791,7 @@ function enterCar(base) {
   for (const b of S) {
     const [w, d] = dims(b.p, b.r), [lx, lz] = toLocal(b.x + w / 2, b.z + d / 2), ly = b.y - base.y, lr = (b.r - r0 + 4) % 4;
     items.push({ p: b.p, c: b.c, lx, lz, ly, lr, orig: brickData(b) });
-    if (b.p.id === 'seat' && !seat) seat = { lx, lz, y: ly * P + 0.45 };
+    if (b.p.id === 'seat' && (!seat || lz < seat.lz)) seat = { lx, lz, y: ly * P + 0.45 };
     for (const [x, y, z, m] of cellsOf(b.p, b.x, b.y, b.z, b.r)) {
       if (m !== 1) continue;
       const [cx, cz] = toLocal(x + 0.5, z + 0.5), k = y - base.y, kk = cx + ',' + cz;
@@ -1750,13 +1828,18 @@ function enterCar(base) {
 // Where the parked car's bricks would go: snapped to studs and a quarter turn, nudged a little if something is in the way.
 function planPark() {
   if (!car) return null;
-  const r = ((Math.round(car.yaw / (Math.PI / 2)) % 4) + 4) % 4, c = COS[r], s = SIN[r], [w, d] = dims(car.base, r);
-  const bx = Math.round(car.x - w / 2), bz = Math.round(car.z - d / 2), by = Math.max(0, Math.round(car.y / P));
+  const r = ((Math.round(car.yaw / (Math.PI / 2)) % 4) + 4) % 4;
+  return fitItems(car.items, car.base, car.x, car.z, Math.max(0, Math.round(car.y / P)), r);
+}
+// Lay out car bricks (in car coordinates) with the base centred near (x, z), at plate height by, facing quarter-turn r.
+function fitItems(items, baseP, x, z, by, r) {
+  const c = COS[r], s = SIN[r], [w, d] = dims(baseP, r);
+  const bx = Math.round(x - w / 2), bz = Math.round(z - d / 2);
   const tries = [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [1, 0, 1], [-1, 0, -1], [1, 0, -1], [-1, 0, 1], [0, 2, 0], [0, 3, 0]];
   for (const [dx, dy, dz] of tries) {
     const cx = bx + dx + w / 2, cz = bz + dz + d / 2, out = [];
     let ok = true;
-    for (const it of car.items) {
+    for (const it of items) {
       const rot = (it.lr + r) % 4, [iw, id] = dims(it.p, rot);
       const x = Math.round(cx + it.lx * c + it.lz * s - iw / 2), z = Math.round(cz - it.lx * s + it.lz * c - id / 2), y = by + dy + it.ly;
       if (!canPlace(it.p, x, y, z, rot)) { ok = false; break; }
@@ -1908,6 +1991,326 @@ function horn() {
   }
 }
 
+// ---------------------------------------------------------------- garage (car workshop)
+// A design is a list of bricks in car-base coordinates: the base sits at (-W/2, 0, -D/2), rotation 0, front facing -z.
+const GARAGE_KEY = 'brick-builder-cars-v1';
+const STARTERS = [
+  { name: 'Red Racer', base: 'carbase4x8', baseC: 'Dark Grey', b: [
+    ['brick1x4', 'Red', 0, 3, 0, 1], ['slope4x2', 'Red', 0, 3, 1, 2], ['steering', 'Black', 1, 3, 3, 0], ['brick1x4', 'Red', 0, 3, 3, 0],
+    ['brick1x4', 'Red', 3, 3, 3, 0], ['seat', 'Black', 1, 3, 4, 0], ['brick1x2', 'Red', 1, 3, 6, 1], ['brick1x4', 'Red', 0, 3, 7, 1],
+    ['light1x1', 'Yellow', 0, 6, 0, 0], ['light1x1', 'Yellow', 3, 6, 0, 0], ['brick1x4', 'Clear Glass', 0, 6, 2, 1], ['plate1x4', 'Black', 0, 6, 7, 1]] },
+  { name: 'Beach Buggy', base: 'carbase4x8', baseC: 'Black', b: [
+    ['slope4x2', 'Orange', 0, 3, 0, 2], ['light1x1', 'Yellow', 0, 3, 2, 0], ['light1x1', 'Yellow', 3, 3, 2, 0], ['steering', 'Black', 1, 3, 2, 0],
+    ['seat', 'Black', 1, 3, 3, 0], ['seat', 'Black', 1, 3, 5, 0], ['brick1x4', 'Orange', 0, 3, 7, 1],
+    ...[[0, 3], [3, 3], [0, 6], [3, 6]].flatMap(([x, z]) => [['round1x1', 'Black', x, 3, z, 0], ['round1x1', 'Black', x, 6, z, 0]]),
+    ['plate4x4', 'Orange', 0, 9, 3, 0]] },
+  { name: 'Pickup Truck', base: 'carbase6x12', baseC: 'Dark Grey', b: [
+    ['brick1x6', 'Dark Grey', 0, 3, 0, 1], ['brick1x6', 'Blue', 0, 3, 1, 1], ['brick1x6', 'Blue', 0, 3, 2, 1],
+    ['slope2x2', 'Blue', 0, 6, 1, 2], ['slope2x2', 'Blue', 2, 6, 1, 2], ['slope2x2', 'Blue', 4, 6, 1, 2],
+    ['light1x1', 'Yellow', 0, 6, 0, 0], ['light1x1', 'Yellow', 5, 6, 0, 0],
+    ['brick1x4', 'Blue', 0, 3, 3, 0], ['brick1x4', 'Blue', 5, 3, 3, 0], ['brick1x4', 'Blue', 0, 6, 3, 0], ['brick1x4', 'Blue', 5, 6, 3, 0],
+    ['steering', 'Black', 2, 3, 3, 0], ['seat', 'Black', 2, 3, 4, 0], ['brick1x6', 'Blue', 0, 3, 7, 1], ['brick1x6', 'Blue', 0, 6, 7, 1],
+    ['brick1x4', 'Clear Glass', 1, 6, 3, 1], ['plate2x6', 'White', 0, 9, 3, 1], ['plate2x6', 'White', 0, 9, 5, 1], ['tile1x6', 'White', 0, 9, 7, 1],
+    ['brick1x4', 'Blue', 0, 3, 8, 0], ['brick1x4', 'Blue', 5, 3, 8, 0], ['brick1x4', 'Blue', 1, 3, 11, 1],
+    ['light1x1', 'Red', 0, 6, 11, 0], ['light1x1', 'Red', 5, 6, 11, 0]] },
+];
+// Starter lists are relative to the base's corner; designs store bricks in centred car coordinates.
+function starterDesign(st) {
+  const bp = PIECE_BY_ID[st.base], ox = -bp.W / 2, oz = -bp.D / 2;
+  return { name: st.name, base: st.base, b: [[st.base, st.baseC, ox, 0, oz, 0], ...st.b.map(([id, c, x, y, z, r]) => [id, c, x + ox, y, z + oz, r])] };
+}
+function loadMyCars() { try { const v = JSON.parse(localStorage.getItem(GARAGE_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function saveMyCars(list) { try { localStorage.setItem(GARAGE_KEY, JSON.stringify(list)); } catch (e) { toast('Could not save (storage full?)'); } }
+
+// ---- workshop model: its own little grid, separate from the world
+let ws = null;                     // { base: piece, id, name, recs: Set, occ: Map }
+let gOpen = false, gReturn = false, gR = null, gScene, gCam, gRoot, gGhost, gGhostMat, gGround, gAim = null, gAimNdc = null;
+let gPiece = 'brick1x2', gRot = 0, gCat = 'Vehicles';
+const gOrbit = { yaw: Math.PI + 0.7, pitch: 0.5, dist: 16 }, gUndo = [], gRay = new THREE.Raycaster();
+function wsBounds() { const W = ws.base.W, D = ws.base.D; return [-W / 2 - 3, W / 2 + 3, -D / 2 - 3, D / 2 + 3]; }
+function wsCanPlace(p, x, y, z, r) {
+  const [w, d] = dims(p, r), [x0, x1, z0, z1] = wsBounds();
+  if (y < 0 || y + p.H > 60 || x < x0 || x + w > x1 || z < z0 || z + d > z1) return false;
+  return cellsOf(p, x, y, z, r).every(([a, b, c]) => !ws.occ.has(key(a, b, c)));
+}
+function wsConnected(p, x, y, z, r) {
+  return cellsOf(p, x, y, z, r).some(([a, b, c]) => ws.occ.has(key(a, b + 1, c)) || ws.occ.has(key(a, b - 1, c)));
+}
+function brickObject(p, c, r) {
+  const g = new THREE.Group(), col = COLORS[c];
+  for (const part of p.built) {
+    const mode = part.fixed ? (part.mat || 'o') : part.mat === 'b' ? 'b' : (col.t ? 't' : (part.mat || 'o'));
+    const m = new THREE.Mesh(part.geo, carMat(part.fixed || col.h, mode)); m.castShadow = mode !== 't'; m.receiveShadow = true; g.add(m);
+  }
+  g.rotation.y = r * Math.PI / 2;
+  return g;
+}
+function wsAdd(p, c, x, y, z, r) {
+  if (!wsCanPlace(p, x, y, z, r)) return null;
+  const [w, d] = dims(p, r), rec = { p, c, x, y, z, r, cells: [], obj: brickObject(p, c, r) };
+  rec.obj.position.set(x + w / 2, y * P, z + d / 2); rec.obj.traverse(o => { if (o.isMesh) o.userData.rec = rec; });
+  for (const [a, b, cc, m] of cellsOf(p, x, y, z, r)) { const k = key(a, b, cc); ws.occ.set(k, rec); rec.cells.push(k); }
+  ws.recs.add(rec); gRoot.add(rec.obj);
+  return rec;
+}
+function wsRemove(rec) { for (const k of rec.cells) ws.occ.delete(k); ws.recs.delete(rec); gRoot.remove(rec.obj); }
+const recData = (rec) => [rec.p.id, COLORS[rec.c].n, rec.x, rec.y, rec.z, rec.r];
+function wsFind(d) { for (const rec of ws.recs) if (rec.p.id === d[0] && rec.x === d[2] && rec.y === d[3] && rec.z === d[4] && rec.r === d[5]) return rec; return null; }
+function wsLoad(design, keepId) {
+  ensureGarage();
+  if (ws) for (const rec of [...ws.recs]) wsRemove(rec);
+  const bp = PIECE_BY_ID[design.base] || PIECE_BY_ID.carbase4x8;
+  ws = { base: bp, id: keepId ? design.id : null, name: design.name || 'My car', recs: new Set(), occ: new Map() };
+  const list = design.b || [], baseEntry = list.find(e => PIECE_BY_ID[e[0]]?.car);
+  wsAdd(bp, Math.max(0, cid(baseEntry ? baseEntry[1] : 'Dark Grey')), -bp.W / 2, 0, -bp.D / 2, 0);
+  for (const e of list) {
+    const p = PIECE_BY_ID[e[0]]; if (!p || p.car) continue;
+    wsAdd(p, Math.max(0, cid(e[1])), e[2], e[3], e[4], (e[5] | 0) & 3);
+  }
+  gUndo.length = 0; gOrbit.dist = 9 + Math.max(bp.W, bp.D) * 0.9; gAim = null;
+  $('gName').value = ws.name; gRefreshLists();
+}
+function wsDesign() {
+  return { id: ws.id, name: ($('gName').value || '').trim().slice(0, 40) || 'My car', base: ws.base.id,
+           b: [...ws.recs].sort((a, b) => (b.p.car ? 1 : 0) - (a.p.car ? 1 : 0) || a.y - b.y).map(recData) };
+}
+
+// ---- 3D view
+function ensureGarage() {
+  if (gR) return;
+  const cv = $('gCanvas');
+  gR = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+  gR.setPixelRatio(Math.min(devicePixelRatio, touchMode ? 1.5 : 2)); gR.shadowMap.enabled = true; gR.shadowMap.type = THREE.PCFSoftShadowMap;
+  gScene = new THREE.Scene(); gScene.background = new THREE.Color('#2a3446');
+  gScene.add(new THREE.HemisphereLight(0xeaf2ff, 0x3a4256, 1.25));
+  const dl = new THREE.DirectionalLight(0xffffff, 2.2); dl.position.set(8, 16, 10); dl.castShadow = true; dl.shadow.mapSize.set(1024, 1024);
+  Object.assign(dl.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 60 }); dl.shadow.bias = -0.0005; gScene.add(dl);
+  const floorTex = studTexture('#8a93a6', '#9ea7b9', '#737c8f'); floorTex.repeat.set(20, 20);
+  gGround = new THREE.Mesh(new THREE.CircleGeometry(10, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8 }));
+  gGround.receiveShadow = true; gGround.position.y = -0.001; gScene.add(gGround);
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(10, 10.2, 0.3, 48).translate(0, -0.16, 0), new THREE.MeshStandardMaterial({ color: '#5b6478', roughness: 0.6 }));
+  gScene.add(rim);
+  gRoot = new THREE.Group(); gScene.add(gRoot);
+  gGhostMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false });
+  gGhost = new THREE.Group(); gGhost.visible = false; gScene.add(gGhost);
+  gCam = new THREE.PerspectiveCamera(40, 1, 0.1, 200);
+
+  // Drag to turn, pinch or wheel to zoom; a tap/click aims (and a mouse click places, right-click removes).
+  const pts = new Map(); let drag = null, pinch = 0;
+  const ndcOf = (e) => { const r = cv.getBoundingClientRect(); return new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); };
+  cv.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 1) drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false, btn: e.button };
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); drag = null; }
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'mouse' && !pts.size) { gAimNdc = ndcOf(e); gAim = gTarget(gAimNdc); return; }
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) { const [a, b] = [...pts.values()], dd = Math.hypot(a.x - b.x, a.y - b.y); if (pinch) gOrbit.dist = Math.max(6, Math.min(40, gOrbit.dist * pinch / dd)); pinch = dd; return; }
+    if (!drag) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 8) drag.moved = true;
+    if (drag.moved) {
+      gOrbit.yaw -= (e.clientX - drag.x) * 0.008; gOrbit.pitch = Math.max(0.05, Math.min(1.45, gOrbit.pitch + (e.clientY - drag.y) * 0.006));
+      drag.x = e.clientX; drag.y = e.clientY;
+    }
+  });
+  const up = (e) => {
+    pts.delete(e.pointerId);
+    if (drag && !drag.moved && e.type === 'pointerup') {
+      gAimNdc = ndcOf(e); gAim = gTarget(gAimNdc);
+      if (e.pointerType === 'mouse') { if (drag.btn === 2) gRemoveAction(); else if (drag.btn === 0) gPlaceAction(); }
+    }
+    if (!pts.size) { drag = null; pinch = 0; }
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('contextmenu', (e) => e.preventDefault());
+  cv.addEventListener('wheel', (e) => { e.preventDefault(); gOrbit.dist = Math.max(6, Math.min(40, gOrbit.dist * (e.deltaY > 0 ? 1.1 : 0.9))); }, { passive: false });
+}
+function sizeGarage() {
+  const cv = $('gCanvas'), w = cv.clientWidth || 400, h = cv.clientHeight || 300;
+  gR.setSize(w, h, false); gCam.aspect = w / h; gCam.updateProjectionMatrix();
+}
+function gTarget(ndc) {
+  if (!ndc || !ws) return null;
+  gCam.updateMatrixWorld(); gRay.setFromCamera(ndc, gCam);
+  const hit = gRay.intersectObjects([gGround, ...gRoot.children], true)[0];
+  if (!hit) return null;
+  const rec = hit.object.userData.rec || null, p = PIECE_BY_ID[gPiece], [w, d] = dims(p, gRot), pt = hit.point;
+  const n = rec ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : new THREE.Vector3(0, 1, 0);
+  const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
+  let x0, y0, z0;
+  if (ay >= ax && ay >= az) {
+    x0 = Math.round(pt.x - w / 2); z0 = Math.round(pt.z - d / 2);
+    y0 = n.y > 0 ? (rec ? rec.y + rec.p.H : 0) : Math.floor((pt.y - 0.01) / P) - p.H + 1;
+  } else if (ax >= az) { x0 = n.x > 0 ? Math.round(pt.x) : Math.round(pt.x) - w; z0 = Math.round(pt.z - d / 2); y0 = rec ? rec.y : 0; }
+  else { z0 = n.z > 0 ? Math.round(pt.z) : Math.round(pt.z) - d; x0 = Math.round(pt.x - w / 2); y0 = rec ? rec.y : 0; }
+  const ok = (x, y, z) => wsCanPlace(p, x, y, z, gRot) && wsConnected(p, x, y, z, gRot);
+  let valid = !p.car && ok(x0, y0, z0);
+  if (!valid && !p.car && ay >= ax && ay >= az && (w > 1 || d > 1)) {
+    const cx = Math.floor(pt.x), cz = Math.floor(pt.z), opts = [];
+    for (let x = cx - w + 1; x <= cx; x++) for (let z = cz - d + 1; z <= cz; z++) opts.push([Math.hypot(x - x0, z - z0), x, z]);
+    opts.sort((a, b) => a[0] - b[0]);
+    for (const [, x, z] of opts) if (ok(x, y0, z)) { x0 = x; z0 = z; valid = true; break; }
+  }
+  return { rec, x0, y0, z0, valid, p };
+}
+function renderGarage(dt) {
+  if (!gR) return;
+  const t = gOrbit, cy = ws ? 1.2 + Math.min(4, ws.recs.size * 0.02) : 1.5;
+  gCam.position.set(Math.sin(t.yaw) * Math.cos(t.pitch) * t.dist, cy + Math.sin(t.pitch) * t.dist, Math.cos(t.yaw) * Math.cos(t.pitch) * t.dist);
+  gCam.lookAt(0, cy, 0);
+  if (gAimNdc && !gAim) gAim = gTarget(gAimNdc);
+  if (gAim && !gAim.p.car) {
+    if (gGhost.userData.p !== gAim.p) { gGhost.clear(); for (const part of gAim.p.built) gGhost.add(new THREE.Mesh(part.geo, gGhostMat)); gGhost.userData.p = gAim.p; }
+    const [w, d] = dims(gAim.p, gRot);
+    gGhost.visible = true; gGhost.position.set(gAim.x0 + w / 2, gAim.y0 * P + 0.003, gAim.z0 + d / 2); gGhost.rotation.y = gRot * Math.PI / 2;
+    gGhostMat.color.set(gAim.valid ? COLORS[colorIdx].h : '#ff3b30'); gGhostMat.opacity = gAim.valid ? 0.5 + 0.1 * Math.sin(performance.now() / 180) : 0.35;
+  } else gGhost.visible = false;
+  gR.render(gScene, gCam);
+}
+function gReaim() { gAim = gAimNdc ? gTarget(gAimNdc) : null; }
+function gPlaceAction() {
+  if (!gAim) { toast(touchMode ? 'Tap the car to aim first' : 'Point at the car first'); return; }
+  if (gAim.p.car) { toast('Car bases start a new car. Use "New 4×8 / 6×12" below'); return; }
+  if (!gAim.valid) { sfx('bad'); return; }
+  const rec = wsAdd(gAim.p, colorIdx, gAim.x0, gAim.y0, gAim.z0, gRot);
+  if (rec) { gUndo.push({ t: 'add', d: recData(rec) }); brickSound('place', rec.p); navigator.vibrate?.(12); }
+  gReaim();
+}
+function gRemoveAction() {
+  const rec = gAim && gAim.rec;
+  if (!rec) return;
+  if (rec.p.car) { toast("The car base can't be removed"); sfx('bad'); return; }
+  gUndo.push({ t: 'remove', d: recData(rec) }); wsRemove(rec); brickSound('remove', rec.p); gReaim();
+}
+function gUndoAction() {
+  const op = gUndo.pop(); if (!op) return toast('Nothing to undo');
+  const p = PIECE_BY_ID[op.d[0]];
+  if (op.t === 'add') { const rec = wsFind(op.d); if (rec) wsRemove(rec); brickSound('remove', p); }
+  else { wsAdd(p, Math.max(0, cid(op.d[1])), op.d[2], op.d[3], op.d[4], op.d[5]); brickSound('place', p); }
+  gReaim();
+}
+
+// ---- panel UI
+function gRefreshParts() {
+  const cats = [...new Set(PIECES.map(p => p.cat))];
+  $('gCat').innerHTML = cats.map(c => `<option${c === gCat ? ' selected' : ''}>${c}</option>`).join('');
+  $('gParts').innerHTML = PIECES.filter(p => p.cat === gCat).map(p =>
+    `<div class="piece${p.id === gPiece ? ' sel' : ''}" data-gp="${p.id}" title="${p.name}"><img src="${thumbs[p.id]}" alt="">${p.name}</div>`).join('');
+  $('gColors').innerHTML = COLORS.map((c, i) => `<div class="color${c.t ? ' glass' : ''}${i === colorIdx ? ' sel' : ''}" data-gc="${i}" title="${c.n}" style="background-color:${c.h}"></div>`).join('');
+}
+function gRefreshLists() {
+  const mine = loadMyCars();
+  $('gMine').innerHTML = mine.length ? mine.map((d, i) =>
+    `<div class="gRow"><span>🚗 ${escapeHtml(d.name)} <small>${PIECE_BY_ID[d.base]?.name.replace('Car base ', '') || ''}</small></span><button data-gload="${i}">Load</button><button data-gdel="${i}" class="danger">🗑</button></div>`).join('')
+    : '<p style="font-size:13px">No saved cars yet. Build one and press 💾 Save.</p>';
+  const all = mixSources();
+  const opts = all.map((s, i) => `<option value="${i}">${escapeHtml(s.name)} (${PIECE_BY_ID[s.base]?.name.replace('Car base ', '')})</option>`).join('');
+  for (const id of ['gMixF', 'gMixM', 'gMixB']) { const sel = $(id), v = sel.value; sel.innerHTML = opts; if (v && +v < all.length) sel.value = v; }
+  $('gNearby').classList.toggle('hidden', !nearestCar());
+}
+const escapeHtml = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function mixSources() { return [...STARTERS.map(starterDesign), ...loadMyCars()]; }
+// Mix & match: front third from one car, middle from another, back from a third (same base size).
+function mixDesign(fi, mi, bi) {
+  const src = mixSources(), F = src[fi], Mi = src[mi], B = src[bi];
+  if (!F || !Mi || !B) return null;
+  if (F.base !== Mi.base || B.base !== Mi.base) { toast('Mix cars with the same base size'); sfx('bad'); return null; }
+  const D = PIECE_BY_ID[Mi.base].D, zoneOf = (e) => { const p = PIECE_BY_ID[e[0]]; if (!p) return -1; const [, d] = dims(p, e[5] & 3), cz = e[4] + d / 2; return cz < -D / 6 ? 0 : cz > D / 6 ? 2 : 1; };
+  const b = [Mi.b.find(e => PIECE_BY_ID[e[0]]?.car)];
+  [[F, 0], [Mi, 1], [B, 2]].forEach(([s, zone]) => s.b.forEach(e => { if (!PIECE_BY_ID[e[0]]?.car && zoneOf(e) === zone) b.push(e); }));
+  return { name: `${F.name.split(' ')[0]}-${Mi.name.split(' ')[0]}-${B.name.split(' ')[0]} mix`, base: Mi.base, b };
+}
+// Copy a car parked next to the player into the workshop.
+function designFromWorldCar(base) {
+  const S = collectCar(base); if (!S) return null;
+  const r0 = base.r, c = COS[r0], s = SIN[r0], [bw, bd] = dims(base.p, r0), bcx = base.x + bw / 2, bcz = base.z + bd / 2;
+  const b = [];
+  for (const br of S) {
+    const [w, d] = dims(br.p, br.r), rx = br.x + w / 2 - bcx, rz = br.z + d / 2 - bcz, lx = rx * c - rz * s, lz = rx * s + rz * c, lr = (br.r - r0 + 4) % 4;
+    const [lw, ld] = dims(br.p, lr);
+    b.push([br.p.id, COLORS[br.c].n, Math.round(lx - lw / 2), br.y - base.y, Math.round(lz - ld / 2), lr]);
+  }
+  return { name: 'Copied car', base: base.p.id, b };
+}
+// Drive it: build the design in the world just in front of the player, then jump in.
+function designItems(d) {
+  return d.b.map(e => { const p = PIECE_BY_ID[e[0]]; if (!p) return null; const r = e[5] & 3, [w, dd] = dims(p, r);
+    return { p, c: Math.max(0, cid(e[1])), lx: e[2] + w / 2, lz: e[4] + dd / 2, ly: e[3], lr: r }; }).filter(Boolean);
+}
+function spawnDesign(d) {
+  const items = designItems(d), baseP = PIECE_BY_ID[d.base];
+  const r = ((Math.round(player.yaw / (Math.PI / 2)) % 4) + 4) % 4, yaw = r * Math.PI / 2;
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  for (const dist of [baseP.D / 2 + 2.5, baseP.D / 2 + 6, baseP.D / 2 + 10, baseP.D / 2 + 15]) for (const side of [0, 5, -5, 10, -10]) {
+    const cx = player.x + fx * dist + rx * side, cz = player.z + fz * dist + rz * side;
+    if (Math.abs(cx) > WORLD - baseP.D || Math.abs(cz) > WORLD - baseP.D) continue;
+    const by = Math.round(topSolidAt(cx, cz, player.y + 1.2) / P);
+    const plan = fitItems(items, baseP, cx, cz, by, r);
+    if (!plan) continue;
+    let base = null;
+    for (const e of plan) { const b = addBrick(PIECES[e[0]], e[1], e[2], e[3], e[4], e[5], false); if (b && b.p.car) base = b; }
+    saveSoon();
+    if (base) enterCar(base);
+    return true;
+  }
+  toast('No room here for this car. Try a more open spot'); sfx('bad');
+  return false;
+}
+$('gCat').onchange = () => { gCat = $('gCat').value; gRefreshParts(); };
+$('garage').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-gp],[data-gc],[data-gload],[data-gdel],[data-gstart],[data-gnew]');
+  if (!t) return;
+  if (t.dataset.gp) { gPiece = t.dataset.gp; gRot = 0; gGhost.userData.p = null; gReaim(); gRefreshParts(); }
+  else if (t.dataset.gc) { colorIdx = +t.dataset.gc; refreshUI(true); gRefreshParts(); }
+  else if (t.dataset.gload) { const d = loadMyCars()[+t.dataset.gload]; if (d) { wsLoad(d, true); toast(`Loaded ${d.name}`); } }
+  else if (t.dataset.gdel) {
+    const list = loadMyCars(), d = list[+t.dataset.gdel];
+    if (d && confirm(`Delete "${d.name}"?`)) { list.splice(+t.dataset.gdel, 1); saveMyCars(list); if (ws.id === d.id) ws.id = null; gRefreshLists(); }
+  }
+  else if (t.dataset.gstart) { wsLoad(starterDesign(STARTERS[+t.dataset.gstart])); }
+  else if (t.dataset.gnew) { wsLoad({ name: 'My car', base: t.dataset.gnew, b: [] }); }
+});
+$('gNearby').onclick = () => { const b = nearestCar(), d = b && designFromWorldCar(b); if (d) { wsLoad(d); toast('Copied the car next to you'); } };
+$('gMixBtn').onclick = () => { const d = mixDesign(+$('gMixF').value, +$('gMixM').value, +$('gMixB').value); if (d) { wsLoad(d); toast('Mixed! Tweak it, then save or drive'); } };
+$('gSave').onclick = () => {
+  const d = wsDesign(), list = loadMyCars();
+  if (!d.id) d.id = 'car' + Date.now().toString(36);
+  const i = list.findIndex(x => x.id === d.id);
+  if (i >= 0) list[i] = d; else list.unshift(d);
+  saveMyCars(list); ws.id = d.id; ws.name = d.name; gRefreshLists(); toast(`Saved "${d.name}"`); sfx('click');
+};
+$('gDrive').onclick = () => {
+  const d = wsDesign();
+  if (!d.b.some(e => e[0] === 'seat')) toast('Tip: add a Driver seat so your figure sits properly');
+  closeGarage(true);
+  if (spawnDesign(d)) play(); else if (!gReturn) menu.classList.remove('hidden'); else play();
+};
+$('gClose').onclick = () => closeGarage(false);
+tapBtn('gPlaceBtn', gPlaceAction); tapBtn('gRemoveBtn', gRemoveAction); tapBtn('gUndoBtn', gUndoAction);
+tapBtn('gRotBtn', () => { gRot = (gRot + 1) % 4; gReaim(); });
+function openGarage(fromGame) {
+  if (car) { toast('Get out of the car first'); return; }
+  initAudio();
+  gOpen = true; gReturn = fromGame; touchPlaying = false; invOpen = false; resetTouchInput(); stopRepeat(); setHud();
+  menu.classList.add('hidden'); inv.classList.add('hidden'); $('garage').classList.remove('hidden');
+  if (locked) document.exitPointerLock();
+  ensureGarage();
+  if (!ws) wsLoad(starterDesign(STARTERS[0]));
+  gRefreshParts(); gRefreshLists();
+  requestAnimationFrame(sizeGarage);
+}
+function closeGarage(silent) {
+  gOpen = false; $('garage').classList.add('hidden');
+  if (silent) return;
+  if (gReturn) play(); else menu.classList.remove('hidden');
+}
+$('garageBtn').onclick = () => openGarage(false);
+tapBtn('tbGarage', () => openGarage(true));
+addEventListener('resize', () => { if (gOpen) sizeGarage(); });
+
 // ---------------------------------------------------------------- sound
 let actx = null;
 let master = null, noiseBuf = null;
@@ -2040,6 +2443,7 @@ const clock = new THREE.Clock();
 let infoT = 0;
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
+  if (gOpen) { renderGarage(dt); requestAnimationFrame(frame); return; }
   if (isActive()) { if (car) updateCar(dt); else updatePlayer(dt); } else { if (car) engineUpdate(0, 0, true); placeCamera(); }
   updateCarPrompt();
   updateFigure(dt);
@@ -2056,7 +2460,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
