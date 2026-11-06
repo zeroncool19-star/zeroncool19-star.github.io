@@ -215,7 +215,9 @@
       <div>↻ Rotate · ↶ Undo · 🧱 All bricks &amp; colours</div>
       <div>Tap the hotbar at the top to switch bricks</div>
       <div>👁 Switch first / third person · 🧍 Edit character · 🚘 Garage</div>
-      <div>🚗 Walk up to a car and tap <b>Drive</b>. Joystick steers, 🛑 brakes</div>
+      <div>🚗🚤 Walk up to a car or boat and tap <b>Drive</b>. Joystick steers, 🛑 brakes</div>
+      <div>🧱 / ⛏ / 🪓 Tool button: build, dig or chop, then hold the green action button</div>
+      <div>🏊 In water, hold ⬆ to swim up</div>
     </div>
     <div class="keys deskOnly">
       <div><kbd>W A S D</kbd>Move</div>
@@ -234,7 +236,8 @@
       <div><kbd>C</kbd> / <kbd>V</kbd>Previous / next colour</div>
       <div><kbd>Z</kbd> / <kbd>Y</kbd>Undo / redo</div>
       <div><kbd>T</kbd>Day / night</div>
-      <div><kbd>Q</kbd>Get in / out of a car</div>
+      <div><kbd>N</kbd>Tool: 🧱 build · ⛏ dig · 🪓 chop</div>
+      <div><kbd>Q</kbd>Get in / out of a car or boat</div>
       <div><kbd>W A S D</kbd> in a car: drive · <kbd>Space</kbd> brake · <kbd>H</kbd> horn</div>
       <div><kbd>P</kbd>First / third person view</div>
       <div><kbd>K</kbd>Edit your character</div>
@@ -258,6 +261,7 @@
     <button class="tb big" id="tbJump" title="Jump">⬆</button>
   </div>
   <div id="ttop">
+    <button class="tb" id="tbTool" title="Tool: build / mine / chop">🧱</button>
     <button class="tb" id="tbPause" title="Pause">⏸</button>
     <button class="tb" id="tbInv" title="Bricks">🧱</button>
     <button class="tb" id="tbView" title="Camera view">👁</button>
@@ -312,7 +316,9 @@
       <h2>Start from</h2>
       <div class="btns" style="margin-top:0">
         <button data-gstart="0">🏎 Red Racer</button><button data-gstart="1">🏖 Beach Buggy</button><button data-gstart="2">🛻 Pickup Truck</button>
-        <button data-gnew="carbase4x8">➕ New 4×8</button><button data-gnew="carbase6x12">➕ New 6×12</button>
+        <button data-gstart="3">🚤 Speedboat</button><button data-gstart="4">🎣 Fishing Boat</button>
+        <button data-gnew="carbase4x8">➕ New car 4×8</button><button data-gnew="carbase6x12">➕ New car 6×12</button>
+        <button data-gnew="boathull4x8">➕ New boat 4×8</button><button data-gnew="boathull6x12">➕ New boat 6×12</button>
         <button id="gNearby" class="hidden">📋 Copy car next to me</button>
       </div>
       <h2>My cars</h2>
@@ -730,8 +736,36 @@ def({ id: 'turbo2x2', name: 'Turbo 2×2', cat: 'Engine', eng: 'turbo', W: 2, D: 
     ];
   } });
 
+// Boats: a hull with a pointed bow; built and driven like a car, but only on water.
+function hullHalf(W, D, z) { const bow = -D / 2 + 2.5; return z >= bow ? W / 2 : (W / 2) * Math.max(0, (z + D / 2) / 2.5); }
+function boatHullDef(id, name, W, D) {
+  def({ id, name, cat: 'Vehicles', W, D, H: 3, car: true, boat: true,
+    parts: () => {
+      const outline = (sc) => { const sh = new THREE.Shape(), b = D / 2 - 2.5; sh.moveTo(-W / 2 * sc, -D / 2 * sc); sh.lineTo(W / 2 * sc, -D / 2 * sc); sh.lineTo(W / 2 * sc, b); sh.lineTo(0, D / 2 * sc); sh.lineTo(-W / 2 * sc, b); sh.lineTo(-W / 2 * sc, -D / 2 * sc); return sh; };
+      const hull = new THREE.ExtrudeGeometry(outline(0.99), { depth: 1.18, bevelEnabled: false }).rotateX(-Math.PI / 2);
+      const stripe = new THREE.ExtrudeGeometry(outline(1.006), { depth: 0.22, bevelEnabled: false }).rotateX(-Math.PI / 2).translate(0, 0.62, 0);
+      return [
+        { geo: merge([hull, ...studs(W, D, 1.2, (i, j) => Math.abs(i + 0.5 - W / 2) < hullHalf(W, D, j + 0.5 - D / 2) - 0.25)]) },
+        { geo: merge([stripe]), fixed: '#f2f2f2' },
+      ];
+    },
+    cell: (i, j, k) => Math.abs(i + 0.5 - W / 2) < hullHalf(W, D, j + 0.5 - D / 2) ? 1 : 0 });
+}
+boatHullDef('boathull4x8', 'Boat hull 4×8', 4, 8);
+boatHullDef('boathull6x12', 'Boat hull 6×12', 6, 12);
+def({ id: 'outboard1x2', name: 'Outboard motor', cat: 'Engine', eng: 'outboard', W: 2, D: 1, H: 6,
+  parts: () => {
+    const blades = [new THREE.CylinderGeometry(0.09, 0.09, 0.2, 10).rotateX(Math.PI / 2)];
+    for (let k = 0; k < 3; k++) blades.push(new THREE.BoxGeometry(0.16, 0.42, 0.04).rotateY(0.5).translate(0, 0.24, 0).rotateZ(k * Math.PI * 2 / 3));
+    return [
+      { geo: merge([body(2, 1, 0.3), new RoundedBoxGeometry(1.0, 1.0, 0.95, 2, 0.18).translate(0, 0.85, 0.35)]) },
+      { geo: merge([new THREE.BoxGeometry(0.16, 2.4, 0.22).translate(0, -0.6, 0.7), new THREE.CylinderGeometry(0.13, 0.13, 0.5, 10).rotateX(Math.PI / 2).translate(0, -1.75, 0.8)]), fixed: DARKM },
+      animPart(merge(blades), [0, -1.75, 1.1], 'spinZ', { fixed: CHROME, fast: true }),
+    ];
+  } });
+
 // Pieces without studs on top: nothing can click onto them. Slopes only have studs on their back row.
-const SMOOTH_TOP = /^(tile|roundtile|quarter|wedge|curve|ridge|stairs|dome|panel|fence|railing|door1x2|seat|steering|chair|wheel|flag|sign|lamp|flower|bush|grass|mushroom|tree|rock|cactus|exhaust|piston|gear|crank|lever|turbo|vblock)/;
+const SMOOTH_TOP = /^(outboard|tile|roundtile|quarter|wedge|curve|ridge|stairs|dome|panel|fence|railing|door1x2|seat|steering|chair|wheel|flag|sign|lamp|flower|bush|grass|mushroom|tree|rock|cactus|exhaust|piston|gear|crank|lever|turbo|vblock)/;
 for (const p of PIECES) {
   if (SMOOTH_TOP.test(p.id)) p.smooth = true;
   if (/^slope/.test(p.id)) p.studTop = (i, j) => j === 0;
@@ -783,7 +817,7 @@ function studTexture(base, light, dark) {
 }
 // Ground is drawn per 64x64 chunk (see the chunk section), tinted by biome.
 const CHUNK = 64;
-const BIOMES = { grass: '#5cb244', forest: '#3f9a36', desert: '#e3c27e', snow: '#f4f8fb', lake: '#4aa3e6' };
+const BIOMES = { grass: '#5cb244', forest: '#3f9a36', desert: '#e3c27e', snow: '#f4f8fb', lake: '#e6d59a' };
 const BIOME_NAMES = { grass: '🌿 Grassland', forest: '🌲 Forest', desert: '🏜 Desert', snow: '❄️ Snowfield', lake: '💧 Lake', village: '🏡 Home village' };
 const groundTex = studTexture('#d9d9d9', '#f2f2f2', '#b8b8b8'); groundTex.repeat.set(CHUNK, CHUNK);
 const groundGeo = new THREE.PlaneGeometry(CHUNK, CHUNK).rotateX(-Math.PI / 2);
@@ -886,18 +920,19 @@ function cellsOf(p, x0, y0, z0, r) {
 }
 // A brick resting on other bricks must sit on at least one stud (or hang under something / rest on the ground).
 // Bricks with nothing below them are still allowed, so free-form floating builds keep working.
-function supportedBy(cells, isBelow, studBelow, isAbove) {
+const worldGround = (x, y, z) => y < 0 && !cellOpen(x, y, z);
+function supportedBy(cells, isBelow, studBelow, isAbove, groundAt = worldGround) {
   let below = false;
   for (const [x, y, z] of cells) {
-    if (y === 0) return true;
+    if (groundAt(x, y - 1, z)) return true;
     if (isBelow(x, y - 1, z)) { below = true; if (studBelow(x, y - 1, z)) return true; }
     if (isAbove(x, y + 1, z)) return true;
   }
   return !below;
 }
 // Strict version used when aiming at the top of a smooth piece: the new brick needs a real stud (or ground) under it.
-function studSupported(cells, studBelow, isAbove) {
-  return cells.some(([x, y, z]) => y === 0 || studBelow(x, y - 1, z) || isAbove(x, y + 1, z));
+function studSupported(cells, studBelow, isAbove, groundAt = worldGround) {
+  return cells.some(([x, y, z]) => groundAt(x, y - 1, z) || studBelow(x, y - 1, z) || isAbove(x, y + 1, z));
 }
 function supported(p, x0, y0, z0, r) {
   const cells = cellsOf(p, x0, y0, z0, r);
@@ -905,8 +940,8 @@ function supported(p, x0, y0, z0, r) {
 }
 function canPlace(p, x0, y0, z0, r) {
   const [w, d] = dims(p, r);
-  if (y0 < 0 || y0 + p.H > MAXY || x0 < -WORLD || z0 < -WORLD || x0 + w > WORLD || z0 + d > WORLD) return false;
-  for (const [x, y, z] of cellsOf(p, x0, y0, z0, r)) if (occ.has(key(x, y, z))) return false;
+  if (y0 < -DEPTH * BLKH || y0 + p.H > MAXY || x0 < -WORLD || z0 < -WORLD || x0 + w > WORLD || z0 + d > WORLD) return false;
+  for (const [x, y, z] of cellsOf(p, x0, y0, z0, r)) if (occ.has(key(x, y, z)) || (y < 0 && !cellOpen(x, y, z))) return false;
   return true;
 }
 function addBrick(p, c, x, y, z, r, check = true) {
@@ -943,7 +978,8 @@ function findBrick(d) {
 }
 function clearWorld() {
   dropCar();
-  resetChunks(); removedGen = new Set();
+  resetChunks(); removedGen = new Set(); dug.clear(); dugByChunk.clear();
+  res = { wood: 0, coal: 0, copper: 0, gold: 0, crystal: 0 };
   for (const b of batches.values()) { scene.remove(b.mesh); b.mesh.dispose(); }
   batches.clear(); occ.clear(); bricks.clear(); pickDirty = true;
   undoStack.length = 0; redoStack.length = 0;
@@ -1069,7 +1105,7 @@ function generateWorld(seed = 1234) {
 // ---------------------------------------------------------------- endless land: chunks, biomes, roads
 let worldSeed = 1234, emptyWorld = false;
 const CH_N = WORLD / CHUNK, LOAD_R = touchMode ? 3 : 4;
-scene.fog.near = (LOAD_R + 0.5) * CHUNK * 0.45; scene.fog.far = (LOAD_R + 0.5) * CHUNK;
+const FOG_FAR = (LOAD_R + 0.5) * CHUNK, FOG_NEAR = FOG_FAR * 0.45; scene.fog.near = FOG_NEAR; scene.fog.far = FOG_FAR;
 const chunks = new Map();
 let chunkQueue = [], lastPC = null;
 function hash2(x, z, sd) {
@@ -1118,9 +1154,9 @@ function flowerPatch(x, z, R) {
   const fc = ['Red', 'Yellow', 'White', 'Pink', 'Purple', 'Orange', 'Lavender'], c = fc[Math.floor(R() * fc.length)];
   for (let k = 0; k < 4; k++) put('flower', c, x + Math.floor(R() * 5) - 2, 0, z + Math.floor(R() * 5) - 2);
 }
-function placeDesign(d, x0, z0) {   // a garage design with its base corner at (x0, z0)
+function placeDesign(d, x0, z0, yOff = 0) {   // a garage design with its base corner at (x0, z0)
   const bp = PIECE_BY_ID[d.base];
-  for (const e of d.b) put(e[0], e[1], x0 + bp.W / 2 + e[2], e[3], z0 + bp.D / 2 + e[4], e[5]);
+  for (const e of d.b) put(e[0], e[1], x0 + bp.W / 2 + e[2], e[3] + yOff, z0 + bp.D / 2 + e[4], e[5]);
 }
 function genChunk(cx, cz) {
   const list = [];
@@ -1139,7 +1175,8 @@ function genChunk(cx, cz) {
     const spot = (rad) => {
       for (let t = 0; t < 12; t++) {
         const x = x0 + 2 + rad + Math.floor(R() * (CHUNK - 4 - rad * 2)), z = z0 + 2 + rad + Math.floor(R() * (CHUNK - 4 - rad * 2));
-        if (!near(z, roadsZ, rad + 3) && !near(x, roadsX, rad + 3)) return [x, z];
+        const dry = !waterAt(Math.floor(x / BLK), Math.floor(z / BLK)) && !waterAt(Math.floor((x - rad) / BLK), Math.floor((z - rad) / BLK)) && !waterAt(Math.floor((x + rad) / BLK), Math.floor((z + rad) / BLK));
+        if (dry && !near(z, roadsZ, rad + 3) && !near(x, roadsX, rad + 3)) return [x, z];
       }
       return null;
     };
@@ -1168,6 +1205,14 @@ function genChunk(cx, cz) {
       many(5, 1, (x, z) => { put('cactus', 'Green', x, 0, z); if (R() < 0.4) put('cactus', 'Dark Green', x + 2, 0, z + 1); });
       many(2, 3, (x, z) => rockPile(x, z, R, 'Brown', 'Tan'));
       many(2, 1, (x, z) => put('grass', 'Tan', x, 0, z));
+    } else if (biome === 'lake') {
+      if (R() < 0.3) {
+        const bx = x0 + 16 + Math.floor(R() * 32), bz = z0 + 12 + Math.floor(R() * 36), st = STARTERS.filter(d => PIECE_BY_ID[d.base].boat);
+        const d = starterDesign(st[Math.floor(R() * st.length)]), bp = PIECE_BY_ID[d.base];
+        let wetAll = true;
+        for (let i = 0; i <= bp.W && wetAll; i += 2) for (let j = 0; j <= bp.D; j += 2) if (!waterAt(Math.floor((bx + i) / BLK), Math.floor((bz + j) / BLK))) { wetAll = false; break; }
+        if (wetAll) placeDesign(d, bx, bz, -2);
+      }
     } else if (biome === 'snow') {
       many(5, 3, (x, z) => pineTree(x, z, true));
       if (R() < 0.6) many(1, 3, (x, z) => rockPile(x, z, R, 'Light Grey', 'White'));
@@ -1179,12 +1224,22 @@ function loadChunk(cx, cz) {
   const k = cx + ',' + cz;
   if (chunks.has(k)) return;
   const g = new THREE.Mesh(groundGeo, groundMats[biomeAt(cx, cz)]);
-  g.position.set(cx * CHUNK + CHUNK / 2, 0, cz * CHUNK + CHUNK / 2); g.receiveShadow = true; g.userData.isGround = true;
+  g.position.set(cx * CHUNK + CHUNK / 2, 0, cz * CHUNK + CHUNK / 2); g.receiveShadow = true; g.castShadow = true; g.userData.isGround = true;
   scene.add(g);
-  chunks.set(k, { cx, cz, g, bricks: genChunk(cx, cz) }); pickDirty = true;
+  const NB = CHUNK / BLK, water = new Uint8Array(NB * NB);
+  let wet = false;
+  for (let i = 0; i < NB; i++) for (let j = 0; j < NB; j++) if (waterAt(cx * NB + i, cz * NB + j)) { water[i * NB + j] = 1; wet = true; }
+  const ch = { cx, cz, g, t: null, w: null, water, bricks: [] };
+  chunks.set(k, ch);
+  if (wet || dugByChunk.has(k)) buildChunkTerrain(ch);
+  ch.bricks = genChunk(cx, cz); pickDirty = true;
+}
+function disposeChunkMeshes(ch) {
+  scene.remove(ch.g); if (ch.g.geometry !== groundGeo) ch.g.geometry.dispose();
+  for (const m of [ch.t, ch.w]) if (m) { scene.remove(m); m.geometry.dispose(); }
 }
 function unloadChunk(k, ch) {
-  scene.remove(ch.g);
+  disposeChunkMeshes(ch);
   for (const b of ch.bricks) if (b.gen && bricks.has(b)) removeBrick(b);
   chunks.delete(k); pickDirty = true;
 }
@@ -1205,16 +1260,236 @@ function updateChunks(budget = 1) {
   while (budget-- > 0 && chunkQueue.length) { const [, cx, cz] = chunkQueue.shift(); loadChunk(cx, cz); }
 }
 function resetChunks() {
-  for (const [k, ch] of [...chunks]) { scene.remove(ch.g); chunks.delete(k); }
+  for (const [k, ch] of [...chunks]) { disposeChunkMeshes(ch); chunks.delete(k); }
   chunkQueue = []; lastPC = null; pickDirty = true;
 }
 function forgetGen(b) { if (b.gen) removedGen.add(b.gen); }
 
+// ---------------------------------------------------------------- underground: digging, ores, water
+// The ground is solid "earth blocks" (2x2 studs, 3 plates tall) down DEPTH blocks to bedrock.
+// Dug blocks are saved; lakes are 2 blocks of water with sandy beds.
+const BLK = 2, BLKH = 3, DEPTH = 40, WATER_LAYERS = 2, BLK_Y = BLKH * P;
+const dug = new Set(), dugByChunk = new Map();
+let res = { wood: 0, coal: 0, copper: 0, gold: 0, crystal: 0 };
+const bkey = (bx, by, bz) => ((by + 64) * 16384 + (bx + 8192)) * 16384 + (bz + 8192);
+const bdecode = (k) => { const bz = k % 16384 - 8192, r1 = Math.floor(k / 16384), bx = r1 % 16384 - 8192, by = Math.floor(r1 / 16384) - 64; return [bx, by, bz]; };
+const chunkOfBlock = (bx, bz) => Math.floor(bx * BLK / CHUNK) + ',' + Math.floor(bz * BLK / CHUNK);
+// Lakes use the same wetness noise as the biomes, sampled per block, so shores are smooth.
+function waterAt(bx, bz) {
+  if (emptyWorld) return false;
+  const x = bx * BLK + 1, z = bz * BLK + 1;
+  if (Math.abs(x) < 136 && Math.abs(z) < 136) return false;
+  const cx = x / CHUNK, cz = z / CHUNK;
+  return vnoise(cx / 7, cz / 7, worldSeed + 3) * 0.7 + vnoise(cx / 2.5, cz / 2.5, worldSeed + 4) * 0.3 > 0.7;
+}
+function isOpen(bx, by, bz) {
+  if (by >= 0) return true;
+  if (by < -DEPTH) return false;
+  return dug.has(bkey(bx, by, bz)) || (by >= -WATER_LAYERS && waterAt(bx, bz));
+}
+const cellOpen = (x, y, z) => isOpen(Math.floor(x / BLK), Math.floor(y / BLKH), Math.floor(z / BLK));
+const inWater = (x, y, z) => y < 0 && y > -WATER_LAYERS * BLK_Y && waterAt(Math.floor(x / BLK), Math.floor(z / BLK));
+function oreAt(bx, by, bz) {
+  if (by > -3) return null;
+  const h = hash2(bx * 7 + by * 131, bz * 13 - by * 17, worldSeed + 99), d = -by;
+  if (h < 0.035) return 'coal';
+  if (d > 6 && h < 0.055) return 'copper';
+  if (d > 14 && h < 0.066) return 'gold';
+  if (d > 24 && h < 0.074) return 'crystal';
+  return null;
+}
+const ORE_COL = { coal: '#2a2a2e', copper: '#c56a2c', gold: '#f2c230', crystal: '#7fe3ff' };
+const ORE_NAME = { coal: 'Coal', copper: 'Copper', gold: 'Gold', crystal: 'Crystal' };
+const _tc = new THREE.Color();
+function blockColor(bx, by, bz, sandy) {
+  if (by < -DEPTH) return '#26282c';
+  const o = oreAt(bx, by, bz); if (o) return ORE_COL[o];
+  if (sandy) return '#d8c08a';
+  return by >= -2 ? '#7b5534' : by >= -10 ? '#8b9097' : '#5f636b';
+}
+const terrainTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#d6d6d6'; g.fillRect(0, 0, 64, 64);
+  let sd = 3; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(0,0,0,${0.05 + rnd() * 0.12})`; g.fillRect(rnd() * 64, rnd() * 64, 2 + rnd() * 5, 2 + rnd() * 5); }
+  for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(255,255,255,${0.08 + rnd() * 0.12})`; g.fillRect(rnd() * 64, rnd() * 64, 2 + rnd() * 3, 2 + rnd() * 3); }
+  g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 2; g.strokeRect(1, 1, 62, 62);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+const terrainMat = new THREE.MeshStandardMaterial({ map: terrainTex, vertexColors: true, roughness: 0.92 });
+const waterMat = new THREE.MeshStandardMaterial({ color: '#2f8fd8', transparent: true, opacity: 0.62, roughness: 0.08, metalness: 0.1, depthWrite: false });
+const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+// Rebuild a chunk's ground surface (with holes), cave walls and water surface.
+function buildChunkTerrain(ch) {
+  const x0 = ch.cx * CHUNK, z0 = ch.cz * CHUNK, ox = x0 + CHUNK / 2, oz = z0 + CHUNK / 2, NB = CHUNK / BLK;
+  const bx0 = x0 / BLK, bz0 = z0 / BLK, water = ch.water, dset = dugByChunk.get(ch.cx + ',' + ch.cz);
+  const topOpen = (i, j) => water[i * NB + j] || (dset && dset.has(bkey(bx0 + i, -1, bz0 + j)));
+  let anyTop = false;
+  for (let i = 0; i < NB && !anyTop; i++) for (let j = 0; j < NB; j++) if (topOpen(i, j)) { anyTop = true; break; }
+  // Ground surface
+  if (ch.g.geometry !== groundGeo) ch.g.geometry.dispose();
+  if (!anyTop) ch.g.geometry = groundGeo;
+  else {
+    const pos = [], uv = [], idx = [];
+    for (let i = 0; i < NB; i++) for (let j = 0; j < NB; j++) {
+      if (topOpen(i, j)) continue;
+      const lx = i * BLK - CHUNK / 2, lz = j * BLK - CHUNK / 2, n = pos.length / 3;
+      for (const [a, b] of [[0, 0], [BLK, 0], [BLK, BLK], [0, BLK]]) { pos.push(lx + a, 0, lz + b); uv.push((i * BLK + a) / CHUNK, 1 - (j * BLK + b) / CHUNK); }
+      idx.push(n, n + 3, n + 2, n, n + 2, n + 1);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(pos.length).fill(0).map((_, k) => k % 3 === 1 ? 1 : 0), 3));
+    g.setIndex(idx); g.computeBoundingSphere(); ch.g.geometry = g;
+  }
+  // Cave walls / lake beds: faces of solid blocks that touch an open block in this chunk
+  if (ch.t) { scene.remove(ch.t); ch.t.geometry.dispose(); ch.t = null; }
+  if (ch.w) { scene.remove(ch.w); ch.w.geometry.dispose(); ch.w = null; }
+  const open = [];
+  for (let i = 0; i < NB; i++) for (let j = 0; j < NB; j++) if (water[i * NB + j]) for (let by = -1; by >= -WATER_LAYERS; by--) open.push([bx0 + i, by, bz0 + j, 1]);
+  if (dset) for (const k of dset) { const [bx, by, bz] = bdecode(k); if (!(by >= -WATER_LAYERS && water[(bx - bx0) * NB + (bz - bz0)])) open.push([bx, by, bz, 0]); }
+  if (open.length) {
+    const pos = [], nor = [], col = [], uv = [], idx = [];
+    for (const [bx, by, bz, wet] of open) {
+      for (const [dx, dy, dz] of DIRS) {
+        const nx = bx + dx, ny = by + dy, nz = bz + dz;
+        if (ny >= 0 || isOpen(nx, ny, nz)) continue;
+        _tc.set(blockColor(nx, ny, nz, wet || (ny >= -WATER_LAYERS - 1 && waterAt(nx, nz))));
+        // The face lies on the boundary, facing into the open block (normal = -dir).
+        const fx = (dx > 0 ? bx + 1 : bx) * BLK, fy = (dy > 0 ? by + 1 : by) * BLK_Y, fz = (dz > 0 ? bz + 1 : bz) * BLK;
+        let q;
+        if (dx) q = [[fx, by * BLK_Y, bz * BLK], [fx, by * BLK_Y, (bz + 1) * BLK], [fx, (by + 1) * BLK_Y, (bz + 1) * BLK], [fx, (by + 1) * BLK_Y, bz * BLK]];
+        else if (dy) q = [[bx * BLK, fy, bz * BLK], [(bx + 1) * BLK, fy, bz * BLK], [(bx + 1) * BLK, fy, (bz + 1) * BLK], [bx * BLK, fy, (bz + 1) * BLK]];
+        else q = [[bx * BLK, by * BLK_Y, fz], [(bx + 1) * BLK, by * BLK_Y, fz], [(bx + 1) * BLK, (by + 1) * BLK_Y, fz], [bx * BLK, (by + 1) * BLK_Y, fz]];
+        const n = pos.length / 3;
+        q.forEach(([x, y, z], vi) => { pos.push(x - ox, y, z - oz); nor.push(-dx, -dy, -dz); col.push(_tc.r, _tc.g, _tc.b); uv.push(vi === 1 || vi === 2 ? 1 : 0, vi >= 2 ? 1 : 0); });
+        // winding so the face points along -dir
+        const flip = dx ? dx > 0 : dy ? dy > 0 : dz < 0;
+        if (flip) idx.push(n, n + 1, n + 2, n, n + 2, n + 3); else idx.push(n, n + 2, n + 1, n, n + 3, n + 2);
+      }
+    }
+    if (idx.length) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+      g.setIndex(idx); g.computeBoundingSphere();
+      ch.t = new THREE.Mesh(g, terrainMat); ch.t.position.set(ox, 0, oz); ch.t.receiveShadow = true; ch.t.userData.isGround = true; scene.add(ch.t);
+    }
+  }
+  // Water surface
+  const wpos = [], widx = [];
+  for (let i = 0; i < NB; i++) for (let j = 0; j < NB; j++) if (water[i * NB + j]) {
+    const lx = i * BLK - CHUNK / 2, lz = j * BLK - CHUNK / 2, n = wpos.length / 3;
+    wpos.push(lx, -0.06, lz, lx + BLK, -0.06, lz, lx + BLK, -0.06, lz + BLK, lx, -0.06, lz + BLK); widx.push(n, n + 3, n + 2, n, n + 2, n + 1);
+  }
+  if (widx.length) {
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(wpos, 3)); g.setIndex(widx); g.computeVertexNormals(); g.computeBoundingSphere();
+    ch.w = new THREE.Mesh(g, waterMat); ch.w.position.set(ox, 0, oz); ch.w.renderOrder = 2; scene.add(ch.w);
+  }
+  pickDirty = true;
+}
+function rebuildBlockChunks(bx, bz) {
+  const seen = new Set();
+  for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const k = chunkOfBlock(bx + dx, bz + dz);
+    if (seen.has(k)) continue; seen.add(k);
+    const ch = chunks.get(k); if (ch) buildChunkTerrain(ch);
+  }
+}
+function addDug(k) {
+  dug.add(k); const [bx, , bz] = bdecode(k), ck = chunkOfBlock(bx, bz);
+  if (!dugByChunk.has(ck)) dugByChunk.set(ck, new Set());
+  dugByChunk.get(ck).add(k);
+}
+function digSound() {
+  if (!actx || !master) return;
+  const t = actx.currentTime, src = actx.createBufferSource(), lp = actx.createBiquadFilter(), g = actx.createGain();
+  src.buffer = noiseBuf; lp.type = 'lowpass'; lp.frequency.value = 700 + Math.random() * 300;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.5, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+  src.connect(lp).connect(g).connect(master); src.start(t, Math.random() * 0.1); src.stop(t + 0.2);
+  bodyTock(t, 180, 90, 0.18, 0.12);
+}
+function digBlock(bx, by, bz) {
+  if (by >= 0) return false;
+  if (by < -DEPTH) { toast('Bedrock is too hard to dig'); sfx('bad'); return false; }
+  if (isOpen(bx, by, bz)) return false;
+  const ore = oreAt(bx, by, bz);
+  addDug(bkey(bx, by, bz)); rebuildBlockChunks(bx, bz);
+  for (let i = 0; i < 3; i++) puff(bx * BLK + 0.5 + Math.random(), by * BLK_Y + 0.4 + Math.random() * 0.6, bz * BLK + 0.5 + Math.random());
+  digSound(); navigator.vibrate?.(15);
+  if (ore) { res[ore]++; toast(`+1 ${ORE_NAME[ore]} (${res[ore]})`); brickSound('place', null); }
+  saveSoon();
+  return true;
+}
+
+// ---------------------------------------------------------------- tools: build / mine / chop
+const TOOLS = [['build', '🧱', 'PLACE', 'Build'], ['mine', '⛏', 'MINE', 'Pickaxe: dig ground and break bricks'], ['chop', '🪓', 'CHOP', 'Axe: chop down trees']];
+let tool = 'build';
+function setTool(t) {
+  tool = t; const [, icon, label, help] = TOOLS.find(x => x[0] === t);
+  $('tbTool').textContent = icon;
+  $('tbPlace').innerHTML = (t === 'build' ? '＋' : icon) + `<small>${label}</small>`;
+  toast(t === 'build' ? '🧱 Building' : `${icon} ${help}`);
+}
+function cycleTool() { const i = TOOLS.findIndex(x => x[0] === tool); setTool(TOOLS[(i + 1) % TOOLS.length][0]); }
+// What the crosshair points at for the pickaxe/axe: an earth block or a brick.
+function toolTarget() {
+  refreshPickables();
+  raycaster.far = REACH + camDist; raycaster.setFromCamera(CENTER, camera);
+  const hit = raycaster.intersectObjects(pickables, false).find(h => h.object.userData.isGround || h.instanceId !== undefined);
+  if (!hit) return null;
+  if (hit.object.userData.isGround) {
+    const p = hit.point.clone().addScaledVector(hit.face.normal, -0.05);
+    const bx = Math.floor(p.x / BLK), by = Math.floor(p.y / BLK_Y), bz = Math.floor(p.z / BLK);
+    return by < 0 ? { block: [bx, by, bz] } : null;
+  }
+  return { brick: hit.object.userData.batch.items[hit.instanceId].b };
+}
+const TREE_PIECES = new Set(['round2x2', 'round1x1', 'brick2x2', 'bush2x2', 'plate6x6', 'plate4x4', 'plate2x2', 'cone1x1', 'cactus', 'tree2x2']);
+const TREE_COLS = new Set(['Brown', 'Dark Brown', 'Green', 'Dark Green', 'Lime', 'White'].map(cid));
+const treeish = (b) => ['cactus', 'tree2x2', 'bush2x2'].includes(b.p.id) || (TREE_PIECES.has(b.p.id) && TREE_COLS.has(b.c));
+function chopTree(start) {
+  if (!treeish(start)) { toast('🪓 The axe chops trees, bushes and cacti'); sfx('bad'); return false; }
+  const S = new Set([start]), q = [start];
+  while (q.length && S.size < 60) {
+    const b = q.pop();
+    for (const [x, y, z] of cellsOf(b.p, b.x, b.y, b.z, b.r)) for (const [dx, dy, dz] of DIRS) {
+      const o = occ.get(key(x + dx, y + dy, z + dz));
+      if (o && !S.has(o.b) && treeish(o.b)) { S.add(o.b); q.push(o.b); }
+    }
+  }
+  let n = 0;
+  for (const b of S) { if (n++ < 30) popOut(b); forgetGen(b); removeBrick(b); }
+  res.wood += S.size; toast(`🪵 +${S.size} wood (${res.wood})`);
+  if (actx && master) bodyTock(actx.currentTime, 260, 120, 0.3, 0.15);
+  brickSound('remove', start.p); navigator.vibrate?.(30);
+  saveSoon();
+  return true;
+}
+function toolAction() {
+  const t = toolTarget();
+  if (!t) return false;
+  if (tool === 'mine') {
+    if (t.block) return digBlock(...t.block);
+    removeAction({ brick: t.brick }); return true;
+  }
+  if (tool === 'chop') return t.brick ? chopTree(t.brick) : (toast('🪓 Point at a tree'), false);
+  return false;
+}
+function showToolTarget() {
+  ghost.visible = false;
+  const t = toolTarget();
+  if (!t) { hl.visible = false; return; }
+  hl.visible = true;
+  if (t.block) { const [bx, by, bz] = t.block; hl.position.set(bx * BLK + 1, by * BLK_Y + BLK_Y / 2, bz * BLK + 1); hl.scale.set(BLK + 0.04, BLK_Y + 0.04, BLK + 0.04); }
+  else { const b = t.brick, [bw, bd] = dims(b.p, b.r); hl.position.set(b.x + bw / 2, (b.y + b.p.H / 2) * P, b.z + bd / 2); hl.scale.set(bw + 0.04, b.p.H * P + 0.04, bd + 0.04); }
+}
+
+
 // ---------------------------------------------------------------- player
 const player = { x: 2.5, y: 0.4, z: 1.5, vy: 0, yaw: -0.5, pitch: 0, ground: false, fly: false };
-function solidAt(x, y, z) { if (y < 0) return true; const o = occ.get(key(x, y, z)); return !!o && o.m === 1; }
+function solidAt(x, y, z) { if (y < 0 && !cellOpen(x, y, z)) return true; const o = occ.get(key(x, y, z)); return !!o && o.m === 1; }
 function collides(px, py, pz) {
-  if (py < 0) return true;
   const x0 = Math.floor(px - PR), x1 = Math.floor(px + PR - 1e-6), z0 = Math.floor(pz - PR), z1 = Math.floor(pz + PR - 1e-6);
   const y0 = Math.floor(py / P + 1e-6), y1 = Math.floor((py + PH) / P - 1e-6);
   for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) for (let y = y0; y <= y1; y++) if (solidAt(x, y, z)) return true;
@@ -1227,7 +1502,7 @@ function playerOverlaps(cells) {
 }
 function tryHorizontal(nx, nz) {
   if (!collides(nx, player.y, nz)) { player.x = nx; player.z = nz; return; }
-  if (player.ground || player.fly) {
+  if (player.ground || player.fly || player.swim) {
     const base = Math.floor(player.y / P + 1e-6);
     for (let k = 1; k <= 3; k++) {
       const ny = (base + k) * P;
@@ -1245,11 +1520,17 @@ function updatePlayer(dt) {
   let vx = -sy * fwd + cy * str, vz = -cy * fwd - sy * str;
   const mag = Math.hypot(vx, vz), len = Math.max(1, mag);
   const sprint = keys.ShiftLeft || keys.ShiftRight || touchDown || (!player.fly && Math.hypot(joy.x, joy.y) > 0.95);
-  const speed = player.fly ? 16 : (sprint ? 12 : 7);
+  const swim = player.swim = !player.fly && inWater(player.x, player.y + 0.8, player.z);
+  const speed = player.fly ? 16 : swim ? 4.2 : (sprint ? 12 : 7);
   vx = vx / len * speed; vz = vz / len * speed;
   let vy;
   const up = keys.Space || touchJump, down = keys.ShiftLeft || keys.ShiftRight || touchDown;
   if (player.fly) { vy = ((up ? 1 : 0) - (down ? 1 : 0)) * 12; if (!fwd && !str) { vx = 0; vz = 0; } }
+  else if (swim) {   // float with the head out of the water; hold jump to swim up, sprint/down to dive
+    player.vy += ((up ? 16 : 0) - (down ? 10 : 0) + (player.y < -1.5 ? 5 : -2)) * dt - player.vy * 2 * dt;
+    player.vy = Math.max(-3, Math.min(3.5, player.vy)); vy = player.vy;
+    if (!fwd && !str) { vx = 0; vz = 0; }
+  }
   else {
     if (up && player.ground) { player.vy = JUMPV; player.ground = false; }
     player.vy = Math.max(player.vy - GRAV * dt, -50); vy = player.vy;
@@ -1298,25 +1579,30 @@ hl.visible = false; scene.add(hl);
 const raycaster = new THREE.Raycaster(); raycaster.far = REACH;
 const CENTER = new THREE.Vector2(0, 0);
 let target = null;
+function refreshPickables() {
+  if (!pickDirty) return;
+  pickables = [...[...chunks.values()].flatMap(c => c.t ? [c.g, c.t] : [c.g]), ...[...batches.values()].map(b => b.mesh)];
+  pickDirty = false;
+}
 function computeTarget(ndc = CENTER) {
-  if (pickDirty) { pickables = [...[...chunks.values()].map(c => c.g), ...[...batches.values()].map(b => b.mesh)]; pickDirty = false; }
+  refreshPickables();
   raycaster.far = REACH + camDist;
   raycaster.setFromCamera(ndc, camera);
   const hit = raycaster.intersectObjects(pickables, false).find(h => h.object.userData.isGround || h.instanceId !== undefined);
   if (!hit) return null;
   let brick = null, n;
-  if (hit.object.userData.isGround) n = new THREE.Vector3(0, 1, 0);
+  if (hit.object.userData.isGround) n = hit.face.normal.clone();
   else { brick = hit.object.userData.batch.items[hit.instanceId].b; n = hit.face.normal.clone().applyAxisAngle(Y_AXIS, brick.r * Math.PI / 2); }
   const p = currentPiece(), [w, d] = dims(p, rot), pt = hit.point;
   const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
   let x0, y0, z0;
   if (ay >= ax && ay >= az) {
     x0 = Math.round(pt.x - w / 2); z0 = Math.round(pt.z - d / 2);
-    y0 = n.y > 0 ? (brick ? brick.y + brick.p.H : 0) : Math.floor((pt.y - 0.01) / P) - p.H + 1;
+    y0 = n.y > 0 ? (brick ? brick.y + brick.p.H : Math.round(pt.y / P)) : Math.floor((pt.y - 0.01) / P) - p.H + 1;
   } else if (ax >= az) {
-    x0 = n.x > 0 ? Math.round(pt.x) : Math.round(pt.x) - w; z0 = Math.round(pt.z - d / 2); y0 = brick ? brick.y : 0;
+    x0 = n.x > 0 ? Math.round(pt.x) : Math.round(pt.x) - w; z0 = Math.round(pt.z - d / 2); y0 = brick ? brick.y : Math.floor(pt.y / BLK_Y) * BLKH;
   } else {
-    z0 = n.z > 0 ? Math.round(pt.z) : Math.round(pt.z) - d; x0 = Math.round(pt.x - w / 2); y0 = brick ? brick.y : 0;
+    z0 = n.z > 0 ? Math.round(pt.z) : Math.round(pt.z) - d; x0 = Math.round(pt.x - w / 2); y0 = brick ? brick.y : Math.floor(pt.y / BLK_Y) * BLKH;
   }
   const smoothTop = n.y > 0.3 && ay >= ax && ay >= az && brick && (brick.p.smooth || (brick.p.studTop && n.y < 0.98));
   const studOK = (x, y, z) => !smoothTop || studSupported(cellsOf(p, x, y, z, rot), (a, b, c) => !!(occ.get(key(a, b, c)) || {}).s, (a, b, c) => occ.has(key(a, b, c)));
@@ -1338,6 +1624,7 @@ function computeTarget(ndc = CENTER) {
   return { brick, x0, y0, z0, valid, piece: p, smoothBlock };
 }
 function updateTarget() {
+  if (isActive() && !car && tool !== 'build') { target = null; showToolTarget(); return; }
   target = isActive() && !car ? computeTarget() : null;
   if (!target) { ghost.visible = false; hl.visible = false; return; }
   rebuildGhost();
@@ -1439,6 +1726,12 @@ function stackAction() {
 function startRepeat() {
   stopRepeat();
   if (car) return;
+  if (tool !== 'build') {   // pickaxe / axe: act now, keep going while held
+    toolAction();
+    const tick = () => { if (!isActive()) return stopRepeat(); toolAction(); repeatTimer = setTimeout(tick, tool === 'mine' ? 230 : 450); };
+    repeatTimer = setTimeout(tick, 380);
+    return;
+  }
   if (!placeAction()) return;
   stackAxis = stackAxisNow();
   const tick = () => {
@@ -1535,7 +1828,12 @@ function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add
 function updateInfo() {
   const pcx = Math.floor(player.x / CHUNK), pcz = Math.floor(player.z / CHUNK), km = Math.hypot(player.x, player.z) * 0.00053;
   const place = BIOME_NAMES[inVillage(pcx, pcz) ? 'village' : biomeAt(pcx, pcz)] + (km >= 0.1 ? ` · ${km.toFixed(1)} km from home` : '');
-  infoEl.innerHTML = `<b>Brick Builder World</b><br>${place}<br>${car ? '🚗 Driving · speed ' + Math.round(Math.abs(car.speed) * 4) : player.fly ? '🕊 Flying' : '🚶 Walking'} · ${bricks.size} bricks<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · height ${Math.floor(player.y / P)}`;
+  const RES_ICON = { wood: '🪵', coal: '⚫', copper: '🟠', gold: '🟡', crystal: '💎' };
+  const bag = Object.entries(res).filter(([, v]) => v).map(([k, v]) => `${RES_ICON[k]} ${v}`).join(' · ');
+  const doing = car ? (car.boat ? '🚤 Boating' : '🚗 Driving') + ' · speed ' + Math.round(Math.abs(car.speed) * 4) : player.fly ? '🕊 Flying' : player.swim ? '🏊 Swimming' : '🚶 Walking';
+  const toolTxt = tool === 'mine' ? ' · ⛏ Pickaxe' : tool === 'chop' ? ' · 🪓 Axe' : '';
+  const h = Math.floor(player.y / P);
+  infoEl.innerHTML = `<b>Brick Builder World</b><br>${place}<br>${doing}${toolTxt}<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · ${h < -3 && !car && !player.swim ? '⛏ depth ' + Math.ceil(-player.y * 0.53) + ' m' : 'height ' + h}${bag ? '<br>🎒 ' + bag : ''}`;
 }
 function buildInventory() {
   ensureThumbs(colorIdx);
@@ -1633,6 +1931,7 @@ document.addEventListener('keydown', (e) => {
     case 'KeyP': toggleView(); break;
     case 'KeyK': openChar(true); break;
     case 'KeyM': openGarage(true); break;
+    case 'KeyN': cycleTool(); break;
   }
 });
 document.addEventListener('keyup', (e) => { keys[e.code] = false; });
@@ -1853,7 +2152,7 @@ function placeCamera() {
   let dist = 0;
   for (let dd = 0.25; dd <= want; dd += 0.25) {
     const x = _eye.x + _back.x * dd, y = _eye.y + _back.y * dd, z = _eye.z + _back.z * dd;
-    if (y < 0.3 || solidAt(Math.floor(x), Math.floor(y / P), Math.floor(z))) break;
+    if (solidAt(Math.floor(x), Math.floor(y / P), Math.floor(z))) break;
     dist = dd;
   }
   dist = Math.max(0, dist - 0.3);
@@ -2024,7 +2323,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) { res
 applyTouchMode();
 
 // ---------------------------------------------------------------- engines: performance, moving parts, smoke
-const ENG_NAMES = { motor: 'Motor block', vblock: 'V8 block', piston: 'Piston', gear: 'Gear', crank: 'Crankshaft', lever: 'Gear lever', exhaust: 'Exhaust', turbo: 'Turbo' };
+const ENG_NAMES = { outboard: 'Outboard motor', motor: 'Motor block', vblock: 'V8 block', piston: 'Piston', gear: 'Gear', crank: 'Crankshaft', lever: 'Gear lever', exhaust: 'Exhaust', turbo: 'Turbo' };
 // What a car's parts add up to. Without a motor or V8 a car only rolls like a pedal car.
 function carStats(pieces, n) {
   let power = 0, accM = 1, topM = 1, hand = 1, cyl = 0, turbo = 0, exhaust = 0;
@@ -2035,6 +2334,7 @@ function carStats(pieces, n) {
     switch (p.eng) {
       case 'motor': power += 1; cyl += 2; break;
       case 'vblock': power += 2.5; cyl += 8; break;
+      case 'outboard': power += 1.2; cyl += 2; break;
       case 'piston': power += 0.5; cyl += 1; break;
       case 'gear': accM += 0.15; break;
       case 'crank': accM += 0.1; break;
@@ -2105,7 +2405,7 @@ function carMat(hex, mode) {
 }
 function carBases() {
   const out = [];
-  for (const [k, bt] of batches) if (k.startsWith('carbase') && k.includes('|0|')) for (const it of bt.items) out.push(it.b);
+  for (const [k, bt] of batches) if (k.includes('|0|') && PIECE_BY_ID[k.split('|')[0]]?.car) for (const it of bt.items) out.push(it.b);
   return out;
 }
 function nearestCar() {
@@ -2177,7 +2477,7 @@ function enterCar(base) {
   car = { base: base.p, items, cols: [...cols.values()], seat: seat || { lx: 0, lz: 0, y: 1.2 }, n: S.size, group, top,
           wheels: [[-(W / 2 - 0.5), -(D / 2 - 1.5)], [W / 2 - 0.5, -(D / 2 - 1.5)], [-(W / 2 - 0.5), D / 2 - 1.5], [W / 2 - 0.5, D / 2 - 1.5], [0, 0]],
           x: bcx, z: bcz, y: base.y * P, yaw: r0 * Math.PI / 2, speed: 0, vy: 0, acc: 0, turn: 0, camDist: 7 + Math.max(W, D) * 0.45,
-          stats: carStats(items.map(it => it.p), S.size), anims, exhausts, phase: 0, smokeT: 0 };
+          stats: carStats(items.map(it => it.p), S.size), anims, exhausts, phase: 0, smokeT: 0, boat: !!base.p.boat };
   scene.add(group);
   undoStack.length = 0; redoStack.length = 0; stopRepeat();
   player.fly = false; $('tbFly').classList.remove('on'); $('tbDown').classList.add('hidden');
@@ -2186,13 +2486,14 @@ function enterCar(base) {
   engineStart(car.stats); brickSound('place', base.p);
   if (!car.stats.power) setTimeout(() => toast('No engine: this car rolls slowly. Add a Motor or V8 in the Garage'), 2200);
   toast(touchMode ? 'Joystick to drive · 🛑 to brake' : 'W/S to drive · A/D to steer · Space brakes · Q to get out');
+  if (car.boat && !boatFits(car.x, car.z, car.yaw)) setTimeout(() => toast('Boats only move on water: launch it on a lake'), 1800);
   placeCarModel(); seatPlayer();
 }
 // Where the parked car's bricks would go: snapped to studs and a quarter turn, nudged a little if something is in the way.
 function planPark() {
   if (!car) return null;
   const r = ((Math.round(car.yaw / (Math.PI / 2)) % 4) + 4) % 4;
-  return fitItems(car.items, car.base, car.x, car.z, Math.max(0, Math.round(car.y / P)), r);
+  return fitItems(car.items, car.base, car.x, car.z, Math.round(car.y / P), r);
 }
 // Lay out car bricks (in car coordinates) with the base centred near (x, z), at plate height by, facing quarter-turn r.
 function fitItems(items, baseP, x, z, by, r) {
@@ -2222,7 +2523,7 @@ function exitCar() {
     const x = car.x + lx * c + lz * s, z = car.z - lx * s + lz * c;
     if (Math.abs(x) > WORLD - 1 || Math.abs(z) > WORLD - 1) continue;
     for (let k = 0; k < 12; k++) {
-      const y = (Math.max(0, Math.round(car.y / P)) + k) * P;
+      const y = (Math.round(car.y / P) + k) * P;
       if (!collides(x, y, z)) { Object.assign(player, { x, y, z }); placed = true; break; }
     }
     if (placed) break;
@@ -2247,28 +2548,43 @@ function seatPlayer() {
   player.x = car.x + sl.lx * c + sl.lz * s; player.z = car.z - sl.lx * s + sl.lz * c; player.y = car.y + sl.y - 1.0;
 }
 function placeCarModel() {
-  car.group.position.set(car.x, car.y, car.z);
-  car.group.rotation.set(Math.max(-0.06, Math.min(0.06, -car.acc * 0.004)), car.yaw, Math.max(-0.05, Math.min(0.05, car.turn * car.speed * 0.0025)));
+  const t = performance.now() / 1000, bob = car.boat ? 1 : 0;
+  car.group.position.set(car.x, car.y + bob * Math.sin(t * 1.8) * 0.05, car.z);
+  car.group.rotation.set(Math.max(-0.06, Math.min(0.06, -car.acc * 0.004)) + bob * Math.sin(t * 1.3) * 0.02, car.yaw,
+    Math.max(-0.05, Math.min(0.05, car.turn * car.speed * 0.0025)) + bob * Math.sin(t * 1.1) * 0.025);
+}
+// Boats need water under every part of the hull and must not hit anything above the water line.
+function boatFits(x, z, yaw) {
+  const c = Math.cos(yaw), s = Math.sin(yaw), by0 = Math.round(car.y / P);
+  for (const col of car.cols) {
+    const wx = x + col.lx * c + col.lz * s, wz = z - col.lx * s + col.lz * c;
+    if (Math.abs(wx) > WORLD - 0.1 || Math.abs(wz) > WORLD - 0.1) return false;
+    if (col.lo === 0 && !waterAt(Math.floor(wx / BLK), Math.floor(wz / BLK))) return false;
+    for (let cy = by0 + col.lo; cy <= by0 + col.hi; cy++) if (solidAt(Math.floor(wx), cy, Math.floor(wz))) return false;
+  }
+  return true;
 }
 function topSolidAt(x, z, maxY) {
   const cx = Math.floor(x), cz = Math.floor(z);
-  for (let cy = Math.floor(maxY / P); cy >= 0; cy--) if (solidAt(cx, cy, cz)) return (cy + 1) * P;
-  return 0;
+  for (let cy = Math.floor(maxY / P); cy >= -DEPTH * BLKH - 1; cy--) if (solidAt(cx, cy, cz)) return (cy + 1) * P;
+  return -DEPTH * BLKH * P;
 }
 // Can the car sit at (x, z, yaw) with its wheels around height y? Returns the ground height, or -1 if the body would hit something.
 function carFits(x, z, yaw, y) {
   const c = Math.cos(yaw), s = Math.sin(yaw);
-  let g = 0;
+  let g = -Infinity;
   for (const [lx, lz] of car.wheels) {
     const wx = x + lx * c + lz * s, wz = z - lx * s + lz * c;
-    if (Math.abs(wx) > WORLD - 0.3 || Math.abs(wz) > WORLD - 0.3) return -1;
-    g = Math.max(g, topSolidAt(wx, wz, y + CAR_STEP));
+    if (Math.abs(wx) > WORLD - 0.3 || Math.abs(wz) > WORLD - 0.3) return null;
+    const tw = topSolidAt(wx, wz, y + CAR_STEP);
+    if (tw < 0 && waterAt(Math.floor(wx / BLK), Math.floor(wz / BLK))) return null;
+    g = Math.max(g, tw);
   }
   for (const col of car.cols) {
     const wx = x + col.lx * c + col.lz * s, wz = z - col.lx * s + col.lz * c;
-    if (Math.abs(wx) > WORLD - 0.1 || Math.abs(wz) > WORLD - 0.1) return -1;
+    if (Math.abs(wx) > WORLD - 0.1 || Math.abs(wz) > WORLD - 0.1) return null;
     const y0 = Math.floor((g + Math.max(col.lo * P, CAR_STEP)) / P + 1e-6), y1 = Math.floor((g + (col.hi + 1) * P) / P - 1e-6);
-    for (let cy = y0; cy <= y1; cy++) if (solidAt(Math.floor(wx), cy, Math.floor(wz))) return -1;
+    for (let cy = y0; cy <= y1; cy++) if (solidAt(Math.floor(wx), cy, Math.floor(wz))) return null;
   }
   return g;
 }
@@ -2285,20 +2601,21 @@ function updateCar(dt) {
   car.speed = Math.max(-9, Math.min(top, car.speed - car.speed * 0.15 * dt));
   car.acc += ((car.speed - v0) / Math.max(dt, 1e-3) - car.acc) * Math.min(1, dt * 6);
   car.turn = steer * Math.max(-1, Math.min(1, car.speed / 4)) * (2.1 / (1 + Math.abs(car.speed) / 22)) * car.stats.hand;
+  const fitsAt = (x, z, yw) => car.boat ? (boatFits(x, z, yw) ? car.y : null) : carFits(x, z, yw, car.y);
   const steps = Math.max(1, Math.ceil(Math.abs(car.speed * dt) / 0.25)), h = dt / steps;
   for (let i = 0; i < steps; i++) {
     const nyaw = car.yaw + car.turn * h;
-    if (carFits(car.x, car.z, nyaw, car.y) >= 0) car.yaw = nyaw;
+    if (fitsAt(car.x, car.z, nyaw) !== null) car.yaw = nyaw;
     const nx = car.x - Math.sin(car.yaw) * car.speed * h, nz = car.z - Math.cos(car.yaw) * car.speed * h;
-    const g = carFits(nx, nz, car.yaw, car.y);
-    if (g >= 0) { car.x = nx; car.z = nz; if (g > car.y) { car.y = g; car.vy = 0; } }
+    const g = fitsAt(nx, nz, car.yaw);
+    if (g !== null) { car.x = nx; car.z = nz; if (g > car.y) { car.y = g; car.vy = 0; } }
     else {
       if (Math.abs(car.speed) > 5 && performance.now() - thudT > 300) { thudT = performance.now(); sfx('bad'); navigator.vibrate?.(40); }
       car.speed *= -0.2; break;
     }
   }
-  const ground = carFits(car.x, car.z, car.yaw, car.y);
-  if (ground >= 0 && car.y > ground + 0.001) { car.vy -= GRAV * dt; car.y = Math.max(ground, car.y + car.vy * dt); if (car.y === ground) car.vy = 0; }
+  const ground = car.boat ? car.y : carFits(car.x, car.z, car.yaw, car.y);
+  if (ground !== null && car.y > ground + 0.001) { car.vy -= GRAV * dt; car.y = Math.max(ground, car.y + car.vy * dt); if (car.y === ground) car.vy = 0; }
   else car.vy = 0;
   // The camera eases back behind the car unless the player is looking around.
   if (performance.now() - lastLook > 1400) {
@@ -2323,7 +2640,8 @@ function updateCarPrompt() {
   const show = isActive() && !!(car || near);
   ui.classList.toggle('hidden', !show);
   if (!show) return;
-  const label = car ? (touchMode ? '🚪 Get out' : '🚪 Get out (Q)') : (touchMode ? '🚗 Drive' : '🚗 Drive (Q)');
+  const isBoat = car ? car.boat : near && near.p.boat;
+  const label = car ? (touchMode ? '🚪 Get out' : '🚪 Get out (Q)') : (isBoat ? '🚤 ' : '🚗 ') + (touchMode ? 'Drive' : 'Drive (Q)');
   if (btn.textContent !== label) btn.textContent = label;
   $('hornBtn').classList.toggle('hidden', !car || !touchMode);
 }
@@ -2399,6 +2717,13 @@ const STARTERS = [
     ['brick1x4', 'Clear Glass', 1, 6, 3, 1], ['plate2x6', 'White', 0, 9, 3, 1], ['plate2x6', 'White', 0, 9, 5, 1], ['tile1x6', 'White', 0, 9, 7, 1],
     ['brick1x4', 'Blue', 0, 3, 8, 0], ['brick1x4', 'Blue', 5, 3, 8, 0], ['brick1x4', 'Blue', 1, 3, 11, 1],
     ['light1x1', 'Red', 0, 6, 11, 0], ['light1x1', 'Red', 5, 6, 11, 0]] },
+  { name: 'Speedboat', base: 'boathull4x8', baseC: 'Red', b: [
+    ['tile1x2', 'White', 1, 3, 1, 1], ['brick1x4', 'Clear Glass', 0, 3, 2, 1], ['steering', 'Black', 1, 3, 3, 0], ['seat', 'White', 1, 3, 4, 0],
+    ['brick1x2', 'White', 0, 3, 4, 0], ['brick1x2', 'White', 3, 3, 4, 0], ['plate1x4', 'White', 0, 3, 6, 1], ['outboard1x2', 'Dark Grey', 1, 3, 7, 0]] },
+  { name: 'Fishing Boat', base: 'boathull6x12', baseC: 'Blue', b: [
+    ['light1x1', 'Yellow', 2, 3, 1, 0], ['brick1x4', 'White', 0, 3, 4, 0], ['brick1x4', 'White', 5, 3, 4, 0], ['brick1x4', 'White', 0, 6, 4, 0], ['brick1x4', 'White', 5, 6, 4, 0],
+    ['steering', 'Black', 2, 3, 4, 0], ['seat', 'Black', 2, 3, 5, 0], ['brick1x4', 'Clear Glass', 1, 6, 4, 1], ['plate2x6', 'Red', 0, 9, 4, 1], ['plate2x6', 'Red', 0, 9, 6, 1],
+    ['brick2x2', 'Brown', 1, 3, 9, 0], ['brick2x2', 'Brown', 3, 3, 9, 0], ['flag', 'Red', 5, 3, 10, 0], ['outboard1x2', 'Dark Grey', 1, 3, 11, 0], ['outboard1x2', 'Dark Grey', 3, 3, 11, 0]] },
 ];
 // Starter lists are relative to the base's corner; designs store bricks in centred car coordinates.
 function starterDesign(st) {
@@ -2536,8 +2861,8 @@ function gTarget(ndc) {
   else { z0 = n.z > 0 ? Math.round(pt.z) : Math.round(pt.z) - d; x0 = Math.round(pt.x - w / 2); y0 = rec ? rec.y : 0; }
   const smoothTop = n.y > 0.3 && ay >= ax && ay >= az && rec && (rec.p.smooth || (rec.p.studTop && n.y < 0.98));
   const ok = (x, y, z) => wsCanPlace(p, x, y, z, gRot) && wsConnected(p, x, y, z, gRot) &&
-    supportedBy(cellsOf(p, x, y, z, gRot), (a, b, c) => ws.occ.has(key(a, b, c)), (a, b, c) => ws.stud.has(key(a, b, c)), (a, b, c) => ws.occ.has(key(a, b, c))) &&
-    (!smoothTop || studSupported(cellsOf(p, x, y, z, gRot), (a, b, c) => ws.stud.has(key(a, b, c)), (a, b, c) => ws.occ.has(key(a, b, c))));
+    supportedBy(cellsOf(p, x, y, z, gRot), (a, b, c) => ws.occ.has(key(a, b, c)), (a, b, c) => ws.stud.has(key(a, b, c)), (a, b, c) => ws.occ.has(key(a, b, c)), (a, b) => b < 0) &&
+    (!smoothTop || studSupported(cellsOf(p, x, y, z, gRot), (a, b, c) => ws.stud.has(key(a, b, c)), (a, b, c) => ws.occ.has(key(a, b, c)), (a, b) => b < 0));
   let valid = !p.car && ok(x0, y0, z0);
   if (!valid && !p.car && ay >= ax && ay >= az && (w > 1 || d > 1)) {
     const cx = Math.floor(pt.x), cz = Math.floor(pt.z), opts = [];
@@ -2658,6 +2983,23 @@ function designItems(d) {
 function spawnDesign(d) {
   const items = designItems(d), baseP = PIECE_BY_ID[d.base];
   const r = ((Math.round(player.yaw / (Math.PI / 2)) % 4) + 4) % 4, yaw = r * Math.PI / 2;
+  if (baseP.boat) {   // launch on the nearest water that fits the whole hull
+    const [w, dd] = dims(baseP, r);
+    for (let rad = 0; rad <= 600; rad += 8) for (let a = 0; a < (rad ? 32 : 1); a++) {
+      const ang = a / 32 * Math.PI * 2, cx = player.x + Math.cos(ang) * rad, cz = player.z + Math.sin(ang) * rad;
+      let wet = true;
+      for (let i = -w / 2; i <= w / 2 && wet; i += 1) for (let j = -dd / 2; j <= dd / 2; j += 1) if (!waterAt(Math.floor((cx + i) / BLK), Math.floor((cz + j) / BLK))) { wet = false; break; }
+      if (!wet) continue;
+      const plan = fitItems(items, baseP, cx, cz, -2, r);
+      if (!plan) continue;
+      let base = null;
+      for (const e of plan) { const b = addBrick(PIECES[e[0]], e[1], e[2], e[3], e[4], e[5], false); if (b && b.p.car) base = b; }
+      saveSoon(); if (base) enterCar(base);
+      return true;
+    }
+    toast('No lake nearby. Explore until you find water, then launch your boat'); sfx('bad');
+    return false;
+  }
   const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
   for (const dist of [baseP.D / 2 + 2.5, baseP.D / 2 + 6, baseP.D / 2 + 10, baseP.D / 2 + 15]) for (const side of [0, 5, -5, 10, -10]) {
     const cx = player.x + fx * dist + rx * side, cz = player.z + fz * dist + rz * side;
@@ -2726,6 +3068,7 @@ function closeGarage(silent) {
 }
 $('garageBtn').onclick = () => openGarage(false);
 tapBtn('tbGarage', () => openGarage(true));
+tapBtn('tbTool', cycleTool);
 addEventListener('resize', () => { if (gOpen) sizeGarage(); });
 
 // ---------------------------------------------------------------- sound
@@ -2805,7 +3148,7 @@ function serialize() {
   const b = []; for (const x of bricks) if (!x.gen) b.push(...brickData(x));
   if (car) for (const d of (planPark() || car.items.map(it => it.orig))) b.push(...d);   // a car being driven saves as parked
   return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget,
-           seed: worldSeed, empty: emptyWorld ? 1 : 0, removed: [...removedGen],
+           seed: worldSeed, empty: emptyWorld ? 1 : 0, removed: [...removedGen], dug: [...dug], res,
            pl: [player.x, player.y, player.z, player.yaw, player.pitch, player.fly ? 1 : 0] };
 }
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) { console.warn('Save failed', e); } }
@@ -2828,6 +3171,8 @@ function load(data) {
   if (Array.isArray(data.pl)) { const [x, y, z, yaw, pitch, fly] = data.pl; Object.assign(player, { x, y, z, yaw, pitch, fly: !!fly, vy: 0 }); }
   worldSeed = typeof data.seed === 'number' ? data.seed : 1234; emptyWorld = !!data.empty;
   removedGen = new Set(Array.isArray(data.removed) ? data.removed : []);
+  for (const k of (Array.isArray(data.dug) ? data.dug : [])) if (typeof k === 'number') addDug(k);
+  if (data.res && typeof data.res === 'object') for (const k of Object.keys(res)) res[k] = +data.res[k] || 0;
   updateChunks(25);
 }
 $('exportBtn').onclick = () => {
@@ -2876,13 +3221,15 @@ function frame() {
   if (isActive()) { if (car) updateCar(dt); else updatePlayer(dt); } else { if (car) engineUpdate(0, 0, true); placeCamera(); }
   updateCarPrompt();
   updateChunks(chunkQueue.length > 30 ? 3 : 1);
-  sea.position.set(player.x, 0, player.z);
+  sea.position.set(player.x, 0, player.z); sea.visible = Math.max(Math.abs(player.x), Math.abs(player.z)) > WORLD - 420;
   updateFigure(dt);
   if (charOpen) renderPreview(dt);
   updateTarget();
   updateSnaps(performance.now());
   updateSmoke(dt);
   night += (nightTarget - night) * Math.min(1, dt * 2.5); applyLight();
+  if (inWater(camera.position.x, camera.position.y, camera.position.z)) { scene.fog.color.set('#1d5f8c'); scene.fog.near = 1; scene.fog.far = 30; }
+  else { scene.fog.near = FOG_NEAR; scene.fog.far = FOG_FAR; }
   sky.position.copy(camera.position);
   sun.target.position.set(player.x, 0, player.z);
   sun.position.set(player.x + 60, 110, player.z + 35);
@@ -2892,7 +3239,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
