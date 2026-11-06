@@ -121,7 +121,7 @@
   .gView { position: relative; min-height: 0; }
   #gCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
   .gPanel { background: var(--panel-solid); border-left: 1px solid var(--line); padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); overflow: auto; min-height: 0; }
-  .gHead { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .gHead { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; position: sticky; top: -14px; z-index: 3; background: var(--panel-solid); margin: -14px -16px 0; padding: 12px 16px 10px; border-bottom: 1px solid var(--line); }
   .gHead input { flex: 1 1 140px; min-width: 0; font: inherit; font-size: 15px; color: var(--text); background: rgba(255,255,255,.07); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; }
   .gTools { position: absolute; right: calc(12px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 8px; align-items: center; }
   .gTools .tb { width: 54px; height: 54px; }
@@ -155,6 +155,7 @@
   /* Inventory */
   #inv .card { width: min(980px, 100%); }
   .invHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #inv .invHead { position: sticky; top: -22px; z-index: 3; background: var(--panel-solid); margin: -22px -24px 0; padding: 14px 24px 12px; border-bottom: 1px solid var(--line); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
   .piece { padding: 4px; border-radius: 10px; border: 2px solid transparent; background: rgba(255,255,255,.05); cursor: pointer; text-align: center; font-size: 11px; color: var(--muted); }
   .piece img { width: 72px; height: 72px; display: block; margin: 0 auto; }
@@ -206,7 +207,7 @@
       <div>🕹 <b>Left joystick</b> – walk (push far to run)</div>
       <div>👆 <b>Drag the screen</b> – look around</div>
       <div>🧱 <b>Place button</b> – puts a brick where the crosshair (+) points. <b>Hold it</b> to keep building</div>
-      <div>⇪ <b>Stack</b> – when on, holding Place builds a tower on your last brick</div>
+      <div>⬆ <b>Stack direction</b> – tap to choose up, right, left or away; holding Place keeps adding bricks that way</div>
       <div>✖ <b>Remove button</b> – removes the brick at the crosshair</div>
       <div>✋ <b>Press and hold</b> a brick – copy it</div>
       <div>⬆ Jump / fly up · ⬇ fly down · 🕊 fly on/off</div>
@@ -226,7 +227,7 @@
       <div><kbd>Middle click</kbd> or <kbd>G</kbd>Copy brick</div>
       <div><kbd>R</kbd>Rotate brick</div>
       <div><kbd>Hold left click</kbd>Keep placing</div>
-      <div><kbd>B</kbd>Stack mode (hold to build up)</div>
+      <div><kbd>B</kbd>Stack direction (up / right / left / away)</div>
       <div><kbd>1–0</kbd> / <kbd>Wheel</kbd>Choose hotbar slot</div>
       <div><kbd>E</kbd> / <kbd>Tab</kbd>All bricks &amp; colours</div>
       <div><kbd>C</kbd> / <kbd>V</kbd>Previous / next colour</div>
@@ -246,7 +247,7 @@
 <div id="touchUI">
   <div id="joy"><div id="knob"></div></div>
   <div id="tbtns">
-    <button class="tb stack" id="tbStack" title="Stack mode">⇪<small>STACK</small></button>
+    <button class="tb stack" id="tbStack" title="Stack direction">⬆<small>STACK UP</small></button>
     <button class="tb" id="tbUndo" title="Undo">↶</button>
     <button class="tb" id="tbRot" title="Rotate">↻</button>
     <button class="tb" id="tbFly" title="Fly">🕊</button>
@@ -339,8 +340,9 @@
     </div>
     <h2>Hotbar: pick a slot, then click a brick to put it there</h2>
     <div id="invSlots" class="invSlots"></div>
-    <h2>Colour</h2>
+    <h2>Colour (for the selected slot)</h2>
     <div id="invColors" class="colors"></div>
+    <div class="btns" style="margin-top:8px"><button id="allColBtn">🎨 Make all hotbar bricks this colour</button></div>
     <div id="invPieces"></div>
   </div>
 </div>
@@ -727,6 +729,12 @@ def({ id: 'turbo2x2', name: 'Turbo 2×2', cat: 'Engine', eng: 'turbo', W: 2, D: 
     ];
   } });
 
+// Pieces without studs on top: nothing can click onto them. Slopes only have studs on their back row.
+const SMOOTH_TOP = /^(tile|roundtile|quarter|wedge|curve|ridge|stairs|dome|panel|fence|railing|door1x2|seat|steering|chair|wheel|flag|sign|lamp|flower|bush|grass|mushroom|tree|rock|cactus|exhaust|piston|gear|crank|lever|turbo|vblock)/;
+for (const p of PIECES) {
+  if (SMOOTH_TOP.test(p.id)) p.smooth = true;
+  if (/^slope/.test(p.id)) p.studTop = (i, j) => j === 0;
+}
 for (const p of PIECES) p.built = p.parts();
 
 // ---------------------------------------------------------------- renderer / scene
@@ -867,9 +875,31 @@ function cellsOf(p, x0, y0, z0, r) {
   for (let i = 0; i < p.W; i++) for (let j = 0; j < p.D; j++) {
     const lx = i + 0.5 - p.W / 2, lz = j + 0.5 - p.D / 2;
     const wx = Math.floor(cx + lx * c + lz * s), wz = Math.floor(cz - lx * s + lz * c);
-    for (let k = 0; k < p.H; k++) { const m = p.cell ? p.cell(i, j, k) : 1; if (m) out.push([wx, y0 + k, wz, m]); }
+    for (let k = 0; k < p.H; k++) {
+      const m = p.cell ? p.cell(i, j, k) : 1;
+      if (m) out.push([wx, y0 + k, wz, m, k === p.H - 1 && (p.studTop ? p.studTop(i, j) : !p.smooth)]);
+    }
   }
   return out;
+}
+// A brick resting on other bricks must sit on at least one stud (or hang under something / rest on the ground).
+// Bricks with nothing below them are still allowed, so free-form floating builds keep working.
+function supportedBy(cells, isBelow, studBelow, isAbove) {
+  let below = false;
+  for (const [x, y, z] of cells) {
+    if (y === 0) return true;
+    if (isBelow(x, y - 1, z)) { below = true; if (studBelow(x, y - 1, z)) return true; }
+    if (isAbove(x, y + 1, z)) return true;
+  }
+  return !below;
+}
+// Strict version used when aiming at the top of a smooth piece: the new brick needs a real stud (or ground) under it.
+function studSupported(cells, studBelow, isAbove) {
+  return cells.some(([x, y, z]) => y === 0 || studBelow(x, y - 1, z) || isAbove(x, y + 1, z));
+}
+function supported(p, x0, y0, z0, r) {
+  const cells = cellsOf(p, x0, y0, z0, r);
+  return supportedBy(cells, (x, y, z) => occ.has(key(x, y, z)), (x, y, z) => !!occ.get(key(x, y, z)).s, (x, y, z) => occ.has(key(x, y, z)));
 }
 function canPlace(p, x0, y0, z0, r) {
   const [w, d] = dims(p, r);
@@ -881,7 +911,7 @@ function addBrick(p, c, x, y, z, r, check = true) {
   if (check && !canPlace(p, x, y, z, r)) return null;
   const [w, d] = dims(p, r);
   const b = { p, c, x, y, z, r, slots: [], cells: [] };
-  for (const [cx, cy, cz, m] of cellsOf(p, x, y, z, r)) { const k = key(cx, cy, cz); occ.set(k, { b, m }); b.cells.push(k); }
+  for (const [cx, cy, cz, m, st] of cellsOf(p, x, y, z, r)) { const k = key(cx, cy, cz); occ.set(k, { b, m, s: st }); b.cells.push(k); }
   _q.setFromAxisAngle(Y_AXIS, r * Math.PI / 2);
   _m.compose(_v.set(x + w / 2, y * P, z + d / 2), _q, _s);
   const col = COLORS[c];
@@ -1091,6 +1121,8 @@ function updatePlayer(dt) {
 // ---------------------------------------------------------------- building: target, ghost, highlight
 let hotbar = ['brick2x4', 'brick2x2', 'brick1x2', 'brick1x4', 'plate2x4', 'slope2x2', 'round1x1', 'window1x2x3', 'doorframe1x4x4', 'flower'];
 let slot = 0, colorIdx = cid('Red'), rot = 0;
+// Each hotbar slot remembers its own colour; colorIdx is always the selected slot's colour.
+let hotCols = hotbar.map(() => colorIdx);
 const currentPiece = () => PIECE_BY_ID[hotbar[slot]];
 
 const ghostMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.42, depthWrite: false });
@@ -1126,7 +1158,9 @@ function computeTarget(ndc = CENTER) {
   } else {
     z0 = n.z > 0 ? Math.round(pt.z) : Math.round(pt.z) - d; x0 = Math.round(pt.x - w / 2); y0 = brick ? brick.y : 0;
   }
-  const ok = (x, y, z) => canPlace(p, x, y, z, rot) && !playerOverlaps(cellsOf(p, x, y, z, rot));
+  const smoothTop = n.y > 0.3 && ay >= ax && ay >= az && brick && (brick.p.smooth || (brick.p.studTop && n.y < 0.98));
+  const studOK = (x, y, z) => !smoothTop || studSupported(cellsOf(p, x, y, z, rot), (a, b, c) => !!(occ.get(key(a, b, c)) || {}).s, (a, b, c) => occ.has(key(a, b, c)));
+  const ok = (x, y, z) => canPlace(p, x, y, z, rot) && !playerOverlaps(cellsOf(p, x, y, z, rot)) && supported(p, x, y, z, rot) && studOK(x, y, z);
   let valid = ok(x0, y0, z0);
   // Top hits next to other bricks: slide the footprint to the nearest free spot that still covers the aimed stud.
   if (!valid && ay >= ax && ay >= az && (w > 1 || d > 1)) {
@@ -1140,7 +1174,8 @@ function computeTarget(ndc = CENTER) {
     const tx = Math.round(pt.x - n.x * 0.05 - w / 2), tz = Math.round(pt.z - n.z * 0.05 - d / 2), ty = brick.y + brick.p.H;
     if (ok(tx, ty, tz)) { x0 = tx; y0 = ty; z0 = tz; valid = true; }
   }
-  return { brick, x0, y0, z0, valid, piece: p };
+  const smoothBlock = !valid && canPlace(p, x0, y0, z0, rot) && (!supported(p, x0, y0, z0, rot) || !studOK(x0, y0, z0));
+  return { brick, x0, y0, z0, valid, piece: p, smoothBlock };
 }
 function updateTarget() {
   target = isActive() && !car ? computeTarget() : null;
@@ -1208,7 +1243,8 @@ function updateSnaps(now) {
   }
 }
 
-let lastPlaced = null, stackMode = false, repeatTimer = null;
+let lastPlaced = null, repeatTimer = null, stackDir = 0, stackAxis = null;
+const STACK_DIRS = [['up', '⬆', 'UP'], ['right', '➡', 'RIGHT'], ['left', '⬅', 'LEFT'], ['away', '⬈', 'AWAY']];
 function placeAt(p, x0, y0, z0) {
   const b = addBrick(p, colorIdx, x0, y0, z0, rot);
   if (b) { record({ t: 'add', d: brickData(b) }); snapIn(b); brickSound('place', b.p, SNAP_FALL / 1000); lastPlaced = b; }
@@ -1216,36 +1252,49 @@ function placeAt(p, x0, y0, z0) {
 }
 function placeAction(t = target) {
   if (!t) return false;
-  if (!t.valid) { sfx('bad'); return false; }
+  if (!t.valid) { sfx('bad'); if (t.smoothBlock) toast("Smooth tops can't hold bricks"); return false; }
   return !!placeAt(t.piece, t.x0, t.y0, t.z0);
 }
-// Stack: put the current brick straight on top of the last one placed, centred over it.
+// Stack: put the next brick against the last one placed, in the chosen direction (up, or sideways from where you look).
+function stackAxisNow() {
+  const dir = STACK_DIRS[stackDir][0];
+  if (dir === 'up') return 'up';
+  const yaw = player.yaw, sg = dir === 'left' ? -1 : 1;
+  const vx = dir === 'away' ? -Math.sin(yaw) : Math.cos(yaw) * sg, vz = dir === 'away' ? -Math.cos(yaw) : -Math.sin(yaw) * sg;
+  return Math.abs(vx) >= Math.abs(vz) ? (vx > 0 ? '+x' : '-x') : (vz > 0 ? '+z' : '-z');
+}
 function stackAction() {
   const L = lastPlaced;
-  if (!L || !bricks.has(L)) return placeAction();
-  const p = currentPiece(), [w, d] = dims(p, rot), [lw, ld] = dims(L.p, L.r);
-  const x0 = L.x + Math.floor((lw - w) / 2), z0 = L.z + Math.floor((ld - d) / 2), y0 = L.y + L.p.H;
-  if (!canPlace(p, x0, y0, z0, rot) || playerOverlaps(cellsOf(p, x0, y0, z0, rot))) { sfx('bad'); toast('Stack blocked'); return false; }
+  if (!L || !bricks.has(L)) return false;
+  const p = currentPiece(), [w, d] = dims(p, rot), [lw, ld] = dims(L.p, L.r), ax = stackAxis || 'up';
+  let x0 = L.x + Math.floor((lw - w) / 2), z0 = L.z + Math.floor((ld - d) / 2), y0 = L.y;
+  if (ax === 'up') y0 = L.y + L.p.H;
+  else if (ax === '+x') x0 = L.x + lw; else if (ax === '-x') x0 = L.x - w;
+  else if (ax === '+z') z0 = L.z + ld; else z0 = L.z - d;
+  if (!canPlace(p, x0, y0, z0, rot) || playerOverlaps(cellsOf(p, x0, y0, z0, rot))) { sfx('bad'); return false; }
+  if (!supported(p, x0, y0, z0, rot)) { sfx('bad'); toast("Smooth tops can't hold bricks"); return false; }
   return !!placeAt(p, x0, y0, z0);
 }
-// Hold to build: place now, then keep placing while held (stacking upward in stack mode).
+// Hold to build: place at the crosshair now, then keep stacking from that brick while held.
 function startRepeat() {
   stopRepeat();
   if (car) return;
-  placeAction();
+  if (!placeAction()) return;
+  stackAxis = stackAxisNow();
   const tick = () => {
     if (!isActive()) return stopRepeat();
-    const ok = stackMode ? stackAction() : placeAction();
-    if (!ok && stackMode) return stopRepeat();
+    if (!stackAction()) return stopRepeat();
     navigator.vibrate?.(8);
-    repeatTimer = setTimeout(tick, 160);
+    repeatTimer = setTimeout(tick, 170);
   };
   repeatTimer = setTimeout(tick, 380);
 }
 function stopRepeat() { clearTimeout(repeatTimer); repeatTimer = null; }
-function toggleStack() {
-  stackMode = !stackMode; $('tbStack').classList.toggle('on', stackMode);
-  toast(stackMode ? 'Stack on: hold Place to build upwards' : 'Stack off');
+function cycleStackDir() {
+  stackDir = (stackDir + 1) % STACK_DIRS.length;
+  const [, icon, label] = STACK_DIRS[stackDir];
+  $('tbStack').innerHTML = `${icon}<small>STACK ${label}</small>`;
+  toast(`Hold Place to stack ${label.toLowerCase()}`);
 }
 function removeAction(t = target) {
   if (!t || !t.brick) return;
@@ -1256,7 +1305,7 @@ function pickAction(t = target) {
   const b = t.brick;
   const existing = hotbar.indexOf(b.p.id);
   if (existing >= 0) slot = existing; else hotbar[slot] = b.p.id;
-  colorIdx = b.c; rot = b.r; refreshUI(true); showLabel(); return true;
+  colorIdx = hotCols[slot] = b.c; rot = b.r; refreshUI(); showLabel(); return true;
 }
 
 // ---------------------------------------------------------------- thumbnails
@@ -1267,14 +1316,22 @@ const thumbScene = new THREE.Scene();
 thumbScene.add(new THREE.HemisphereLight(0xffffff, 0x666677, 1.4));
 const tl = new THREE.DirectionalLight(0xffffff, 2.2); tl.position.set(3, 6, 4); thumbScene.add(tl);
 const thumbCam = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
-function renderThumbs() {
-  const col = COLORS[colorIdx];
+const thumbCache = new Map();
+function thumbFor(id, c) {
+  const k = id + '|' + c;
+  if (!thumbCache.has(k)) thumbCache.set(k, renderThumbs(c, [PIECE_BY_ID[id]])[id]);
+  return thumbCache.get(k);
+}
+let thumbColor = -1;
+function ensureThumbs(c) { if (thumbColor !== c) { renderThumbs(c, PIECES, thumbs); thumbColor = c; } }
+function renderThumbs(c, list, out = {}) {
+  const col = COLORS[c];
   const mats = {
     o: new THREE.MeshStandardMaterial({ color: col.t ? '#ffffff' : col.h, roughness: 0.3 }),
     t: new THREE.MeshStandardMaterial({ color: col.h, roughness: 0.05, transparent: true, opacity: 0.6 }),
   };
   const dir = new THREE.Vector3(1, 0.85, 1.3).normalize();
-  for (const p of PIECES) {
+  for (const p of list) {
     const g = new THREE.Group();
     for (const part of p.built) {
       let m;
@@ -1289,23 +1346,25 @@ function renderThumbs() {
     thumbCam.position.copy(dir).multiplyScalar(dist).add(new THREE.Vector3(0, h / 2, 0));
     thumbCam.lookAt(0, h / 2, 0);
     thumbR.render(thumbScene, thumbCam);
-    thumbs[p.id] = thumbR.domElement.toDataURL();
+    out[p.id] = thumbR.domElement.toDataURL();
     thumbScene.remove(g);
-    g.children.forEach(c => { if (c.material !== mats.o && c.material !== mats.t) c.material.dispose(); });
+    g.children.forEach(m => { if (m.material !== mats.o && m.material !== mats.t) m.material.dispose(); });
   }
   mats.o.dispose(); mats.t.dispose();
+  return out;
 }
 
 // ---------------------------------------------------------------- UI
 const $ = (id) => document.getElementById(id);
 const hotbarEl = $('hotbar'), labelEl = $('label'), infoEl = $('info');
-let thumbColor = -1, labelTimer = 0;
-function refreshUI(thumbsToo) {
-  if (thumbsToo && thumbColor !== colorIdx) { renderThumbs(); thumbColor = colorIdx; }
+let labelTimer = 0;
+function refreshUI() {
   hotbarEl.innerHTML = hotbar.map((id, i) =>
-    `<div class="slot${i === slot ? ' sel' : ''}" data-hot="${i}"><span class="k">${(i + 1) % 10}</span><img src="${thumbs[id]}" alt=""></div>`).join('');
+    `<div class="slot${i === slot ? ' sel' : ''}" data-hot="${i}"><span class="k">${(i + 1) % 10}</span><img src="${thumbFor(id, hotCols[i])}" alt=""></div>`).join('');
   if (!$('inv').classList.contains('hidden')) buildInventory();
 }
+function selectSlot(i) { slot = i; rot = 0; colorIdx = hotCols[slot]; refreshUI(); showLabel(); }
+function setColor(c) { colorIdx = c; hotCols[slot] = c; refreshUI(); showLabel(); saveSoon(); }
 function showLabel() {
   const p = currentPiece(), c = COLORS[colorIdx];
   labelEl.innerHTML = `<span class="sw" style="background:${c.h}"></span>${c.n} · ${p.name}${rot ? ` · ↻${rot * 90}°` : ''}`;
@@ -1317,8 +1376,9 @@ function updateInfo() {
   infoEl.innerHTML = `<b>Brick Builder World</b><br>${car ? '🚗 Driving · speed ' + Math.round(Math.abs(car.speed) * 4) : player.fly ? '🕊 Flying' : '🚶 Walking'} · ${bricks.size} bricks<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · height ${Math.floor(player.y / P)}`;
 }
 function buildInventory() {
+  ensureThumbs(colorIdx);
   $('invSlots').innerHTML = hotbar.map((id, i) =>
-    `<div class="slot${i === slot ? ' sel' : ''}" data-slot="${i}"><span class="k">${(i + 1) % 10}</span><img src="${thumbs[id]}" alt=""></div>`).join('');
+    `<div class="slot${i === slot ? ' sel' : ''}" data-slot="${i}"><span class="k">${(i + 1) % 10}</span><img src="${thumbFor(id, hotCols[i])}" alt=""></div>`).join('');
   $('invColors').innerHTML = COLORS.map((c, i) =>
     `<div class="color${c.t ? ' glass' : ''}${i === colorIdx ? ' sel' : ''}" data-color="${i}" title="${c.n}" style="background-color:${c.h}"></div>`).join('');
   const cats = [...new Set(PIECES.map(p => p.cat))];
@@ -1327,11 +1387,10 @@ function buildInventory() {
 }
 $('inv').addEventListener('click', (e) => {
   const s = e.target.closest('[data-slot]'), c = e.target.closest('[data-color]'), p = e.target.closest('[data-piece]');
-  if (s) slot = +s.dataset.slot;
-  else if (c) colorIdx = +c.dataset.color;
-  else if (p) { hotbar[slot] = p.dataset.piece; rot = 0; }
-  else return;
-  refreshUI(true); showLabel(); saveSoon();
+  if (e.target.id === 'allColBtn') { hotCols = hotbar.map(() => colorIdx); refreshUI(); toast(`All hotbar bricks are now ${COLORS[colorIdx].n}`); saveSoon(); return; }
+  if (s) selectSlot(+s.dataset.slot);
+  else if (c) setColor(+c.dataset.color);
+  else if (p) { hotbar[slot] = p.dataset.piece; hotCols[slot] = colorIdx; rot = 0; refreshUI(); showLabel(); saveSoon(); }
 });
 
 // ---------------------------------------------------------------- pointer lock & input
@@ -1373,7 +1432,7 @@ document.addEventListener('mouseup', (e) => { if (e.button === 0) stopRepeat(); 
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('wheel', (e) => {
   if (!locked) return;
-  slot = (slot + (e.deltaY > 0 ? 1 : -1) + hotbar.length) % hotbar.length; rot = 0; refreshUI(); showLabel();
+  selectSlot((slot + (e.deltaY > 0 ? 1 : -1) + hotbar.length) % hotbar.length);
 }, { passive: true });
 document.addEventListener('keydown', (e) => {
   if (charOpen) { if (e.code === 'Escape' || e.code === 'Enter') { e.preventDefault(); closeChar(); } return; }
@@ -1397,15 +1456,15 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'KeyQ') { toggleCar(); return; }
   if (e.code === 'KeyH') { if (car) horn(); return; }
   if (car && !['KeyT', 'KeyP', 'KeyK'].includes(e.code)) return;
-  if (/^Digit[0-9]$/.test(e.code)) { const n = +e.code[5]; slot = n === 0 ? 9 : n - 1; rot = 0; refreshUI(); showLabel(); }
+  if (/^Digit[0-9]$/.test(e.code)) { const n = +e.code[5]; selectSlot(n === 0 ? 9 : n - 1); }
   switch (e.code) {
     case 'KeyR': rot = (rot + 1) % 4; showLabel(); break;
-    case 'KeyB': toggleStack(); break;
+    case 'KeyB': cycleStackDir(); break;
     case 'KeyF': player.fly = !player.fly; player.vy = 0; $('tbFly').classList.toggle('on', player.fly); $('tbDown').classList.toggle('hidden', !player.fly); toast(player.fly ? 'Flying on' : 'Flying off'); break;
     case 'KeyX': removeAction(); break;
     case 'KeyG': pickAction(); break;
-    case 'KeyC': colorIdx = (colorIdx - 1 + COLORS.length) % COLORS.length; refreshUI(true); showLabel(); break;
-    case 'KeyV': colorIdx = (colorIdx + 1) % COLORS.length; refreshUI(true); showLabel(); break;
+    case 'KeyC': setColor((colorIdx - 1 + COLORS.length) % COLORS.length); break;
+    case 'KeyV': setColor((colorIdx + 1) % COLORS.length); break;
     case 'KeyZ': undo(); break;
     case 'KeyY': redo(); break;
     case 'KeyT': toggleNight(); break;
@@ -1761,7 +1820,7 @@ function flash(id) { const el = $(id); el.classList.add('on'); setTimeout(() => 
   const up = () => { el.classList.remove('on'); stopRepeat(); };
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
 }
-tapBtn('tbStack', toggleStack);
+tapBtn('tbStack', cycleStackDir);
 tapBtn('tbRemove', () => { flash('tbRemove'); removeAction(); });
 tapBtn('tbPause', pauseTouch);
 tapBtn('tbInv', openInv);
@@ -1769,7 +1828,7 @@ tapBtn('tbView', toggleView);
 tapBtn('tbChar', () => openChar(true));
 hotbarEl.addEventListener('click', (e) => {
   const s = e.target.closest('[data-hot]'); if (!s || !isActive()) return;
-  slot = +s.dataset.hot; rot = 0; refreshUI(); showLabel();
+  selectSlot(+s.dataset.hot);
 });
 // Drag to look, tap to build, press-and-hold to copy
 const looks = new Map();
@@ -2190,7 +2249,7 @@ function saveMyCars(list) { try { localStorage.setItem(GARAGE_KEY, JSON.stringif
 // ---- workshop model: its own little grid, separate from the world
 let ws = null;                     // { base: piece, id, name, recs: Set, occ: Map }
 let gOpen = false, gReturn = false, gR = null, gScene, gCam, gRoot, gGhost, gGhostMat, gGround, gAim = null, gAimNdc = null;
-let gPiece = 'motor2x2', gRot = 0, gCat = 'Engine';
+let gPiece = 'motor2x2', gRot = 0, gCat = 'Engine', gColor = 4;
 const gOrbit = { yaw: Math.PI + 0.7, pitch: 0.5, dist: 16 }, gUndo = [], gRay = new THREE.Raycaster();
 function wsBounds() { const W = ws.base.W, D = ws.base.D; return [-W / 2 - 3, W / 2 + 3, -D / 2 - 3, D / 2 + 3]; }
 function wsCanPlace(p, x, y, z, r) {
@@ -2216,18 +2275,18 @@ function wsAdd(p, c, x, y, z, r) {
   if (!wsCanPlace(p, x, y, z, r)) return null;
   const [w, d] = dims(p, r), rec = { p, c, x, y, z, r, cells: [], obj: brickObject(p, c, r) };
   rec.obj.position.set(x + w / 2, y * P, z + d / 2); rec.obj.traverse(o => { if (o.isMesh) o.userData.rec = rec; });
-  for (const [a, b, cc, m] of cellsOf(p, x, y, z, r)) { const k = key(a, b, cc); ws.occ.set(k, rec); rec.cells.push(k); }
+  for (const [a, b, cc, m, st] of cellsOf(p, x, y, z, r)) { const k = key(a, b, cc); ws.occ.set(k, rec); rec.cells.push(k); if (st) ws.stud.add(k); }
   ws.recs.add(rec); gRoot.add(rec.obj);
   return rec;
 }
-function wsRemove(rec) { for (const k of rec.cells) ws.occ.delete(k); ws.recs.delete(rec); gRoot.remove(rec.obj); }
+function wsRemove(rec) { for (const k of rec.cells) { ws.occ.delete(k); ws.stud.delete(k); } ws.recs.delete(rec); gRoot.remove(rec.obj); }
 const recData = (rec) => [rec.p.id, COLORS[rec.c].n, rec.x, rec.y, rec.z, rec.r];
 function wsFind(d) { for (const rec of ws.recs) if (rec.p.id === d[0] && rec.x === d[2] && rec.y === d[3] && rec.z === d[4] && rec.r === d[5]) return rec; return null; }
 function wsLoad(design, keepId) {
   ensureGarage();
   if (ws) for (const rec of [...ws.recs]) wsRemove(rec);
   const bp = PIECE_BY_ID[design.base] || PIECE_BY_ID.carbase4x8;
-  ws = { base: bp, id: keepId ? design.id : null, name: design.name || 'My car', recs: new Set(), occ: new Map() };
+  ws = { base: bp, id: keepId ? design.id : null, name: design.name || 'My car', recs: new Set(), occ: new Map(), stud: new Set() };
   const list = design.b || [], baseEntry = list.find(e => PIECE_BY_ID[e[0]]?.car);
   wsAdd(bp, Math.max(0, cid(baseEntry ? baseEntry[1] : 'Dark Grey')), -bp.W / 2, 0, -bp.D / 2, 0);
   for (const e of list) {
@@ -2313,7 +2372,10 @@ function gTarget(ndc) {
     y0 = n.y > 0 ? (rec ? rec.y + rec.p.H : 0) : Math.floor((pt.y - 0.01) / P) - p.H + 1;
   } else if (ax >= az) { x0 = n.x > 0 ? Math.round(pt.x) : Math.round(pt.x) - w; z0 = Math.round(pt.z - d / 2); y0 = rec ? rec.y : 0; }
   else { z0 = n.z > 0 ? Math.round(pt.z) : Math.round(pt.z) - d; x0 = Math.round(pt.x - w / 2); y0 = rec ? rec.y : 0; }
-  const ok = (x, y, z) => wsCanPlace(p, x, y, z, gRot) && wsConnected(p, x, y, z, gRot);
+  const smoothTop = n.y > 0.3 && ay >= ax && ay >= az && rec && (rec.p.smooth || (rec.p.studTop && n.y < 0.98));
+  const ok = (x, y, z) => wsCanPlace(p, x, y, z, gRot) && wsConnected(p, x, y, z, gRot) &&
+    supportedBy(cellsOf(p, x, y, z, gRot), (a, b, c) => ws.occ.has(key(a, b, c)), (a, b, c) => ws.stud.has(key(a, b, c)), (a, b, c) => ws.occ.has(key(a, b, c))) &&
+    (!smoothTop || studSupported(cellsOf(p, x, y, z, gRot), (a, b, c) => ws.stud.has(key(a, b, c)), (a, b, c) => ws.occ.has(key(a, b, c))));
   let valid = !p.car && ok(x0, y0, z0);
   if (!valid && !p.car && ay >= ax && ay >= az && (w > 1 || d > 1)) {
     const cx = Math.floor(pt.x), cz = Math.floor(pt.z), opts = [];
@@ -2333,7 +2395,7 @@ function renderGarage(dt) {
     if (gGhost.userData.p !== gAim.p) { gGhost.clear(); for (const part of gAim.p.built) gGhost.add(new THREE.Mesh(part.geo, gGhostMat)); gGhost.userData.p = gAim.p; }
     const [w, d] = dims(gAim.p, gRot);
     gGhost.visible = true; gGhost.position.set(gAim.x0 + w / 2, gAim.y0 * P + 0.003, gAim.z0 + d / 2); gGhost.rotation.y = gRot * Math.PI / 2;
-    gGhostMat.color.set(gAim.valid ? COLORS[colorIdx].h : '#ff3b30'); gGhostMat.opacity = gAim.valid ? 0.5 + 0.1 * Math.sin(performance.now() / 180) : 0.35;
+    gGhostMat.color.set(gAim.valid ? COLORS[gColor].h : '#ff3b30'); gGhostMat.opacity = gAim.valid ? 0.5 + 0.1 * Math.sin(performance.now() / 180) : 0.35;
   } else gGhost.visible = false;
   if (gEngineOn && ws) {
     gRevT += dt;
@@ -2365,7 +2427,7 @@ function gPlaceAction() {
   if (!gAim) { toast(touchMode ? 'Tap the car to aim first' : 'Point at the car first'); return; }
   if (gAim.p.car) { toast('Car bases start a new car. Use "New 4×8 / 6×12" below'); return; }
   if (!gAim.valid) { sfx('bad'); return; }
-  const rec = wsAdd(gAim.p, colorIdx, gAim.x0, gAim.y0, gAim.z0, gRot);
+  const rec = wsAdd(gAim.p, gColor, gAim.x0, gAim.y0, gAim.z0, gRot);
   if (rec) { gUndo.push({ t: 'add', d: recData(rec) }); brickSound('place', rec.p); navigator.vibrate?.(12); gRefreshStats(); }
   gReaim();
 }
@@ -2387,9 +2449,10 @@ function gUndoAction() {
 function gRefreshParts() {
   const cats = [...new Set(PIECES.map(p => p.cat))];
   $('gCat').innerHTML = cats.map(c => `<option${c === gCat ? ' selected' : ''}>${c}</option>`).join('');
+  ensureThumbs(gColor);
   $('gParts').innerHTML = PIECES.filter(p => p.cat === gCat).map(p =>
     `<div class="piece${p.id === gPiece ? ' sel' : ''}" data-gp="${p.id}" title="${p.name}"><img src="${thumbs[p.id]}" alt="">${p.name}</div>`).join('');
-  $('gColors').innerHTML = COLORS.map((c, i) => `<div class="color${c.t ? ' glass' : ''}${i === colorIdx ? ' sel' : ''}" data-gc="${i}" title="${c.n}" style="background-color:${c.h}"></div>`).join('');
+  $('gColors').innerHTML = COLORS.map((c, i) => `<div class="color${c.t ? ' glass' : ''}${i === gColor ? ' sel' : ''}" data-gc="${i}" title="${c.n}" style="background-color:${c.h}"></div>`).join('');
 }
 function gRefreshLists() {
   const mine = loadMyCars();
@@ -2454,7 +2517,7 @@ $('garage').addEventListener('click', (e) => {
   const t = e.target.closest('[data-gp],[data-gc],[data-gload],[data-gdel],[data-gstart],[data-gnew]');
   if (!t) return;
   if (t.dataset.gp) { gPiece = t.dataset.gp; gRot = 0; gGhost.userData.p = null; gReaim(); gRefreshParts(); }
-  else if (t.dataset.gc) { colorIdx = +t.dataset.gc; refreshUI(true); gRefreshParts(); }
+  else if (t.dataset.gc) { gColor = +t.dataset.gc; gRefreshParts(); }
   else if (t.dataset.gload) { const d = loadMyCars()[+t.dataset.gload]; if (d) { wsLoad(d, true); toast(`Loaded ${d.name}`); } }
   else if (t.dataset.gdel) {
     const list = loadMyCars(), d = list[+t.dataset.gdel];
@@ -2579,7 +2642,7 @@ let saveTimer = 0;
 function serialize() {
   const b = []; for (const x of bricks) b.push(...brickData(x));
   if (car) for (const d of (planPark() || car.items.map(it => it.orig))) b.push(...d);   // a car being driven saves as parked
-  return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, slot, colorIdx, night: nightTarget,
+  return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget,
            pl: [player.x, player.y, player.z, player.yaw, player.pitch, player.fly ? 1 : 0] };
 }
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) { console.warn('Save failed', e); } }
@@ -2596,6 +2659,8 @@ function load(data) {
   if (Array.isArray(data.hotbar)) hotbar = hotbar.map((id, i) => PIECE_BY_ID[data.hotbar[i]] ? data.hotbar[i] : id);
   if (typeof data.slot === 'number') slot = Math.max(0, Math.min(9, data.slot));
   if (typeof data.colorIdx === 'number' && COLORS[data.colorIdx]) colorIdx = data.colorIdx;
+  hotCols = hotbar.map((id, i) => Array.isArray(data.hotCols) && COLORS[data.hotCols[i]] ? data.hotCols[i] : colorIdx);
+  colorIdx = hotCols[slot];
   nightTarget = night = data.night ? 1 : 0;
   if (Array.isArray(data.pl)) { const [x, y, z, yaw, pitch, fly] = data.pl; Object.assign(player, { x, y, z, yaw, pitch, fly: !!fly, vy: 0 }); }
 }
@@ -2607,7 +2672,7 @@ $('exportBtn').onclick = () => {
 $('importBtn').onclick = () => $('importFile').click();
 $('importFile').onchange = async (e) => {
   const f = e.target.files[0]; if (!f) return;
-  try { load(JSON.parse(await f.text())); save(); refreshUI(true); toast('World imported'); } catch (err) { toast('Could not read that file'); }
+  try { load(JSON.parse(await f.text())); save(); refreshUI(); toast('World imported'); } catch (err) { toast('Could not read that file'); }
   e.target.value = '';
 };
 $('newBtn').onclick = () => {
@@ -2624,7 +2689,7 @@ addEventListener('beforeunload', save);
 let loaded = false;
 try { const s = localStorage.getItem(SAVE_KEY); if (s) { load(JSON.parse(s)); loaded = true; } } catch (e) { console.warn('Load failed', e); }
 if (!loaded) generateWorld(1234);
-refreshUI(true); showLabel();
+refreshUI(); showLabel();
 
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
@@ -2653,7 +2718,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
