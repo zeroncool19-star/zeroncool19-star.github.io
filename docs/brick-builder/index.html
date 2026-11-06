@@ -98,6 +98,18 @@
   @media (orientation: portrait) { #tbtns { grid-template-columns: repeat(3, 56px); grid-template-areas: "stack undo rot" "fly remove down" ". place jump"; } }
   @media (orientation: landscape) { #ttop { right: auto; left: calc(10px + env(safe-area-inset-left)); top: calc(8px + env(safe-area-inset-top)); display: grid; grid-template-columns: repeat(2, 46px); } }
 
+  /* Driving */
+  #carUI { position: fixed; left: 50%; transform: translateX(-50%); bottom: 120px; display: flex; gap: 8px; }
+  #carUI button { font-size: 16px; font-weight: 700; padding: 12px 20px; border-radius: 999px; background: var(--accent); color: #241c00; border-color: var(--accent);
+    box-shadow: 0 4px 14px rgba(0,0,0,.35); touch-action: none; -webkit-tap-highlight-color: transparent; white-space: nowrap; }
+  #carUI #hornBtn { background: rgba(20,24,32,.75); color: #fff; border-color: rgba(255,255,255,.35); }
+  body.touch #carUI { top: calc(104px + env(safe-area-inset-top)); bottom: auto; }
+  body.driving #bottom { display: none; }
+  body.driving:not(.touch) #carUI { bottom: 24px; }
+  body.touch.driving #carUI { top: calc(12px + env(safe-area-inset-top)); }
+  body.driving #tbtns .tb:not(#tbJump) { display: none !important; }
+  body.touch.playing.driving #crosshair, body.driving #crosshair { display: none !important; }
+
   /* Character creator */
   #charUI .card { width: min(1000px, 100%); }
   .charWrap { display: grid; grid-template-columns: minmax(240px, 1fr) 1.25fr; gap: 18px; align-items: start; margin-top: 10px; }
@@ -171,6 +183,7 @@
       <div>↻ Rotate · ↶ Undo · 🧱 All bricks &amp; colours</div>
       <div>Tap the hotbar at the top to switch bricks</div>
       <div>👁 Switch first / third person · 🧍 Edit character</div>
+      <div>🚗 Walk up to a car and tap <b>Drive</b>. Joystick steers, 🛑 brakes</div>
     </div>
     <div class="keys deskOnly">
       <div><kbd>W A S D</kbd>Move</div>
@@ -189,6 +202,8 @@
       <div><kbd>C</kbd> / <kbd>V</kbd>Previous / next colour</div>
       <div><kbd>Z</kbd> / <kbd>Y</kbd>Undo / redo</div>
       <div><kbd>T</kbd>Day / night</div>
+      <div><kbd>Q</kbd>Get in / out of a car</div>
+      <div><kbd>W A S D</kbd> in a car: drive · <kbd>Space</kbd> brake · <kbd>H</kbd> horn</div>
       <div><kbd>P</kbd>First / third person view</div>
       <div><kbd>K</kbd>Edit your character</div>
       <div><kbd>Esc</kbd>Pause</div>
@@ -231,6 +246,11 @@
       <div id="charOpts"></div>
     </div>
   </div>
+</div>
+
+<div id="carUI" class="hidden">
+  <button id="carBtn">🚗 Drive</button>
+  <button id="hornBtn" class="hidden">📯 Horn</button>
 </div>
 
 <div id="inv" class="overlay hidden">
@@ -529,6 +549,33 @@ def({ id: 'cactus', name: 'Cactus', cat: 'Nature', W: 1, D: 1, H: 9,
     cyl(0.14, 0.9, 10, 1.6).translate(0.38, 0, 0), new THREE.SphereGeometry(0.14, 10, 6).translate(0.38, 2.5, 0),
     new THREE.BoxGeometry(0.3, 0.16, 0.16).translate(0.2, 1.6, 0)]) }] });
 
+// Vehicles: a car base rolls on four built-in wheels; anything stud-connected on top drives with it.
+function carBaseDef(id, name, W, D) {
+  def({ id, name, cat: 'Vehicles', W, D, H: 3, car: true,
+    parts: () => {
+      const wx = W / 2 - 0.32, wz = D / 2 - 1.5, wheels = [], hubs = [];
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+        wheels.push(new THREE.CylinderGeometry(0.56, 0.56, 0.5, 24).rotateZ(Math.PI / 2).translate(sx * wx, 0.56, sz * wz));
+        hubs.push(new THREE.CylinderGeometry(0.27, 0.27, 0.54, 14).rotateZ(Math.PI / 2).translate(sx * wx, 0.56, sz * wz));
+      }
+      return [
+        { geo: merge([body(W, D, 0.4).translate(0, 0.8, 0), new RoundedBoxGeometry(W - 1.3, 0.36, D - 0.6, 2, 0.05).translate(0, 0.62, 0), ...studs(W, D, 1.2)]) },
+        { geo: merge(wheels), fixed: '#1e1f22' },
+        { geo: merge(hubs), fixed: '#c9ccd1' },
+      ];
+    },
+    cell: (i, j, k) => k === 2 ? 1 : 0 });
+}
+carBaseDef('carbase4x8', 'Car base 4×8', 4, 8);
+carBaseDef('carbase6x12', 'Car base 6×12', 6, 12);
+def({ id: 'seat', name: 'Driver seat', cat: 'Vehicles', W: 2, D: 2, H: 3,
+  parts: () => [{ geo: merge([new RoundedBoxGeometry(1.9, 0.45, 1.5, 2, 0.12).translate(0, 0.225, -0.2),
+                              new RoundedBoxGeometry(1.9, 0.75, 0.32, 2, 0.1).translate(0, 0.8, 0.8)]) }] });
+def({ id: 'steering', name: 'Steering wheel', cat: 'Vehicles', W: 2, D: 1, H: 3,
+  parts: () => [{ geo: merge([body(1.6, 0.8, 0.2), new THREE.CylinderGeometry(0.07, 0.07, 0.95, 10).rotateX(0.5).translate(0, 0.6, 0.1),
+                              new THREE.TorusGeometry(0.42, 0.06, 8, 26).rotateX(-0.45).translate(0, 1.0, 0.3),
+                              new THREE.BoxGeometry(0.8, 0.06, 0.06).rotateX(-0.45).translate(0, 1.0, 0.3)]) }] });
+
 for (const p of PIECES) p.built = p.parts();
 
 // ---------------------------------------------------------------- renderer / scene
@@ -712,6 +759,7 @@ function findBrick(d) {
   return null;
 }
 function clearWorld() {
+  dropCar();
   for (const b of batches.values()) { scene.remove(b.mesh); b.mesh.dispose(); }
   batches.clear(); occ.clear(); bricks.clear(); pickDirty = true;
   undoStack.length = 0; redoStack.length = 0;
@@ -756,6 +804,20 @@ function buildHouse(x0, z0, wall, roof) {
   put('fence1x4', 'White', x0, 0, z1 + 4, 0); put('fence1x4', 'White', x1 - 3, 0, z1 + 4, 0);
   put('flower', 'Red', x0 + 1, 0, z1 + 1); put('flower', 'Yellow', x0 + 2, 0, z1 + 1); put('flower', 'Pink', x1 - 1, 0, z1 + 1);
 }
+// A little red car facing the road (front is -z at rotation 0).
+function buildStarterCar(x0, z0) {
+  put('carbase4x8', 'Dark Grey', x0, 0, z0, 0);
+  put('brick1x4', 'Red', x0, 3, z0, 1);                    // front bumper
+  put('slope4x2', 'Red', x0, 3, z0 + 1, 2);                // bonnet
+  put('steering', 'Black', x0 + 1, 3, z0 + 3, 0);
+  put('brick1x4', 'Red', x0, 3, z0 + 3, 0); put('brick1x4', 'Red', x0 + 3, 3, z0 + 3, 0);   // doors
+  put('seat', 'Black', x0 + 1, 3, z0 + 4, 0);
+  put('brick1x2', 'Red', x0 + 1, 3, z0 + 6, 1);
+  put('brick1x4', 'Red', x0, 3, z0 + 7, 1);                // rear
+  put('light1x1', 'Yellow', x0, 6, z0, 0); put('light1x1', 'Yellow', x0 + 3, 6, z0, 0);   // headlights
+  put('brick1x4', 'Clear Glass', x0, 6, z0 + 2, 1);        // windscreen
+  put('plate1x4', 'Black', x0, 6, z0 + 7, 1);              // spoiler
+}
 function generateWorld(seed = 1234) {
   clearWorld();
   const R = rng(seed);
@@ -767,6 +829,7 @@ function generateWorld(seed = 1234) {
     put('lamp', 'Black', a, 0, side); put('lamp', 'Black', side, 0, a);
   }
   buildHouse(9, -19, 'Cream', 'Red');
+  buildStarterCar(14, 6);
   // Pond
   const px = -32, pz = 30;
   for (let x = px - 12; x < px + 12; x += 2) for (let z = pz - 12; z < pz + 12; z += 2) {
@@ -774,7 +837,7 @@ function generateWorld(seed = 1234) {
     if (d < 9) put('tile2x2', 'Blue Glass', x, 0, z); else if (d < 11.5) put('plate2x2', 'Tan', x, 0, z);
   }
   const blocked = (x, z, r) => Math.abs(x) < 7 + r || Math.abs(z) < 7 + r || Math.hypot(x - px, z - pz) < 14 + r
-    || (x > 2 - r && x < 26 + r && z > -26 - r && z < -2 + r);
+    || (x > 2 - r && x < 26 + r && z > -26 - r && z < -2 + r) || (x > 10 - r && x < 22 + r && z > 2 - r && z < 18 + r);
   const spot = (r) => { for (let t = 0; t < 40; t++) { const x = Math.floor((R() - 0.5) * (WORLD * 2 - 16)), z = Math.floor((R() - 0.5) * (WORLD * 2 - 16)); if (!blocked(x, z, r)) return [x, z]; } return null; };
   // Oak trees
   for (let n = 0; n < 34; n++) {
@@ -937,7 +1000,7 @@ function computeTarget(ndc = CENTER) {
   return { brick, x0, y0, z0, valid, piece: p };
 }
 function updateTarget() {
-  target = isActive() ? computeTarget() : null;
+  target = isActive() && !car ? computeTarget() : null;
   if (!target) { ghost.visible = false; hl.visible = false; return; }
   rebuildGhost();
   const p = target.piece, [w, d] = dims(p, rot);
@@ -1025,6 +1088,7 @@ function stackAction() {
 // Hold to build: place now, then keep placing while held (stacking upward in stack mode).
 function startRepeat() {
   stopRepeat();
+  if (car) return;
   placeAction();
   const tick = () => {
     if (!isActive()) return stopRepeat();
@@ -1107,7 +1171,7 @@ function showLabel() {
 let toastTimer = 0;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1600); }
 function updateInfo() {
-  infoEl.innerHTML = `<b>Brick Builder World</b><br>${player.fly ? '🕊 Flying' : '🚶 Walking'} · ${bricks.size} bricks<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · height ${Math.floor(player.y / P)}`;
+  infoEl.innerHTML = `<b>Brick Builder World</b><br>${car ? '🚗 Driving · speed ' + Math.round(Math.abs(car.speed) * 4) : player.fly ? '🕊 Flying' : '🚶 Walking'} · ${bricks.size} bricks<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · height ${Math.floor(player.y / P)}`;
 }
 function buildInventory() {
   $('invSlots').innerHTML = hotbar.map((id, i) =>
@@ -1154,11 +1218,12 @@ $('invClose').onclick = closeInv;
 canvas.addEventListener('click', () => { if (!touchMode && !locked && !invOpen) lock(); });
 document.addEventListener('mousemove', (e) => {
   if (!locked) return;
+  lastLook = performance.now();
   player.yaw -= e.movementX * 0.0022;
   player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - e.movementY * 0.0022));
 });
 document.addEventListener('mousedown', (e) => {
-  if (!locked) return;
+  if (!locked || car) return;
   if (e.button === 0) startRepeat(); else if (e.button === 2) removeAction(); else if (e.button === 1) { e.preventDefault(); pickAction(); }
 });
 document.addEventListener('mouseup', (e) => { if (e.button === 0) stopRepeat(); });
@@ -1180,6 +1245,9 @@ document.addEventListener('keydown', (e) => {
   keys[e.code] = true;
   if (e.code === 'Space') e.preventDefault();
   if (e.repeat) return;
+  if (e.code === 'KeyQ') { toggleCar(); return; }
+  if (e.code === 'KeyH') { if (car) horn(); return; }
+  if (car && !['KeyT', 'KeyP', 'KeyK'].includes(e.code)) return;
   if (/^Digit[0-9]$/.test(e.code)) { const n = +e.code[5]; slot = n === 0 ? 9 : n - 1; rot = 0; refreshUI(); showLabel(); }
   switch (e.code) {
     case 'KeyR': rot = (rot + 1) % 4; showLabel(); break;
@@ -1392,6 +1460,12 @@ let lastPos = { x: player.x, z: player.z };
 function rebuildPlayerFigure() { scene.remove(fig); disposeFigure(fig); fig = buildFigure(charCfg); scene.add(fig); }
 function updateFigure(dt) {
   fig.visible = thirdPerson;
+  if (car) {
+    fig.position.set(player.x, player.y, player.z); fig.rotation.y = car.yaw + Math.PI;
+    const u = fig.userData; u.legPiv.forEach(p => p.rotation.x = -1.45); u.armPiv.forEach(p => p.rotation.x = -0.95);
+    u.armPiv[0].rotation.z = -0.15; u.armPiv[1].rotation.z = 0.15; lastPos = { x: player.x, z: player.z };
+    $('tbView').classList.toggle('on', thirdPerson); return;
+  }
   const sp = dt > 0 ? Math.hypot(player.x - lastPos.x, player.z - lastPos.z) / dt : 0; lastPos = { x: player.x, z: player.z };
   fig.position.set(player.x, player.y, player.z); fig.rotation.y = player.yaw + Math.PI;
   animateFigure(fig, isActive() ? sp : 0, dt, !player.ground && !player.fly, player.fly);
@@ -1401,11 +1475,12 @@ const _eye = new THREE.Vector3(), _back = new THREE.Vector3(), _right = new THRE
 function placeCamera() {
   camera.rotation.set(player.pitch, player.yaw, 0);
   if (!thirdPerson) { camera.position.set(player.x, player.y + EYE, player.z); camDist = 0; return; }
+  const want = car ? car.camDist : 7;
   _right.set(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
-  _eye.set(player.x, player.y + EYE + 0.55, player.z).addScaledVector(_right, 0.9);
+  _eye.set(player.x, player.y + EYE + (car ? 1.6 : 0.55), player.z).addScaledVector(_right, car ? 0 : 0.9);
   _back.set(0, 0, 1).applyEuler(camera.rotation);
   let dist = 0;
-  for (let dd = 0.25; dd <= 7; dd += 0.25) {
+  for (let dd = 0.25; dd <= want; dd += 0.25) {
     const x = _eye.x + _back.x * dd, y = _eye.y + _back.y * dd, z = _eye.z + _back.z * dd;
     if (y < 0.3 || solidAt(Math.floor(x), Math.floor(y / P), Math.floor(z))) break;
     dist = dd;
@@ -1563,6 +1638,7 @@ canvas.addEventListener('pointermove', (e) => {
   const t = looks.get(e.pointerId); if (!t) return;
   if (!t.drag && Math.hypot(e.clientX - t.sx, e.clientY - t.sy) > 12) { t.drag = true; clearTimeout(t.hold); }
   if (t.drag) {
+    lastLook = performance.now();
     player.yaw -= (e.clientX - t.x) * 0.0055;
     player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - (e.clientY - t.y) * 0.0055));
   }
@@ -1575,6 +1651,262 @@ const endLook = (e) => {
 canvas.addEventListener('pointerup', endLook); canvas.addEventListener('pointercancel', endLook);
 document.addEventListener('visibilitychange', () => { if (document.hidden) { resetTouchInput(); save(); } });
 applyTouchMode();
+
+// ---------------------------------------------------------------- vehicles
+// Getting in lifts the car base and every brick stud-connected above it out of the world into one moving model.
+// Getting out snaps it to the stud grid and a quarter turn and puts the bricks back, so parked cars are just bricks.
+const CAR_MAX = 400, CAR_STEP = 0.9;
+let car = null, lastLook = 0, thudT = 0;
+const carMatCache = new Map();
+function carMat(hex, mode) {
+  const k = hex + mode; let m = carMatCache.get(k);
+  if (!m) {
+    m = mode === 't' ? new THREE.MeshStandardMaterial({ color: hex, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.5, depthWrite: false })
+      : mode === 'e' ? new THREE.MeshStandardMaterial({ color: hex, emissive: 0xffd27a, emissiveIntensity: 1, roughness: 0.4 })
+      : mode === 'b' ? new THREE.MeshBasicMaterial({ color: hex })
+      : new THREE.MeshStandardMaterial({ color: hex, roughness: 0.3 });
+    carMatCache.set(k, m);
+  }
+  return m;
+}
+function carBases() {
+  const out = [];
+  for (const [k, bt] of batches) if (k.startsWith('carbase') && k.includes('|0|')) for (const it of bt.items) out.push(it.b);
+  return out;
+}
+function nearestCar() {
+  let best = null, bd = 2.6;
+  for (const b of carBases()) {
+    const [w, d] = dims(b.p, b.r);
+    const dist = Math.hypot(Math.max(Math.abs(player.x - (b.x + w / 2)) - w / 2, 0), Math.max(Math.abs(player.z - (b.z + d / 2)) - d / 2, 0));
+    if (dist < bd && Math.abs(player.y - b.y * P) < 5) { bd = dist; best = b; }
+  }
+  return best;
+}
+// Bricks connected through studs: anything sitting on the car (and on those bricks...), minus bricks also held up by the world.
+function collectCar(base) {
+  const S = new Set([base]), q = [base], minY = base.y + base.p.H;
+  while (q.length) {
+    const b = q.pop();
+    for (const [x, y, z] of cellsOf(b.p, b.x, b.y, b.z, b.r)) for (const dy of [1, -1]) {
+      const o = occ.get(key(x, y + dy, z));
+      if (o && o.b !== b && !S.has(o.b) && o.b.y >= minY) { S.add(o.b); q.push(o.b); if (S.size > CAR_MAX) return null; }
+    }
+  }
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const b of S) {
+      if (b === base) continue;
+      const anchored = cellsOf(b.p, b.x, b.y, b.z, b.r).some(([x, y, z]) => { const o = occ.get(key(x, y - 1, z)); return o && o.b !== b && !S.has(o.b); });
+      if (anchored) { S.delete(b); changed = true; }
+    }
+  }
+  return S;
+}
+function enterCar(base) {
+  const S = collectCar(base);
+  if (!S) { toast(`That car is too big to drive (max ${CAR_MAX} bricks)`); sfx('bad'); return; }
+  const r0 = base.r, c = COS[r0], s = SIN[r0], [bw, bd] = dims(base.p, r0), bcx = base.x + bw / 2, bcz = base.z + bd / 2;
+  const toLocal = (wx, wz) => { const rx = wx - bcx, rz = wz - bcz; return [rx * c - rz * s, rx * s + rz * c]; };
+  const items = [], cols = new Map(), buckets = new Map(), M = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), ONE = new THREE.Vector3(1, 1, 1);
+  let seat = null, top = 3;
+  for (const b of S) {
+    const [w, d] = dims(b.p, b.r), [lx, lz] = toLocal(b.x + w / 2, b.z + d / 2), ly = b.y - base.y, lr = (b.r - r0 + 4) % 4;
+    items.push({ p: b.p, c: b.c, lx, lz, ly, lr, orig: brickData(b) });
+    if (b.p.id === 'seat' && !seat) seat = { lx, lz, y: ly * P + 0.45 };
+    for (const [x, y, z, m] of cellsOf(b.p, b.x, b.y, b.z, b.r)) {
+      if (m !== 1) continue;
+      const [cx, cz] = toLocal(x + 0.5, z + 0.5), k = y - base.y, kk = cx + ',' + cz;
+      const col = cols.get(kk) || { lx: cx, lz: cz, lo: k, hi: k };
+      col.lo = Math.min(col.lo, k); col.hi = Math.max(col.hi, k); cols.set(kk, col); top = Math.max(top, k + 1);
+    }
+    Q.setFromAxisAngle(Y_AXIS, lr * Math.PI / 2); M.compose(V.set(lx, ly * P, lz), Q, ONE);
+    b.p.built.forEach((part) => {
+      const col = COLORS[b.c], mode = part.fixed ? (part.mat || 'o') : part.mat === 'b' ? 'b' : (col.t ? 't' : (part.mat || 'o'));
+      const hex = part.fixed || col.h, kb = hex + mode;
+      if (!buckets.has(kb)) buckets.set(kb, { hex, mode, geos: [] });
+      buckets.get(kb).geos.push(part.geo.clone().applyMatrix4(M));
+    });
+  }
+  const group = new THREE.Group(); group.rotation.order = 'YXZ';
+  for (const { hex, mode, geos } of buckets.values()) {
+    const mesh = new THREE.Mesh(mergeGeometries(geos, false), carMat(hex, mode)); geos.forEach(g => g.dispose());
+    mesh.castShadow = mode !== 't'; mesh.receiveShadow = true; group.add(mesh);
+  }
+  for (const b of S) removeBrick(b);
+  const W = base.p.W, D = base.p.D;
+  car = { base: base.p, items, cols: [...cols.values()], seat: seat || { lx: 0, lz: 0, y: 1.2 }, n: S.size, group, top,
+          wheels: [[-(W / 2 - 0.5), -(D / 2 - 1.5)], [W / 2 - 0.5, -(D / 2 - 1.5)], [-(W / 2 - 0.5), D / 2 - 1.5], [W / 2 - 0.5, D / 2 - 1.5], [0, 0]],
+          x: bcx, z: bcz, y: base.y * P, yaw: r0 * Math.PI / 2, speed: 0, vy: 0, acc: 0, turn: 0, camDist: 7 + Math.max(W, D) * 0.45 };
+  scene.add(group);
+  undoStack.length = 0; redoStack.length = 0; stopRepeat();
+  player.fly = false; $('tbFly').classList.remove('on'); $('tbDown').classList.add('hidden');
+  player.yaw = car.yaw; player.pitch = -0.25;
+  document.body.classList.add('driving'); $('tbJump').textContent = '🛑';
+  engineStart(); brickSound('place', base.p);
+  toast(touchMode ? 'Joystick to drive · 🛑 to brake' : 'W/S to drive · A/D to steer · Space brakes · Q to get out');
+  placeCarModel(); seatPlayer();
+}
+// Where the parked car's bricks would go: snapped to studs and a quarter turn, nudged a little if something is in the way.
+function planPark() {
+  if (!car) return null;
+  const r = ((Math.round(car.yaw / (Math.PI / 2)) % 4) + 4) % 4, c = COS[r], s = SIN[r], [w, d] = dims(car.base, r);
+  const bx = Math.round(car.x - w / 2), bz = Math.round(car.z - d / 2), by = Math.max(0, Math.round(car.y / P));
+  const tries = [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [1, 0, 1], [-1, 0, -1], [1, 0, -1], [-1, 0, 1], [0, 2, 0], [0, 3, 0]];
+  for (const [dx, dy, dz] of tries) {
+    const cx = bx + dx + w / 2, cz = bz + dz + d / 2, out = [];
+    let ok = true;
+    for (const it of car.items) {
+      const rot = (it.lr + r) % 4, [iw, id] = dims(it.p, rot);
+      const x = Math.round(cx + it.lx * c + it.lz * s - iw / 2), z = Math.round(cz - it.lx * s + it.lz * c - id / 2), y = by + dy + it.ly;
+      if (!canPlace(it.p, x, y, z, rot)) { ok = false; break; }
+      out.push([it.p.idx, it.c, x, y, z, rot]);
+    }
+    if (ok) return out;
+  }
+  return null;
+}
+function exitCar() {
+  const plan = planPark();
+  if (!plan) { toast('No room to park here. Move a little'); sfx('bad'); return false; }
+  for (const d of plan) addBrick(PIECES[d[0]], d[1], d[2], d[3], d[4], d[5], false);
+  const W = car.base.W, D = car.base.D, c = Math.cos(car.yaw), s = Math.sin(car.yaw);
+  let placed = false;
+  for (const [lx, lz] of [[-(W / 2 + 1.2), 0], [W / 2 + 1.2, 0], [0, D / 2 + 1.5], [0, -(D / 2 + 1.5)]]) {
+    const x = car.x + lx * c + lz * s, z = car.z - lx * s + lz * c;
+    if (Math.abs(x) > WORLD - 1 || Math.abs(z) > WORLD - 1) continue;
+    for (let k = 0; k < 12; k++) {
+      const y = (Math.max(0, Math.round(car.y / P)) + k) * P;
+      if (!collides(x, y, z)) { Object.assign(player, { x, y, z }); placed = true; break; }
+    }
+    if (placed) break;
+  }
+  if (!placed) player.y = car.y + (car.top + 1) * P;
+  player.vy = 0;
+  dropCar(); brickSound('remove', PIECES[plan[0][0]]); saveSoon();
+  return true;
+}
+function dropCar() {
+  if (!car) return;
+  scene.remove(car.group); car.group.children.forEach(m => m.geometry.dispose());
+  car = null; engineStop(); document.body.classList.remove('driving'); $('tbJump').textContent = '⬆';
+}
+function toggleCar() {
+  if (car) { exitCar(); return; }
+  const b = nearestCar();
+  if (b) enterCar(b); else toast('Walk up to a car to drive it');
+}
+function seatPlayer() {
+  const c = Math.cos(car.yaw), s = Math.sin(car.yaw), sl = car.seat;
+  player.x = car.x + sl.lx * c + sl.lz * s; player.z = car.z - sl.lx * s + sl.lz * c; player.y = car.y + sl.y - 1.0;
+}
+function placeCarModel() {
+  car.group.position.set(car.x, car.y, car.z);
+  car.group.rotation.set(Math.max(-0.06, Math.min(0.06, -car.acc * 0.004)), car.yaw, Math.max(-0.05, Math.min(0.05, car.turn * car.speed * 0.0025)));
+}
+function topSolidAt(x, z, maxY) {
+  const cx = Math.floor(x), cz = Math.floor(z);
+  for (let cy = Math.floor(maxY / P); cy >= 0; cy--) if (solidAt(cx, cy, cz)) return (cy + 1) * P;
+  return 0;
+}
+// Can the car sit at (x, z, yaw) with its wheels around height y? Returns the ground height, or -1 if the body would hit something.
+function carFits(x, z, yaw, y) {
+  const c = Math.cos(yaw), s = Math.sin(yaw);
+  let g = 0;
+  for (const [lx, lz] of car.wheels) {
+    const wx = x + lx * c + lz * s, wz = z - lx * s + lz * c;
+    if (Math.abs(wx) > WORLD - 0.3 || Math.abs(wz) > WORLD - 0.3) return -1;
+    g = Math.max(g, topSolidAt(wx, wz, y + CAR_STEP));
+  }
+  for (const col of car.cols) {
+    const wx = x + col.lx * c + col.lz * s, wz = z - col.lx * s + col.lz * c;
+    if (Math.abs(wx) > WORLD - 0.1 || Math.abs(wz) > WORLD - 0.1) return -1;
+    const y0 = Math.floor((g + Math.max(col.lo * P, CAR_STEP)) / P + 1e-6), y1 = Math.floor((g + (col.hi + 1) * P) / P - 1e-6);
+    for (let cy = y0; cy <= y1; cy++) if (solidAt(Math.floor(wx), cy, Math.floor(wz))) return -1;
+  }
+  return g;
+}
+function updateCar(dt) {
+  const thr = Math.max(-1, Math.min(1, (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - joy.y));
+  const steer = Math.max(-1, Math.min(1, (keys.KeyA || keys.ArrowLeft ? 1 : 0) - (keys.KeyD || keys.ArrowRight ? 1 : 0) - joy.x));
+  const brake = keys.Space || touchJump;
+  const mass = 1 + car.n / 90, top = Math.max(14, 26 - car.n / 30), acc = 18 / mass;
+  const v0 = car.speed;
+  if (thr > 0.05) car.speed += (car.speed < -0.3 ? 30 : acc) * thr * dt;
+  else if (thr < -0.05) car.speed += (car.speed > 0.3 ? 30 : acc * 0.7) * thr * dt;
+  else car.speed -= Math.sign(car.speed) * Math.min(Math.abs(car.speed), 5 * dt);
+  if (brake) car.speed -= Math.sign(car.speed) * Math.min(Math.abs(car.speed), 32 * dt);
+  car.speed = Math.max(-9, Math.min(top, car.speed - car.speed * 0.15 * dt));
+  car.acc += ((car.speed - v0) / Math.max(dt, 1e-3) - car.acc) * Math.min(1, dt * 6);
+  car.turn = steer * Math.max(-1, Math.min(1, car.speed / 4)) * (2.1 / (1 + Math.abs(car.speed) / 22));
+  const steps = Math.max(1, Math.ceil(Math.abs(car.speed * dt) / 0.25)), h = dt / steps;
+  for (let i = 0; i < steps; i++) {
+    const nyaw = car.yaw + car.turn * h;
+    if (carFits(car.x, car.z, nyaw, car.y) >= 0) car.yaw = nyaw;
+    const nx = car.x - Math.sin(car.yaw) * car.speed * h, nz = car.z - Math.cos(car.yaw) * car.speed * h;
+    const g = carFits(nx, nz, car.yaw, car.y);
+    if (g >= 0) { car.x = nx; car.z = nz; if (g > car.y) { car.y = g; car.vy = 0; } }
+    else {
+      if (Math.abs(car.speed) > 5 && performance.now() - thudT > 300) { thudT = performance.now(); sfx('bad'); navigator.vibrate?.(40); }
+      car.speed *= -0.2; break;
+    }
+  }
+  const ground = carFits(car.x, car.z, car.yaw, car.y);
+  if (ground >= 0 && car.y > ground + 0.001) { car.vy -= GRAV * dt; car.y = Math.max(ground, car.y + car.vy * dt); if (car.y === ground) car.vy = 0; }
+  else car.vy = 0;
+  // The camera eases back behind the car unless the player is looking around.
+  if (performance.now() - lastLook > 1400) {
+    let dy = car.yaw - player.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    player.yaw += dy * Math.min(1, dt * 2.2); player.pitch += (-0.22 - player.pitch) * Math.min(1, dt * 1.5);
+  }
+  placeCarModel(); seatPlayer(); placeCamera();
+  engineUpdate(car.speed, thr);
+}
+function updateCarPrompt() {
+  const ui = $('carUI'), btn = $('carBtn');
+  const near = !car && isActive() ? nearestCar() : null;
+  const show = isActive() && !!(car || near);
+  ui.classList.toggle('hidden', !show);
+  if (!show) return;
+  const label = car ? (touchMode ? '🚪 Get out' : '🚪 Get out (Q)') : (touchMode ? '🚗 Drive' : '🚗 Drive (Q)');
+  if (btn.textContent !== label) btn.textContent = label;
+  $('hornBtn').classList.toggle('hidden', !car || !touchMode);
+}
+$('carBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleCar(); });
+$('hornBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); horn(); });
+addEventListener('pagehide', () => { if (car) save(); });
+
+// Engine hum (stage 3 replaces this with sounds from the engine you build) and horn.
+let eng = null;
+function engineStart() {
+  if (!actx || !master || eng) return;
+  const o1 = actx.createOscillator(), o2 = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
+  o1.type = 'sawtooth'; o2.type = 'square'; o2.detune.value = -1195; f.type = 'lowpass'; f.frequency.value = 400; g.gain.value = 0.0001;
+  o1.connect(f); o2.connect(f); f.connect(g).connect(master); o1.start(); o2.start();
+  g.gain.setTargetAtTime(0.04, actx.currentTime, 0.2); eng = { o1, o2, f, g };
+}
+function engineUpdate(speed, thr, idle) {
+  if (!eng) return;
+  const t = actx.currentTime, fr = 38 + Math.abs(speed) * 3.2 + Math.max(0, thr) * 10;
+  eng.o1.frequency.setTargetAtTime(fr, t, 0.08); eng.o2.frequency.setTargetAtTime(fr, t, 0.08);
+  eng.f.frequency.setTargetAtTime(280 + Math.abs(speed) * 40 + Math.max(0, thr) * 220, t, 0.1);
+  eng.g.gain.setTargetAtTime(idle ? 0.0001 : 0.03 + Math.max(0, thr) * 0.035, t, 0.12);
+}
+function engineStop() {
+  if (!eng) return;
+  const e = eng; eng = null; e.g.gain.setTargetAtTime(0.0001, actx.currentTime, 0.12);
+  setTimeout(() => { try { e.o1.stop(); e.o2.stop(); } catch (err) {} }, 700);
+}
+function horn() {
+  if (!actx || !master) return;
+  const t = actx.currentTime;
+  for (const fr of [392, 494]) {
+    const o = actx.createOscillator(), g = actx.createGain(), lp = actx.createBiquadFilter();
+    o.type = 'square'; o.frequency.value = fr; lp.type = 'lowpass'; lp.frequency.value = 1800;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.08, t + 0.02); g.gain.setValueAtTime(0.08, t + 0.32); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+    o.connect(lp).connect(g).connect(master); o.start(t); o.stop(t + 0.45);
+  }
+}
 
 // ---------------------------------------------------------------- sound
 let actx = null;
@@ -1651,6 +1983,7 @@ function applyLight() {
 let saveTimer = 0;
 function serialize() {
   const b = []; for (const x of bricks) b.push(...brickData(x));
+  if (car) for (const d of (planPark() || car.items.map(it => it.orig))) b.push(...d);   // a car being driven saves as parked
   return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, slot, colorIdx, night: nightTarget,
            pl: [player.x, player.y, player.z, player.yaw, player.pitch, player.fly ? 1 : 0] };
 }
@@ -1707,7 +2040,8 @@ const clock = new THREE.Clock();
 let infoT = 0;
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
-  if (isActive()) updatePlayer(dt); else placeCamera();
+  if (isActive()) { if (car) updateCar(dt); else updatePlayer(dt); } else { if (car) engineUpdate(0, 0, true); placeCamera(); }
+  updateCarPrompt();
   updateFigure(dt);
   if (charOpen) renderPreview(dt);
   updateTarget();
@@ -1722,7 +2056,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
