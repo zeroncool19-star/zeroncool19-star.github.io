@@ -112,6 +112,10 @@
   body.touch.playing.driving #crosshair, body.driving #crosshair { display: none !important; }
 
   /* Garage */
+  .stat { display: grid; grid-template-columns: 96px 1fr 44px; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); margin: 5px 0; }
+  .stat b { color: var(--text); text-align: right; }
+  .bar { height: 10px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #ffcf33, #ff8a33); transition: width .3s; }
   #garage { padding: 0; background: #1b2230; backdrop-filter: none; }
   .gWrap { display: grid; grid-template-columns: 1fr minmax(320px, 400px); width: 100%; height: 100%; }
   .gView { position: relative; min-height: 0; }
@@ -232,7 +236,7 @@
       <div><kbd>W A S D</kbd> in a car: drive · <kbd>Space</kbd> brake · <kbd>H</kbd> horn</div>
       <div><kbd>P</kbd>First / third person view</div>
       <div><kbd>K</kbd>Edit your character</div>
-      <div><kbd>M</kbd>Garage: design &amp; save cars</div>
+      <div><kbd>M</kbd>Garage: design cars &amp; engines</div>
       <div><kbd>Esc</kbd>Pause</div>
     </div>
     <p style="margin-top:14px;font-size:12px">Your world saves automatically in this browser.</p>
@@ -295,6 +299,9 @@
         <button id="gDrive" class="primary" style="font-size:15px;padding:9px 14px">🚗 Drive it!</button>
         <button id="gClose" aria-label="Close garage">✕</button>
       </div>
+      <h2>Performance</h2>
+      <div id="gStats"></div>
+      <div class="btns" style="margin-top:8px"><button id="gEngineBtn">▶ Start engine</button></div>
       <h2>Parts</h2>
       <select id="gCat" aria-label="Part category"></select>
       <div id="gParts" class="grid" style="margin-top:8px"></div>
@@ -647,6 +654,79 @@ def({ id: 'steering', name: 'Steering wheel', cat: 'Vehicles', W: 2, D: 1, H: 3,
                               new THREE.TorusGeometry(0.42, 0.06, 8, 26).rotateX(-0.45).translate(0, 1.0, 0.3),
                               new THREE.BoxGeometry(0.8, 0.06, 0.06).rotateX(-0.45).translate(0, 1.0, 0.3)]) }] });
 
+// Engine parts: they change how a car performs, and their moving bits animate while the engine runs.
+// An animated part keeps a copy of its geometry centred on its pivot (animGeo) so it can spin/slide in place.
+const CHROME = '#d6d8db', DARKM = '#2b2d31';
+function animPart(cg, pivot, anim, extra = {}) {
+  const [x, y, z] = pivot;
+  return { geo: merge([cg.clone().translate(x, y, z)]), animGeo: merge([cg]), pivot, anim, ...extra };
+}
+function pulley() { return merge([new THREE.CylinderGeometry(0.28, 0.28, 0.12, 18).rotateX(Math.PI / 2), new THREE.BoxGeometry(0.5, 0.06, 0.14), new THREE.BoxGeometry(0.06, 0.5, 0.14)]); }
+def({ id: 'motor2x2', name: 'Motor block 2×2', cat: 'Engine', eng: 'motor', W: 2, D: 2, H: 3,
+  parts: () => [
+    { geo: merge([body(2, 2, 1.2), ...studs(2, 2, 1.2)]) },
+    { geo: merge([0.45, 0.65, 0.85].map(y => new THREE.BoxGeometry(2.05, 0.07, 1.6).translate(0, y, 0.12))), fixed: CHROME },
+    animPart(pulley(), [0, 0.55, -1.05], 'spinZ', { fixed: DARKM }),
+  ] });
+def({ id: 'vblock2x4', name: 'V8 block 2×4', cat: 'Engine', eng: 'vblock', W: 2, D: 4, H: 3,
+  parts: () => [
+    { geo: merge([body(2, 4, 0.55), new RoundedBoxGeometry(0.72, 0.72, 3.5, 2, 0.08).rotateZ(0.55).translate(-0.42, 0.85, 0),
+                  new RoundedBoxGeometry(0.72, 0.72, 3.5, 2, 0.08).rotateZ(-0.55).translate(0.42, 0.85, 0)]) },
+    { geo: merge([new RoundedBoxGeometry(0.5, 0.16, 3.3, 2, 0.06).rotateZ(0.55).translate(-0.64, 1.18, 0),
+                  new RoundedBoxGeometry(0.5, 0.16, 3.3, 2, 0.06).rotateZ(-0.55).translate(0.64, 1.18, 0)]), fixed: CHROME },
+    { geo: merge([new THREE.BoxGeometry(0.42, 0.3, 3.0).translate(0, 1.0, 0)]), fixed: DARKM },
+    animPart(pulley(), [0, 0.42, -2.06], 'spinZ', { fixed: DARKM }),
+  ] });
+def({ id: 'piston1x1', name: 'Piston 1×1', cat: 'Engine', eng: 'piston', W: 1, D: 1, H: 6,
+  parts: () => [
+    { geo: merge([body(1, 1, 0.4)]) },
+    { geo: merge([new THREE.CylinderGeometry(0.38, 0.38, 1.9, 20, 1, true).translate(0, 1.35, 0)]), mat: 't', fixed: '#cfeaff' },
+    { geo: merge([new THREE.TorusGeometry(0.38, 0.05, 8, 24).rotateX(Math.PI / 2).translate(0, 2.3, 0)]), fixed: CHROME },
+    animPart(merge([new THREE.CylinderGeometry(0.33, 0.33, 0.32, 18), new THREE.CylinderGeometry(0.07, 0.07, 0.9, 8).translate(0, -0.6, 0)]), [0, 1.45, 0], 'piston', { fixed: CHROME }),
+  ] });
+def({ id: 'gear1x2', name: 'Gear', cat: 'Engine', eng: 'gear', W: 1, D: 2, H: 5,
+  parts: () => {
+    const teeth = [];
+    for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; teeth.push(new THREE.BoxGeometry(0.2, 0.22, 0.17).rotateX(a).translate(0, Math.cos(a) * 0.84, Math.sin(a) * 0.84)); }
+    return [
+      { geo: merge([body(1, 2, 0.4)]) },
+      { geo: merge([new THREE.BoxGeometry(0.18, 0.75, 0.3).translate(-0.38, 0.78, 0), new THREE.CylinderGeometry(0.08, 0.08, 0.9, 8).rotateZ(Math.PI / 2).translate(-0.05, 1.1, 0)]), fixed: DARKM },
+      animPart(merge([new THREE.CylinderGeometry(0.74, 0.74, 0.2, 28).rotateZ(Math.PI / 2), new THREE.CylinderGeometry(0.2, 0.2, 0.3, 12).rotateZ(Math.PI / 2), ...teeth]), [0.12, 1.1, 0], 'spinX'),
+    ];
+  } });
+def({ id: 'crank1x4', name: 'Crankshaft 1×4', cat: 'Engine', eng: 'crank', W: 1, D: 4, H: 3,
+  parts: () => {
+    const bits = [new THREE.CylinderGeometry(0.09, 0.09, 3.7, 10).rotateX(Math.PI / 2)];
+    [-0.9, -0.3, 0.3, 0.9].forEach((z, k) => { const sg = k % 2 ? 1 : -1;
+      bits.push(new THREE.BoxGeometry(0.14, 0.45, 0.16).translate(0, sg * 0.16, z), new THREE.CylinderGeometry(0.06, 0.06, 0.22, 8).rotateX(Math.PI / 2).translate(0, sg * 0.33, z + 0.1)); });
+    return [
+      { geo: merge([new RoundedBoxGeometry(0.9, 0.85, 0.5, 2, 0.06).translate(0, 0.425, -1.7), new RoundedBoxGeometry(0.9, 0.85, 0.5, 2, 0.06).translate(0, 0.425, 1.7)]) },
+      animPart(merge(bits), [0, 0.62, 0], 'spinZ', { fixed: CHROME }),
+    ];
+  } });
+def({ id: 'lever1x2', name: 'Gear lever', cat: 'Engine', eng: 'lever', W: 1, D: 2, H: 5,
+  parts: () => [
+    { geo: merge([body(1, 2, 0.4)]) },
+    { geo: merge([new THREE.BoxGeometry(0.34, 0.2, 0.5).translate(0, 0.5, 0)]), fixed: DARKM },
+    animPart(new THREE.CylinderGeometry(0.06, 0.06, 1.3, 8).translate(0, 0.65, 0), [0, 0.5, 0], 'rock', { fixed: DARKM }),
+    animPart(new THREE.SphereGeometry(0.17, 14, 10).translate(0, 1.36, 0), [0, 0.5, 0], 'rock', { fixed: '#c91a09' }),
+  ] });
+def({ id: 'exhaust1x1', name: 'Exhaust pipe', cat: 'Engine', eng: 'exhaust', W: 1, D: 1, H: 6,
+  parts: () => [
+    { geo: merge([body(1, 1, 0.4)]) },
+    { geo: merge([new THREE.CylinderGeometry(0.16, 0.19, 1.85, 16).translate(0, 1.33, 0), new THREE.CylinderGeometry(0.24, 0.18, 0.18, 16).translate(0, 2.3, 0)]), fixed: CHROME },
+  ] });
+def({ id: 'turbo2x2', name: 'Turbo 2×2', cat: 'Engine', eng: 'turbo', W: 2, D: 2, H: 3,
+  parts: () => {
+    const fan = [new THREE.CylinderGeometry(0.1, 0.1, 0.16, 10).rotateX(Math.PI / 2)];
+    for (let k = 0; k < 6; k++) fan.push(new THREE.BoxGeometry(0.12, 0.38, 0.04).rotateY(0.4).translate(0, 0.24, 0).rotateZ(k * Math.PI / 3));
+    return [
+      { geo: merge([body(2, 2, 0.4), new THREE.TorusGeometry(0.5, 0.2, 10, 26).translate(0, 0.82, 0.25), new THREE.CylinderGeometry(0.5, 0.5, 0.3, 22).rotateX(Math.PI / 2).translate(0, 0.82, 0.45)]) },
+      { geo: merge([new THREE.CylinderGeometry(0.17, 0.17, 0.6, 12).rotateZ(Math.PI / 2).translate(0.72, 0.82, 0.3)]), fixed: CHROME },
+      animPart(merge(fan), [0, 0.82, 0.08], 'spinZ', { fixed: CHROME, fast: true }),
+    ];
+  } });
+
 for (const p of PIECES) p.built = p.parts();
 
 // ---------------------------------------------------------------- renderer / scene
@@ -877,17 +957,9 @@ function buildHouse(x0, z0, wall, roof) {
 }
 // A little red car facing the road (front is -z at rotation 0).
 function buildStarterCar(x0, z0) {
-  put('carbase4x8', 'Dark Grey', x0, 0, z0, 0);
-  put('brick1x4', 'Red', x0, 3, z0, 1);                    // front bumper
-  put('slope4x2', 'Red', x0, 3, z0 + 1, 2);                // bonnet
-  put('steering', 'Black', x0 + 1, 3, z0 + 3, 0);
-  put('brick1x4', 'Red', x0, 3, z0 + 3, 0); put('brick1x4', 'Red', x0 + 3, 3, z0 + 3, 0);   // doors
-  put('seat', 'Black', x0 + 1, 3, z0 + 4, 0);
-  put('brick1x2', 'Red', x0 + 1, 3, z0 + 6, 1);
-  put('brick1x4', 'Red', x0, 3, z0 + 7, 1);                // rear
-  put('light1x1', 'Yellow', x0, 6, z0, 0); put('light1x1', 'Yellow', x0 + 3, 6, z0, 0);   // headlights
-  put('brick1x4', 'Clear Glass', x0, 6, z0 + 2, 1);        // windscreen
-  put('plate1x4', 'Black', x0, 6, z0 + 7, 1);              // spoiler
+  // The Red Racer from the garage, with its corner at (x0, z0)
+  const d = starterDesign(STARTERS[0]);
+  for (const e of d.b) put(e[0], e[1], x0 + 2 + e[2], e[3], z0 + 4 + e[4], e[5]);
 }
 function generateWorld(seed = 1234) {
   clearWorld();
@@ -1730,6 +1802,69 @@ canvas.addEventListener('pointerup', endLook); canvas.addEventListener('pointerc
 document.addEventListener('visibilitychange', () => { if (document.hidden) { resetTouchInput(); save(); } });
 applyTouchMode();
 
+// ---------------------------------------------------------------- engines: performance, moving parts, smoke
+const ENG_NAMES = { motor: 'Motor block', vblock: 'V8 block', piston: 'Piston', gear: 'Gear', crank: 'Crankshaft', lever: 'Gear lever', exhaust: 'Exhaust', turbo: 'Turbo' };
+// What a car's parts add up to. Without a motor or V8 a car only rolls like a pedal car.
+function carStats(pieces, n) {
+  let power = 0, accM = 1, topM = 1, hand = 1, cyl = 0, turbo = 0, exhaust = 0;
+  const cnt = {};
+  for (const p of pieces) {
+    if (!p.eng) continue;
+    cnt[p.eng] = (cnt[p.eng] || 0) + 1;
+    switch (p.eng) {
+      case 'motor': power += 1; cyl += 2; break;
+      case 'vblock': power += 2.5; cyl += 8; break;
+      case 'piston': power += 0.5; cyl += 1; break;
+      case 'gear': accM += 0.15; break;
+      case 'crank': accM += 0.1; break;
+      case 'turbo': topM += 0.15; turbo++; break;
+      case 'exhaust': topM += 0.04; exhaust++; break;
+      case 'lever': hand += 0.12; break;
+    }
+  }
+  accM = Math.min(accM, 1.9); topM = Math.min(topM, 1.6); hand = Math.min(hand, 1.6);
+  const pw = Math.min(power, 10);
+  const top = Math.max(7, (pw ? 13 + 14 * (1 - Math.exp(-pw / 2.2)) : 9) * topM - n / 60);
+  const acc = (pw ? 9 + 16 * (1 - Math.exp(-pw / 1.8)) : 5) * accM / (1 + n / 100);
+  return { power, top, acc, hand, cyl: Math.max(1, cyl), turbo, exhaust, cnt, n };
+}
+// Put an animated part's moving mesh into a parent, pivoting about its own centre.
+function addAnimPart(parent, part, mat, pos, rotY, off, list) {
+  const holder = new THREE.Group(), piv = new THREE.Group(), mesh = new THREE.Mesh(part.animGeo, mat);
+  holder.position.copy(pos); holder.rotation.y = rotY; piv.position.set(...part.pivot);
+  mesh.castShadow = true; piv.add(mesh); holder.add(piv); parent.add(holder);
+  list.push({ mesh, anim: part.anim, fast: !!part.fast, off });
+  return mesh;
+}
+function animateParts(list, phase) {
+  for (const a of list) {
+    const ph = phase + a.off;
+    if (a.anim === 'piston') a.mesh.position.y = Math.sin(ph * 2) * 0.42;
+    else if (a.anim === 'spinX') a.mesh.rotation.x = -ph * 1.6;
+    else if (a.anim === 'spinZ') a.mesh.rotation.z = ph * (a.fast ? 6 : 2);
+    else if (a.anim === 'rock') a.mesh.rotation.x = Math.sin(ph * 0.8) * 0.45;
+  }
+}
+const smokeGeo = new THREE.SphereGeometry(0.22, 8, 6), puffs = [];
+function puff(x, y, z) {
+  let p = puffs.find(q => !q.visible);
+  if (!p) {
+    if (puffs.length >= 80) return;
+    p = new THREE.Mesh(smokeGeo, new THREE.MeshBasicMaterial({ color: 0x9aa0a8, transparent: true, opacity: 0.45, depthWrite: false }));
+    puffs.push(p); scene.add(p);
+  }
+  p.visible = true; p.position.set(x, y, z); p.userData.t = 0; p.userData.vx = (Math.random() - 0.5) * 0.7; p.userData.vz = (Math.random() - 0.5) * 0.7; p.scale.setScalar(0.6);
+}
+function updateSmoke(dt) {
+  for (const p of puffs) {
+    if (!p.visible) continue;
+    const u = (p.userData.t += dt) / 1.4;
+    if (u >= 1) { p.visible = false; continue; }
+    p.position.y += dt * 1.5; p.position.x += p.userData.vx * dt; p.position.z += p.userData.vz * dt;
+    p.scale.setScalar(0.6 + u * 1.9); p.material.opacity = 0.45 * (1 - u) * (0.75 + 0.25 * night);
+  }
+}
+
 // ---------------------------------------------------------------- vehicles
 // Getting in lifts the car base and every brick stud-connected above it out of the world into one moving model.
 // Getting out snaps it to the stud grid and a quarter turn and puts the bricks back, so parked cars are just bricks.
@@ -1788,10 +1923,12 @@ function enterCar(base) {
   const toLocal = (wx, wz) => { const rx = wx - bcx, rz = wz - bcz; return [rx * c - rz * s, rx * s + rz * c]; };
   const items = [], cols = new Map(), buckets = new Map(), M = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), ONE = new THREE.Vector3(1, 1, 1);
   let seat = null, top = 3;
+  const animated = [], anims = [], exhausts = [];
   for (const b of S) {
     const [w, d] = dims(b.p, b.r), [lx, lz] = toLocal(b.x + w / 2, b.z + d / 2), ly = b.y - base.y, lr = (b.r - r0 + 4) % 4;
     items.push({ p: b.p, c: b.c, lx, lz, ly, lr, orig: brickData(b) });
     if (b.p.id === 'seat' && (!seat || lz < seat.lz)) seat = { lx, lz, y: ly * P + 0.45 };
+    if (b.p.eng === 'exhaust') exhausts.push([lx, ly * P + 2.4, lz]);
     for (const [x, y, z, m] of cellsOf(b.p, b.x, b.y, b.z, b.r)) {
       if (m !== 1) continue;
       const [cx, cz] = toLocal(x + 0.5, z + 0.5), k = y - base.y, kk = cx + ',' + cz;
@@ -1799,9 +1936,11 @@ function enterCar(base) {
       col.lo = Math.min(col.lo, k); col.hi = Math.max(col.hi, k); cols.set(kk, col); top = Math.max(top, k + 1);
     }
     Q.setFromAxisAngle(Y_AXIS, lr * Math.PI / 2); M.compose(V.set(lx, ly * P, lz), Q, ONE);
+    const off = items.length * 1.3;
     b.p.built.forEach((part) => {
       const col = COLORS[b.c], mode = part.fixed ? (part.mat || 'o') : part.mat === 'b' ? 'b' : (col.t ? 't' : (part.mat || 'o'));
       const hex = part.fixed || col.h, kb = hex + mode;
+      if (part.anim) { animated.push([part, carMat(hex, mode), new THREE.Vector3(lx, ly * P, lz), lr * Math.PI / 2, off]); return; }
       if (!buckets.has(kb)) buckets.set(kb, { hex, mode, geos: [] });
       buckets.get(kb).geos.push(part.geo.clone().applyMatrix4(M));
     });
@@ -1809,19 +1948,22 @@ function enterCar(base) {
   const group = new THREE.Group(); group.rotation.order = 'YXZ';
   for (const { hex, mode, geos } of buckets.values()) {
     const mesh = new THREE.Mesh(mergeGeometries(geos, false), carMat(hex, mode)); geos.forEach(g => g.dispose());
-    mesh.castShadow = mode !== 't'; mesh.receiveShadow = true; group.add(mesh);
+    mesh.castShadow = mode !== 't'; mesh.receiveShadow = true; mesh.userData.own = true; group.add(mesh);
   }
+  for (const [part, mat, pos, rotY, off] of animated) addAnimPart(group, part, mat, pos, rotY, off, anims);
   for (const b of S) removeBrick(b);
   const W = base.p.W, D = base.p.D;
   car = { base: base.p, items, cols: [...cols.values()], seat: seat || { lx: 0, lz: 0, y: 1.2 }, n: S.size, group, top,
           wheels: [[-(W / 2 - 0.5), -(D / 2 - 1.5)], [W / 2 - 0.5, -(D / 2 - 1.5)], [-(W / 2 - 0.5), D / 2 - 1.5], [W / 2 - 0.5, D / 2 - 1.5], [0, 0]],
-          x: bcx, z: bcz, y: base.y * P, yaw: r0 * Math.PI / 2, speed: 0, vy: 0, acc: 0, turn: 0, camDist: 7 + Math.max(W, D) * 0.45 };
+          x: bcx, z: bcz, y: base.y * P, yaw: r0 * Math.PI / 2, speed: 0, vy: 0, acc: 0, turn: 0, camDist: 7 + Math.max(W, D) * 0.45,
+          stats: carStats(items.map(it => it.p), S.size), anims, exhausts, phase: 0, smokeT: 0 };
   scene.add(group);
   undoStack.length = 0; redoStack.length = 0; stopRepeat();
   player.fly = false; $('tbFly').classList.remove('on'); $('tbDown').classList.add('hidden');
   player.yaw = car.yaw; player.pitch = -0.25;
   document.body.classList.add('driving'); $('tbJump').textContent = '🛑';
-  engineStart(); brickSound('place', base.p);
+  engineStart(car.stats); brickSound('place', base.p);
+  if (!car.stats.power) setTimeout(() => toast('No engine: this car rolls slowly. Add a Motor or V8 in the Garage'), 2200);
   toast(touchMode ? 'Joystick to drive · 🛑 to brake' : 'W/S to drive · A/D to steer · Space brakes · Q to get out');
   placeCarModel(); seatPlayer();
 }
@@ -1871,7 +2013,7 @@ function exitCar() {
 }
 function dropCar() {
   if (!car) return;
-  scene.remove(car.group); car.group.children.forEach(m => m.geometry.dispose());
+  scene.remove(car.group); car.group.traverse(m => { if (m.isMesh && m.userData.own) m.geometry.dispose(); });
   car = null; engineStop(); document.body.classList.remove('driving'); $('tbJump').textContent = '⬆';
 }
 function toggleCar() {
@@ -1913,7 +2055,7 @@ function updateCar(dt) {
   const thr = Math.max(-1, Math.min(1, (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - joy.y));
   const steer = Math.max(-1, Math.min(1, (keys.KeyA || keys.ArrowLeft ? 1 : 0) - (keys.KeyD || keys.ArrowRight ? 1 : 0) - joy.x));
   const brake = keys.Space || touchJump;
-  const mass = 1 + car.n / 90, top = Math.max(14, 26 - car.n / 30), acc = 18 / mass;
+  const top = car.stats.top, acc = car.stats.acc;
   const v0 = car.speed;
   if (thr > 0.05) car.speed += (car.speed < -0.3 ? 30 : acc) * thr * dt;
   else if (thr < -0.05) car.speed += (car.speed > 0.3 ? 30 : acc * 0.7) * thr * dt;
@@ -1921,7 +2063,7 @@ function updateCar(dt) {
   if (brake) car.speed -= Math.sign(car.speed) * Math.min(Math.abs(car.speed), 32 * dt);
   car.speed = Math.max(-9, Math.min(top, car.speed - car.speed * 0.15 * dt));
   car.acc += ((car.speed - v0) / Math.max(dt, 1e-3) - car.acc) * Math.min(1, dt * 6);
-  car.turn = steer * Math.max(-1, Math.min(1, car.speed / 4)) * (2.1 / (1 + Math.abs(car.speed) / 22));
+  car.turn = steer * Math.max(-1, Math.min(1, car.speed / 4)) * (2.1 / (1 + Math.abs(car.speed) / 22)) * car.stats.hand;
   const steps = Math.max(1, Math.ceil(Math.abs(car.speed * dt) / 0.25)), h = dt / steps;
   for (let i = 0; i < steps; i++) {
     const nyaw = car.yaw + car.turn * h;
@@ -1944,6 +2086,15 @@ function updateCar(dt) {
   }
   placeCarModel(); seatPlayer(); placeCamera();
   engineUpdate(car.speed, thr);
+  // Moving engine parts and exhaust smoke
+  const th = Math.max(0, thr);
+  car.phase += dt * (car.stats.power ? 4 + Math.abs(car.speed) * 0.9 + th * 8 : 1 + Math.abs(car.speed) * 0.5);
+  animateParts(car.anims, car.phase);
+  if (car.exhausts.length && car.stats.power) {
+    car.smokeT += dt * (1 + th * 2.5);
+    const c = Math.cos(car.yaw), s = Math.sin(car.yaw);
+    while (car.smokeT > 0.14) { car.smokeT -= 0.14; for (const [lx, ly, lz] of car.exhausts) puff(car.x + lx * c + lz * s, car.y + ly, car.z - lx * s + lz * c); }
+  }
 }
 function updateCarPrompt() {
   const ui = $('carUI'), btn = $('carBtn');
@@ -1959,26 +2110,37 @@ $('carBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleC
 $('hornBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); horn(); });
 addEventListener('pagehide', () => { if (car) save(); });
 
-// Engine hum (stage 3 replaces this with sounds from the engine you build) and horn.
+// Engine sound built from the car's engine: more power rumbles deeper, more cylinders chug faster,
+// exhausts make it louder and throatier, and turbos add a whistle.
 let eng = null;
-function engineStart() {
+function engineStart(st) {
   if (!actx || !master || eng) return;
-  const o1 = actx.createOscillator(), o2 = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
-  o1.type = 'sawtooth'; o2.type = 'square'; o2.detune.value = -1195; f.type = 'lowpass'; f.frequency.value = 400; g.gain.value = 0.0001;
-  o1.connect(f); o2.connect(f); f.connect(g).connect(master); o1.start(); o2.start();
-  g.gain.setTargetAtTime(0.04, actx.currentTime, 0.2); eng = { o1, o2, f, g };
+  st = st || { power: 0, cyl: 1, turbo: 0, exhaust: 0 };
+  const t = actx.currentTime, o1 = actx.createOscillator(), o2 = actx.createOscillator(), f = actx.createBiquadFilter(), am = actx.createGain(), g = actx.createGain();
+  const lfo = actx.createOscillator(), lfoG = actx.createGain();
+  o1.type = 'sawtooth'; o2.type = 'square'; o2.detune.value = -1195; f.type = 'lowpass'; f.frequency.value = 400; f.Q.value = 1 + st.exhaust * 0.6;
+  am.gain.value = 0.6; lfo.type = 'square'; lfoG.gain.value = st.power ? 0.4 : 0.15; lfo.connect(lfoG).connect(am.gain);
+  g.gain.value = 0.0001;
+  o1.connect(f); o2.connect(f); f.connect(am).connect(g).connect(master);
+  o1.start(); o2.start(); lfo.start();
+  let w = null, wg = null;
+  if (st.turbo) { w = actx.createOscillator(); wg = actx.createGain(); w.type = 'sine'; wg.gain.value = 0.0001; w.connect(wg).connect(master); w.start(); }
+  eng = { o1, o2, f, g, lfo, w, wg, st, base: st.power ? Math.max(24, 50 - Math.min(st.power, 8) * 3.2) : 70, loud: st.power ? Math.min(2, 1 + st.exhaust * 0.25) : 0.45 };
+  g.gain.setTargetAtTime(0.03 * eng.loud, t, 0.2);
 }
 function engineUpdate(speed, thr, idle) {
   if (!eng) return;
-  const t = actx.currentTime, fr = 38 + Math.abs(speed) * 3.2 + Math.max(0, thr) * 10;
+  const t = actx.currentTime, s = Math.abs(speed), th = Math.max(0, thr), fr = eng.base + s * 2.6 + th * 9;
   eng.o1.frequency.setTargetAtTime(fr, t, 0.08); eng.o2.frequency.setTargetAtTime(fr, t, 0.08);
-  eng.f.frequency.setTargetAtTime(280 + Math.abs(speed) * 40 + Math.max(0, thr) * 220, t, 0.1);
-  eng.g.gain.setTargetAtTime(idle ? 0.0001 : 0.03 + Math.max(0, thr) * 0.035, t, 0.12);
+  eng.lfo.frequency.setTargetAtTime(fr * (0.5 + Math.min(eng.st.cyl, 8) * 0.12), t, 0.08);
+  eng.f.frequency.setTargetAtTime(260 + s * 35 + th * 220 + eng.st.exhaust * 80, t, 0.1);
+  eng.g.gain.setTargetAtTime(idle ? 0.0001 : (0.026 + th * 0.03) * eng.loud, t, 0.12);
+  if (eng.w) { eng.w.frequency.setTargetAtTime(700 + s * 60 + th * 300, t, 0.15); eng.wg.gain.setTargetAtTime(idle ? 0.0001 : 0.005 + th * 0.012, t, 0.15); }
 }
 function engineStop() {
   if (!eng) return;
-  const e = eng; eng = null; e.g.gain.setTargetAtTime(0.0001, actx.currentTime, 0.12);
-  setTimeout(() => { try { e.o1.stop(); e.o2.stop(); } catch (err) {} }, 700);
+  const e = eng; eng = null; e.g.gain.setTargetAtTime(0.0001, actx.currentTime, 0.12); if (e.wg) e.wg.gain.setTargetAtTime(0.0001, actx.currentTime, 0.12);
+  setTimeout(() => { try { e.o1.stop(); e.o2.stop(); e.lfo.stop(); if (e.w) e.w.stop(); } catch (err) {} }, 700);
 }
 function horn() {
   if (!actx || !master) return;
@@ -1996,17 +2158,20 @@ function horn() {
 const GARAGE_KEY = 'brick-builder-cars-v1';
 const STARTERS = [
   { name: 'Red Racer', base: 'carbase4x8', baseC: 'Dark Grey', b: [
-    ['brick1x4', 'Red', 0, 3, 0, 1], ['slope4x2', 'Red', 0, 3, 1, 2], ['steering', 'Black', 1, 3, 3, 0], ['brick1x4', 'Red', 0, 3, 3, 0],
+    ['brick1x4', 'Red', 0, 3, 0, 1], ['brick1x2', 'Red', 0, 3, 1, 0], ['brick1x2', 'Red', 3, 3, 1, 0], ['motor2x2', 'Dark Grey', 1, 3, 1, 0],
+    ['steering', 'Black', 1, 3, 3, 0], ['brick1x4', 'Red', 0, 3, 3, 0],
     ['brick1x4', 'Red', 3, 3, 3, 0], ['seat', 'Black', 1, 3, 4, 0], ['brick1x2', 'Red', 1, 3, 6, 1], ['brick1x4', 'Red', 0, 3, 7, 1],
-    ['light1x1', 'Yellow', 0, 6, 0, 0], ['light1x1', 'Yellow', 3, 6, 0, 0], ['brick1x4', 'Clear Glass', 0, 6, 2, 1], ['plate1x4', 'Black', 0, 6, 7, 1]] },
+    ['light1x1', 'Yellow', 0, 6, 0, 0], ['light1x1', 'Yellow', 3, 6, 0, 0], ['brick1x4', 'Clear Glass', 0, 6, 2, 1], ['plate1x4', 'Black', 0, 6, 7, 1],
+    ['exhaust1x1', 'Light Grey', 1, 6, 6, 0], ['exhaust1x1', 'Light Grey', 2, 6, 6, 0]] },
   { name: 'Beach Buggy', base: 'carbase4x8', baseC: 'Black', b: [
     ['slope4x2', 'Orange', 0, 3, 0, 2], ['light1x1', 'Yellow', 0, 3, 2, 0], ['light1x1', 'Yellow', 3, 3, 2, 0], ['steering', 'Black', 1, 3, 2, 0],
-    ['seat', 'Black', 1, 3, 3, 0], ['seat', 'Black', 1, 3, 5, 0], ['brick1x4', 'Orange', 0, 3, 7, 1],
-    ...[[0, 3], [3, 3], [0, 6], [3, 6]].flatMap(([x, z]) => [['round1x1', 'Black', x, 3, z, 0], ['round1x1', 'Black', x, 6, z, 0]]),
-    ['plate4x4', 'Orange', 0, 9, 3, 0]] },
+    ['seat', 'Black', 1, 3, 3, 0], ['motor2x2', 'Black', 1, 3, 5, 0], ['brick1x4', 'Orange', 0, 3, 7, 1],
+    ['round1x1', 'Black', 0, 3, 3, 0], ['round1x1', 'Black', 3, 3, 3, 0], ['round1x1', 'Black', 0, 6, 3, 0], ['round1x1', 'Black', 3, 6, 3, 0],
+    ['round1x1', 'Black', 0, 3, 6, 0], ['round1x1', 'Black', 3, 3, 6, 0], ['plate2x4', 'Orange', 0, 9, 3, 1],
+    ['piston1x1', 'Red', 1, 6, 5, 0], ['piston1x1', 'Red', 2, 6, 5, 0], ['exhaust1x1', 'Light Grey', 1, 6, 6, 0], ['exhaust1x1', 'Light Grey', 2, 6, 6, 0]] },
   { name: 'Pickup Truck', base: 'carbase6x12', baseC: 'Dark Grey', b: [
-    ['brick1x6', 'Dark Grey', 0, 3, 0, 1], ['brick1x6', 'Blue', 0, 3, 1, 1], ['brick1x6', 'Blue', 0, 3, 2, 1],
-    ['slope2x2', 'Blue', 0, 6, 1, 2], ['slope2x2', 'Blue', 2, 6, 1, 2], ['slope2x2', 'Blue', 4, 6, 1, 2],
+    ['brick1x6', 'Dark Grey', 0, 3, 0, 1], ['vblock2x4', 'Red', 1, 3, 1, 1], ['brick1x2', 'Blue', 0, 3, 1, 0], ['brick1x2', 'Blue', 5, 3, 1, 0],
+    ['exhaust1x1', 'Light Grey', 0, 6, 1, 0], ['exhaust1x1', 'Light Grey', 5, 6, 1, 0], ['turbo2x2', 'Dark Grey', 2, 3, 8, 0],
     ['light1x1', 'Yellow', 0, 6, 0, 0], ['light1x1', 'Yellow', 5, 6, 0, 0],
     ['brick1x4', 'Blue', 0, 3, 3, 0], ['brick1x4', 'Blue', 5, 3, 3, 0], ['brick1x4', 'Blue', 0, 6, 3, 0], ['brick1x4', 'Blue', 5, 6, 3, 0],
     ['steering', 'Black', 2, 3, 3, 0], ['seat', 'Black', 2, 3, 4, 0], ['brick1x6', 'Blue', 0, 3, 7, 1], ['brick1x6', 'Blue', 0, 6, 7, 1],
@@ -2025,7 +2190,7 @@ function saveMyCars(list) { try { localStorage.setItem(GARAGE_KEY, JSON.stringif
 // ---- workshop model: its own little grid, separate from the world
 let ws = null;                     // { base: piece, id, name, recs: Set, occ: Map }
 let gOpen = false, gReturn = false, gR = null, gScene, gCam, gRoot, gGhost, gGhostMat, gGround, gAim = null, gAimNdc = null;
-let gPiece = 'brick1x2', gRot = 0, gCat = 'Vehicles';
+let gPiece = 'motor2x2', gRot = 0, gCat = 'Engine';
 const gOrbit = { yaw: Math.PI + 0.7, pitch: 0.5, dist: 16 }, gUndo = [], gRay = new THREE.Raycaster();
 function wsBounds() { const W = ws.base.W, D = ws.base.D; return [-W / 2 - 3, W / 2 + 3, -D / 2 - 3, D / 2 + 3]; }
 function wsCanPlace(p, x, y, z, r) {
@@ -2038,8 +2203,10 @@ function wsConnected(p, x, y, z, r) {
 }
 function brickObject(p, c, r) {
   const g = new THREE.Group(), col = COLORS[c];
+  g.userData.anims = [];
   for (const part of p.built) {
     const mode = part.fixed ? (part.mat || 'o') : part.mat === 'b' ? 'b' : (col.t ? 't' : (part.mat || 'o'));
+    if (part.anim) { addAnimPart(g, part, carMat(part.fixed || col.h, mode), new THREE.Vector3(), 0, Math.random() * 6, g.userData.anims); continue; }
     const m = new THREE.Mesh(part.geo, carMat(part.fixed || col.h, mode)); m.castShadow = mode !== 't'; m.receiveShadow = true; g.add(m);
   }
   g.rotation.y = r * Math.PI / 2;
@@ -2067,7 +2234,7 @@ function wsLoad(design, keepId) {
     const p = PIECE_BY_ID[e[0]]; if (!p || p.car) continue;
     wsAdd(p, Math.max(0, cid(e[1])), e[2], e[3], e[4], (e[5] | 0) & 3);
   }
-  gUndo.length = 0; gOrbit.dist = 9 + Math.max(bp.W, bp.D) * 0.9; gAim = null;
+  gUndo.length = 0; gOrbit.dist = 9 + Math.max(bp.W, bp.D) * 0.9; gAim = null; gRefreshStats();
   $('gName').value = ws.name; gRefreshLists();
 }
 function wsDesign() {
@@ -2168,29 +2335,52 @@ function renderGarage(dt) {
     gGhost.visible = true; gGhost.position.set(gAim.x0 + w / 2, gAim.y0 * P + 0.003, gAim.z0 + d / 2); gGhost.rotation.y = gRot * Math.PI / 2;
     gGhostMat.color.set(gAim.valid ? COLORS[colorIdx].h : '#ff3b30'); gGhostMat.opacity = gAim.valid ? 0.5 + 0.1 * Math.sin(performance.now() / 180) : 0.35;
   } else gGhost.visible = false;
+  if (gEngineOn && ws) {
+    gRevT += dt;
+    const rv = Math.pow(Math.max(0, Math.sin(gRevT * 1.3)), 6), st = gStats;
+    gPhase += dt * (st && st.power ? 4 + rv * 14 : 1.5);
+    engineUpdate(rv * 14, rv, false);
+    for (const rec of ws.recs) if (rec.obj.userData.anims.length) animateParts(rec.obj.userData.anims, gPhase);
+  }
   gR.render(gScene, gCam);
 }
+let gEngineOn = false, gRevT = 0, gPhase = 0, gStats = null;
+function gRefreshStats() {
+  if (!ws) return;
+  const st = gStats = carStats([...ws.recs].map(r => r.p), ws.recs.size);
+  const row = (label, v, max, txt) => `<div class="stat"><span>${label}</span><div class="bar"><i style="width:${Math.max(4, Math.min(100, v / max * 100))}%"></i></div><b>${txt}</b></div>`;
+  const parts = Object.entries(st.cnt).map(([k, n]) => `${n}× ${ENG_NAMES[k]}`).join(', ');
+  $('gStats').innerHTML = row('Top speed', st.top, 36, Math.round(st.top * 4)) + row('Acceleration', st.acc, 32, Math.round(st.acc * 4)) +
+    row('Handling', st.hand, 1.6, Math.round(st.hand * 100) + '%') + row('Weight', st.n, 400, st.n) +
+    `<p style="font-size:12px;margin-top:6px">${st.power ? '🔧 Engine: ' + parts : '⚠️ No engine yet, so it will roll like a pedal car. Add a Motor block or V8 from the <b>Engine</b> parts.'}</p>`;
+  if (gEngineOn) { engineStop(); engineStart(st); }
+}
+function setGarageEngine(on) {
+  gEngineOn = on; $('gEngineBtn').textContent = on ? '■ Stop engine' : '▶ Start engine';
+  if (on) { initAudio(); engineStart(gStats); if (!gStats || !gStats.power) toast('No motor yet, so add a Motor block or V8 to hear it roar'); } else engineStop();
+}
+$('gEngineBtn').onclick = () => setGarageEngine(!gEngineOn);
 function gReaim() { gAim = gAimNdc ? gTarget(gAimNdc) : null; }
 function gPlaceAction() {
   if (!gAim) { toast(touchMode ? 'Tap the car to aim first' : 'Point at the car first'); return; }
   if (gAim.p.car) { toast('Car bases start a new car. Use "New 4×8 / 6×12" below'); return; }
   if (!gAim.valid) { sfx('bad'); return; }
   const rec = wsAdd(gAim.p, colorIdx, gAim.x0, gAim.y0, gAim.z0, gRot);
-  if (rec) { gUndo.push({ t: 'add', d: recData(rec) }); brickSound('place', rec.p); navigator.vibrate?.(12); }
+  if (rec) { gUndo.push({ t: 'add', d: recData(rec) }); brickSound('place', rec.p); navigator.vibrate?.(12); gRefreshStats(); }
   gReaim();
 }
 function gRemoveAction() {
   const rec = gAim && gAim.rec;
   if (!rec) return;
   if (rec.p.car) { toast("The car base can't be removed"); sfx('bad'); return; }
-  gUndo.push({ t: 'remove', d: recData(rec) }); wsRemove(rec); brickSound('remove', rec.p); gReaim();
+  gUndo.push({ t: 'remove', d: recData(rec) }); wsRemove(rec); brickSound('remove', rec.p); gReaim(); gRefreshStats();
 }
 function gUndoAction() {
   const op = gUndo.pop(); if (!op) return toast('Nothing to undo');
   const p = PIECE_BY_ID[op.d[0]];
   if (op.t === 'add') { const rec = wsFind(op.d); if (rec) wsRemove(rec); brickSound('remove', p); }
   else { wsAdd(p, Math.max(0, cid(op.d[1])), op.d[2], op.d[3], op.d[4], op.d[5]); brickSound('place', p); }
-  gReaim();
+  gReaim(); gRefreshStats();
 }
 
 // ---- panel UI
@@ -2296,6 +2486,7 @@ function openGarage(fromGame) {
   initAudio();
   gOpen = true; gReturn = fromGame; touchPlaying = false; invOpen = false; resetTouchInput(); stopRepeat(); setHud();
   menu.classList.add('hidden'); inv.classList.add('hidden'); $('garage').classList.remove('hidden');
+  $('carUI').classList.add('hidden');
   if (locked) document.exitPointerLock();
   ensureGarage();
   if (!ws) wsLoad(starterDesign(STARTERS[0]));
@@ -2304,6 +2495,7 @@ function openGarage(fromGame) {
 }
 function closeGarage(silent) {
   gOpen = false; $('garage').classList.add('hidden');
+  if (gEngineOn) setGarageEngine(false);
   if (silent) return;
   if (gReturn) play(); else menu.classList.remove('hidden');
 }
@@ -2450,6 +2642,7 @@ function frame() {
   if (charOpen) renderPreview(dt);
   updateTarget();
   updateSnaps(performance.now());
+  updateSmoke(dt);
   night += (nightTarget - night) * Math.min(1, dt * 2.5); applyLight();
   sky.position.copy(camera.position);
   sun.target.position.set(player.x, 0, player.z);
@@ -2460,7 +2653,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
