@@ -189,15 +189,16 @@
 <div id="menu" class="overlay">
   <div class="card">
     <h1>Brick Builder <span>World</span></h1>
-    <p>An open island to explore and build on. Snap together bricks, plates, slopes, arches, windows, doors and more. Build anything you like.</p>
+    <p>A huge open world, about 10 × 10 miles of grassland, forests, deserts, snowfields and lakes linked by long roads. Explore on foot or by car, and build anything you like.</p>
     <p class="touchOnly" style="color:var(--accent)">📱 Touch controls are on. Turn your phone sideways for the best view.</p>
     <div class="btns">
       <button id="playBtn" class="primary">▶ Play</button>
       <button id="dayBtn">☀ / ☾ Day–Night</button>
       <button id="exportBtn">⬇ Export world</button>
       <button id="importBtn">⬆ Import world</button>
-      <button id="newBtn" class="danger">New island</button>
-      <button id="emptyBtn" class="danger">Empty island</button>
+      <button id="homeBtn">🏠 Return home</button>
+      <button id="newBtn" class="danger">New world</button>
+      <button id="emptyBtn" class="danger">Empty land</button>
       <button id="touchBtn">📱 Touch controls: Off</button>
       <button id="charBtn">🧍 Character</button>
       <button id="garageBtn">🚘 Garage</button>
@@ -356,7 +357,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ---------------------------------------------------------------- constants
 const P = 0.4;            // plate height (1 stud = 1 unit wide)
-const WORLD = 128;        // island spans -WORLD..WORLD studs
+const WORLD = 15232;      // the land spans -WORLD..WORLD studs (about 10 x 10 miles at figure scale); generated in 64-stud chunks
 const MAXY = 450;         // max build height in plates
 const SAVE_KEY = 'brick-builder-world-v1';
 let touchMode = (() => { const q = new URLSearchParams(location.search).get('touch'); if (q === '1' || q === '0') return q === '1'; try { const v = localStorage.getItem('brick-builder-touch'); if (v !== null) return v === '1'; } catch (e) {} return matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches; })();
@@ -780,13 +781,14 @@ function studTexture(base, light, dark) {
   t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return t;
 }
-const groundTex = studTexture('#4f9d3a', '#66b84f', '#3c7f2b'); groundTex.repeat.set(WORLD * 2, WORLD * 2);
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD * 2, WORLD * 2).rotateX(-Math.PI / 2),
-  new THREE.MeshStandardMaterial({ map: groundTex, roughness: 0.75 }));
-ground.receiveShadow = true;
-scene.add(ground);
-const cliff = new THREE.Mesh(new THREE.BoxGeometry(WORLD * 2, 6, WORLD * 2).translate(0, -3.01, 0), new THREE.MeshStandardMaterial({ color: '#d9bb7b', roughness: 0.9 }));
-scene.add(cliff);
+// Ground is drawn per 64x64 chunk (see the chunk section), tinted by biome.
+const CHUNK = 64;
+const BIOMES = { grass: '#5cb244', forest: '#3f9a36', desert: '#e3c27e', snow: '#f4f8fb', lake: '#4aa3e6' };
+const BIOME_NAMES = { grass: '🌿 Grassland', forest: '🌲 Forest', desert: '🏜 Desert', snow: '❄️ Snowfield', lake: '💧 Lake', village: '🏡 Home village' };
+const groundTex = studTexture('#d9d9d9', '#f2f2f2', '#b8b8b8'); groundTex.repeat.set(CHUNK, CHUNK);
+const groundGeo = new THREE.PlaneGeometry(CHUNK, CHUNK).rotateX(-Math.PI / 2);
+const groundMats = {};
+for (const [k, c] of Object.entries(BIOMES)) groundMats[k] = new THREE.MeshStandardMaterial({ map: groundTex, color: c, roughness: k === 'lake' ? 0.25 : 0.75, metalness: k === 'lake' ? 0.1 : 0 });
 const sea = new THREE.Mesh(new THREE.PlaneGeometry(2400, 2400).rotateX(-Math.PI / 2).translate(0, -1.2, 0),
   new THREE.MeshStandardMaterial({ color: '#2a86c9', roughness: 0.15, metalness: 0.1 }));
 scene.add(sea);
@@ -815,7 +817,7 @@ const MATS = {
 };
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3(1, 1, 1), _c = new THREE.Color();
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
-let pickables = [ground], pickDirty = true;
+let pickables = [], pickDirty = true;
 
 class Batch {
   constructor(geo, mat, transparent) {
@@ -866,7 +868,7 @@ function getBatch(piece, pi, mode) {
 // ---------------------------------------------------------------- world state
 const occ = new Map();          // cell key -> { b: brick, m: mode }
 const bricks = new Set();
-const key = (x, y, z) => (y * 1024 + (x + 512)) * 1024 + (z + 512);
+const key = (x, y, z) => (y * 32768 + (x + 16384)) * 32768 + (z + 16384);
 const COS = [1, 0, -1, 0], SIN = [0, 1, 0, -1];
 const dims = (p, r) => r % 2 ? [p.D, p.W] : [p.W, p.D];
 
@@ -941,6 +943,7 @@ function findBrick(d) {
 }
 function clearWorld() {
   dropCar();
+  resetChunks(); removedGen = new Set();
   for (const b of batches.values()) { scene.remove(b.mesh); b.mesh.dispose(); }
   batches.clear(); occ.clear(); bricks.clear(); pickDirty = true;
   undoStack.length = 0; redoStack.length = 0;
@@ -948,7 +951,18 @@ function clearWorld() {
 
 // ---------------------------------------------------------------- world generation
 function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-const put = (id, color, x, y, z, r = 0) => addBrick(PIECE_BY_ID[id], cid(color), x, y, z, r);
+// While a chunk is being generated, put() tags each brick with "cx,cz:n" so the chunk can be unloaded
+// and re-made identically later; bricks the player removed (removedGen) are skipped but still counted.
+let genTag = null, genIdx = 0, genList = null, removedGen = new Set();
+const GEN_SKIPPED = { skipped: true };
+const put = (id, color, x, y, z, r = 0) => {
+  if (genTag === null) return addBrick(PIECE_BY_ID[id], cid(color), x, y, z, r);
+  const gid = genTag + ':' + (genIdx++);
+  if (removedGen.has(gid)) return GEN_SKIPPED;
+  const b = addBrick(PIECE_BY_ID[id], cid(color), x, y, z, r);
+  if (b) { b.gen = gid; genList.push(b); }
+  return b;
+};
 
 function fillLine(cells, alongX, y, color, offset) {
   const free = ([x, z]) => cellsOf(PIECE_BY_ID.brick1x1, x, y, z, 0).every(([a, b, c]) => !occ.has(key(a, b, c)));
@@ -993,10 +1007,11 @@ function buildStarterCar(x0, z0) {
 }
 function generateWorld(seed = 1234) {
   clearWorld();
+  worldSeed = seed; emptyWorld = false;
   const R = rng(seed);
   // Crossroads made of dark plates, with lamp posts
-  for (let a = -WORLD + 4; a + 8 <= WORLD - 4; a += 8) { put('plate8x8', 'Dark Grey', a, 0, -4); put('plate8x8', 'Dark Grey', -4, 0, a); }
-  for (let a = -WORLD + 10, n = 0; a < WORLD - 10; a += 20, n++) {
+  for (let a = -128; a + 8 <= 128; a += 8) { put('plate8x8', 'Dark Grey', a, 0, -4); put('plate8x8', 'Dark Grey', -4, 0, a); }
+  for (let a = -118, n = 0; a < 118; a += 20, n++) {
     if (Math.abs(a) < 8) continue;
     const side = n % 2 ? 5 : -6;
     put('lamp', 'Black', a, 0, side); put('lamp', 'Black', side, 0, a);
@@ -1011,7 +1026,7 @@ function generateWorld(seed = 1234) {
   }
   const blocked = (x, z, r) => Math.abs(x) < 7 + r || Math.abs(z) < 7 + r || Math.hypot(x - px, z - pz) < 14 + r
     || (x > 2 - r && x < 26 + r && z > -26 - r && z < -2 + r) || (x > 10 - r && x < 22 + r && z > 2 - r && z < 18 + r);
-  const spot = (r) => { for (let t = 0; t < 40; t++) { const x = Math.floor((R() - 0.5) * (WORLD * 2 - 16)), z = Math.floor((R() - 0.5) * (WORLD * 2 - 16)); if (!blocked(x, z, r)) return [x, z]; } return null; };
+  const spot = (r) => { for (let t = 0; t < 40; t++) { const x = Math.floor((R() - 0.5) * 240), z = Math.floor((R() - 0.5) * 240); if (!blocked(x, z, r)) return [x, z]; } return null; };
   // Oak trees
   for (let n = 0; n < 34; n++) {
     const s = spot(4); if (!s) continue; const [x, z] = s;
@@ -1048,7 +1063,152 @@ function generateWorld(seed = 1234) {
   }
   undoStack.length = 0; redoStack.length = 0;
   Object.assign(player, { x: 2.5, y: 0.4, z: 1.5, vy: 0, yaw: -0.5, pitch: -0.05, fly: false });
+  updateChunks(25);
 }
+
+// ---------------------------------------------------------------- endless land: chunks, biomes, roads
+let worldSeed = 1234, emptyWorld = false;
+const CH_N = WORLD / CHUNK, LOAD_R = touchMode ? 3 : 4;
+scene.fog.near = (LOAD_R + 0.5) * CHUNK * 0.45; scene.fog.far = (LOAD_R + 0.5) * CHUNK;
+const chunks = new Map();
+let chunkQueue = [], lastPC = null;
+function hash2(x, z, sd) {
+  let h = (Math.imul(x, 374761393) + Math.imul(z, 668265263) + Math.imul(sd, 1442695041)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function vnoise(x, z, sd) {
+  const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi, u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
+  const a = hash2(xi, zi, sd), b = hash2(xi + 1, zi, sd), c = hash2(xi, zi + 1, sd), d = hash2(xi + 1, zi + 1, sd);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+const inVillage = (cx, cz) => cx >= -2 && cx <= 1 && cz >= -2 && cz <= 1;
+// Temperature and wetness noise (a few chunks across) decide the biome.
+function biomeAt(cx, cz) {
+  if (inVillage(cx, cz)) return 'grass';
+  const t = vnoise(cx / 9, cz / 9, worldSeed + 1) * 0.7 + vnoise(cx / 3, cz / 3, worldSeed + 2) * 0.3;
+  const m = vnoise(cx / 7, cz / 7, worldSeed + 3) * 0.7 + vnoise(cx / 2.5, cz / 2.5, worldSeed + 4) * 0.3;
+  if (m > 0.7) return 'lake';
+  if (t < 0.32) return 'snow';
+  if (t > 0.66 && m < 0.48) return 'desert';
+  if (m > 0.54) return 'forest';
+  return 'grass';
+}
+function oakTree(x, z, R) {
+  if (!put('round2x2', 'Brown', x, 0, z)) return;
+  put('round2x2', 'Brown', x, 3, z); put('round2x2', 'Brown', x, 6, z);
+  const leaf = R() < 0.5 ? 'Green' : 'Dark Green';
+  for (let i = -2; i <= 2; i += 2) for (let j = -2; j <= 2; j += 2) put('brick2x2', leaf, x + i, 9, z + j);
+  for (let i = -1; i <= 1; i += 2) for (let j = -1; j <= 1; j += 2) put('brick2x2', leaf, x + i, 12, z + j);
+  put('bush2x2', leaf === 'Green' ? 'Lime' : 'Green', x, 15, z);
+}
+function pineTree(x, z, snowy) {
+  if (!put('round2x2', 'Dark Brown', x, 0, z)) return;
+  put('round2x2', 'Dark Brown', x, 3, z);
+  put('plate6x6', 'Dark Green', x - 2, 6, z - 2); put('brick2x2', 'Dark Green', x, 7, z);
+  put('plate4x4', snowy ? 'White' : 'Dark Green', x - 1, 10, z - 1); put('brick2x2', 'Dark Green', x, 11, z);
+  put('plate2x2', snowy ? 'White' : 'Dark Green', x, 14, z); put('cone1x1', snowy ? 'White' : 'Dark Green', x, 15, z);
+}
+function rockPile(x, z, R, dark = 'Dark Grey', light = 'Light Grey') {
+  if (!put('brick2x2', dark, x, 0, z)) return;
+  put('slope2x2', light, x, 0, z + 2, 0); put('slope2x2', light, x, 0, z - 2, 2);
+  put('slope2x2', light, x + 2, 0, z, 1); put('slope2x2', light, x - 2, 0, z, 3);
+  put('slope2x2', light, x, 3, z, Math.floor(R() * 4));
+}
+function flowerPatch(x, z, R) {
+  const fc = ['Red', 'Yellow', 'White', 'Pink', 'Purple', 'Orange', 'Lavender'], c = fc[Math.floor(R() * fc.length)];
+  for (let k = 0; k < 4; k++) put('flower', c, x + Math.floor(R() * 5) - 2, 0, z + Math.floor(R() * 5) - 2);
+}
+function placeDesign(d, x0, z0) {   // a garage design with its base corner at (x0, z0)
+  const bp = PIECE_BY_ID[d.base];
+  for (const e of d.b) put(e[0], e[1], x0 + bp.W / 2 + e[2], e[3], z0 + bp.D / 2 + e[4], e[5]);
+}
+function genChunk(cx, cz) {
+  const list = [];
+  if (emptyWorld || inVillage(cx, cz)) return list;
+  genTag = cx + ',' + cz; genIdx = 0; genList = list;
+  try {
+    const x0 = cx * CHUNK, z0 = cz * CHUNK, biome = biomeAt(cx, cz);
+    const R = rng(Math.floor(hash2(cx, cz, worldSeed) * 2147483647));
+    // Long roads every 1024 studs in both directions (lined up with the village crossroads), with lamps.
+    const roadsZ = [], roadsX = [];
+    for (let k = Math.ceil((z0 + 4) / 1024); k * 1024 - 4 < z0 + CHUNK; k++) roadsZ.push(k * 1024 - 4);
+    for (let k = Math.ceil((x0 + 4) / 1024); k * 1024 - 4 < x0 + CHUNK; k++) roadsX.push(k * 1024 - 4);
+    for (const rz of roadsZ) for (let x = x0; x < x0 + CHUNK; x += 8) { put('plate8x8', 'Dark Grey', x, 0, rz); if ((x - x0) % 32 === 8) put('lamp', 'Black', x + 3, 0, rz + 9); }
+    for (const rx of roadsX) for (let z = z0; z < z0 + CHUNK; z += 8) { put('plate8x8', 'Dark Grey', rx, 0, z); if ((z - z0) % 32 === 24) put('lamp', 'Black', rx + 9, 0, z + 3); }
+    const near = (v, lines, pad) => lines.some(l => v > l - pad && v < l + 8 + pad);
+    const spot = (rad) => {
+      for (let t = 0; t < 12; t++) {
+        const x = x0 + 2 + rad + Math.floor(R() * (CHUNK - 4 - rad * 2)), z = z0 + 2 + rad + Math.floor(R() * (CHUNK - 4 - rad * 2));
+        if (!near(z, roadsZ, rad + 3) && !near(x, roadsX, rad + 3)) return [x, z];
+      }
+      return null;
+    };
+    const many = (n, rad, fn) => { for (let i = 0; i < n; i++) { const p = spot(rad); if (p) fn(p[0], p[1]); } };
+    if (biome === 'grass') {
+      if (!roadsZ.length && !roadsX.length && R() < 0.06) {
+        // A little homestead with a parked car to find and drive away
+        buildHouse(x0 + 18, z0 + 14, R() < 0.5 ? 'Cream' : 'White', R() < 0.5 ? 'Red' : 'Dark Grey');
+        placeDesign(starterDesign(STARTERS[Math.floor(R() * STARTERS.length)]), x0 + 40, z0 + 36);
+      } else if (R() < 0.07) {
+        const px = x0 + 32, pz = z0 + 32;
+        for (let x = px - 8; x < px + 8; x += 2) for (let z = pz - 8; z < pz + 8; z += 2) {
+          const d = Math.hypot(x + 1 - px, z + 1 - pz);
+          if (d < 5.5) put('tile2x2', 'Blue Glass', x, 0, z); else if (d < 7.5) put('plate2x2', 'Tan', x, 0, z);
+        }
+      }
+      many(2, 4, (x, z) => oakTree(x, z, R)); many(1, 3, (x, z) => pineTree(x, z, false));
+      many(3, 1, (x, z) => put('bush2x2', R() < 0.5 ? 'Green' : 'Lime', x, 0, z));
+      many(4, 2, (x, z) => flowerPatch(x, z, R));
+      if (R() < 0.4) many(1, 3, (x, z) => rockPile(x, z, R));
+    } else if (biome === 'forest') {
+      many(5, 4, (x, z) => oakTree(x, z, R)); many(6, 3, (x, z) => pineTree(x, z, false));
+      many(4, 1, (x, z) => put('bush2x2', 'Dark Green', x, 0, z));
+      many(4, 1, (x, z) => put('mushroom', R() < 0.6 ? 'Red' : 'Brown', x, 0, z));
+    } else if (biome === 'desert') {
+      many(5, 1, (x, z) => { put('cactus', 'Green', x, 0, z); if (R() < 0.4) put('cactus', 'Dark Green', x + 2, 0, z + 1); });
+      many(2, 3, (x, z) => rockPile(x, z, R, 'Brown', 'Tan'));
+      many(2, 1, (x, z) => put('grass', 'Tan', x, 0, z));
+    } else if (biome === 'snow') {
+      many(5, 3, (x, z) => pineTree(x, z, true));
+      if (R() < 0.6) many(1, 3, (x, z) => rockPile(x, z, R, 'Light Grey', 'White'));
+    }
+  } finally { genTag = null; genList = null; }
+  return list;
+}
+function loadChunk(cx, cz) {
+  const k = cx + ',' + cz;
+  if (chunks.has(k)) return;
+  const g = new THREE.Mesh(groundGeo, groundMats[biomeAt(cx, cz)]);
+  g.position.set(cx * CHUNK + CHUNK / 2, 0, cz * CHUNK + CHUNK / 2); g.receiveShadow = true; g.userData.isGround = true;
+  scene.add(g);
+  chunks.set(k, { cx, cz, g, bricks: genChunk(cx, cz) }); pickDirty = true;
+}
+function unloadChunk(k, ch) {
+  scene.remove(ch.g);
+  for (const b of ch.bricks) if (b.gen && bricks.has(b)) removeBrick(b);
+  chunks.delete(k); pickDirty = true;
+}
+// Keep the chunks around the player loaded (nearest first, a few per frame) and drop far ones.
+function updateChunks(budget = 1) {
+  const pcx = Math.floor(player.x / CHUNK), pcz = Math.floor(player.z / CHUNK), tag = pcx + ',' + pcz;
+  if (tag !== lastPC) {
+    lastPC = tag;
+    for (const [k, ch] of [...chunks]) if (Math.max(Math.abs(ch.cx - pcx), Math.abs(ch.cz - pcz)) > LOAD_R + 1) unloadChunk(k, ch);
+    chunkQueue = [];
+    for (let dx = -LOAD_R; dx <= LOAD_R; dx++) for (let dz = -LOAD_R; dz <= LOAD_R; dz++) {
+      const cx = pcx + dx, cz = pcz + dz;
+      if (cx < -CH_N || cx >= CH_N || cz < -CH_N || cz >= CH_N || chunks.has(cx + ',' + cz)) continue;
+      chunkQueue.push([dx * dx + dz * dz, cx, cz]);
+    }
+    chunkQueue.sort((a, b) => a[0] - b[0]);
+  }
+  while (budget-- > 0 && chunkQueue.length) { const [, cx, cz] = chunkQueue.shift(); loadChunk(cx, cz); }
+}
+function resetChunks() {
+  for (const [k, ch] of [...chunks]) { scene.remove(ch.g); chunks.delete(k); }
+  chunkQueue = []; lastPC = null; pickDirty = true;
+}
+function forgetGen(b) { if (b.gen) removedGen.add(b.gen); }
 
 // ---------------------------------------------------------------- player
 const player = { x: 2.5, y: 0.4, z: 1.5, vy: 0, yaw: -0.5, pitch: 0, ground: false, fly: false };
@@ -1139,13 +1299,13 @@ const raycaster = new THREE.Raycaster(); raycaster.far = REACH;
 const CENTER = new THREE.Vector2(0, 0);
 let target = null;
 function computeTarget(ndc = CENTER) {
-  if (pickDirty) { pickables = [ground, ...[...batches.values()].map(b => b.mesh)]; pickDirty = false; }
+  if (pickDirty) { pickables = [...[...chunks.values()].map(c => c.g), ...[...batches.values()].map(b => b.mesh)]; pickDirty = false; }
   raycaster.far = REACH + camDist;
   raycaster.setFromCamera(ndc, camera);
-  const hit = raycaster.intersectObjects(pickables, false).find(h => h.object === ground || h.instanceId !== undefined);
+  const hit = raycaster.intersectObjects(pickables, false).find(h => h.object.userData.isGround || h.instanceId !== undefined);
   if (!hit) return null;
   let brick = null, n;
-  if (hit.object === ground) n = new THREE.Vector3(0, 1, 0);
+  if (hit.object.userData.isGround) n = new THREE.Vector3(0, 1, 0);
   else { brick = hit.object.userData.batch.items[hit.instanceId].b; n = hit.face.normal.clone().applyAxisAngle(Y_AXIS, brick.r * Math.PI / 2); }
   const p = currentPiece(), [w, d] = dims(p, rot), pt = hit.point;
   const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
@@ -1199,7 +1359,7 @@ const undoStack = [], redoStack = [];
 function doOp(op, inverse) {
   const add = (op.t === 'add') !== inverse;
   if (add) return !!addBrick(PIECES[op.d[0]], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5]);
-  const b = findBrick(op.d); if (b) removeBrick(b); return !!b;
+  const b = findBrick(op.d); if (b) { forgetGen(b); removeBrick(b); } return !!b;
 }
 function undo() { const op = undoStack.pop(); if (!op) return toast('Nothing to undo'); doOp(op, true); redoStack.push(op); brickSound(op.t === 'add' ? 'remove' : 'place', PIECES[op.d[0]]); saveSoon(); }
 function redo() { const op = redoStack.pop(); if (!op) return toast('Nothing to redo'); doOp(op, false); undoStack.push(op); brickSound(op.t === 'add' ? 'place' : 'remove', PIECES[op.d[0]]); saveSoon(); }
@@ -1298,7 +1458,7 @@ function cycleStackDir() {
 }
 function removeAction(t = target) {
   if (!t || !t.brick) return;
-  const d = brickData(t.brick); popOut(t.brick); brickSound('remove', t.brick.p); removeBrick(t.brick); record({ t: 'remove', d });
+  const d = brickData(t.brick); popOut(t.brick); brickSound('remove', t.brick.p); forgetGen(t.brick); removeBrick(t.brick); record({ t: 'remove', d });
 }
 function pickAction(t = target) {
   if (!t || !t.brick) return false;
@@ -1373,7 +1533,9 @@ function showLabel() {
 let toastTimer = 0;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1600); }
 function updateInfo() {
-  infoEl.innerHTML = `<b>Brick Builder World</b><br>${car ? '🚗 Driving · speed ' + Math.round(Math.abs(car.speed) * 4) : player.fly ? '🕊 Flying' : '🚶 Walking'} · ${bricks.size} bricks<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · height ${Math.floor(player.y / P)}`;
+  const pcx = Math.floor(player.x / CHUNK), pcz = Math.floor(player.z / CHUNK), km = Math.hypot(player.x, player.z) * 0.00053;
+  const place = BIOME_NAMES[inVillage(pcx, pcz) ? 'village' : biomeAt(pcx, pcz)] + (km >= 0.1 ? ` · ${km.toFixed(1)} km from home` : '');
+  infoEl.innerHTML = `<b>Brick Builder World</b><br>${place}<br>${car ? '🚗 Driving · speed ' + Math.round(Math.abs(car.speed) * 4) : player.fly ? '🕊 Flying' : '🚶 Walking'} · ${bricks.size} bricks<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · height ${Math.floor(player.y / P)}`;
 }
 function buildInventory() {
   ensureThumbs(colorIdx);
@@ -2010,7 +2172,7 @@ function enterCar(base) {
     mesh.castShadow = mode !== 't'; mesh.receiveShadow = true; mesh.userData.own = true; group.add(mesh);
   }
   for (const [part, mat, pos, rotY, off] of animated) addAnimPart(group, part, mat, pos, rotY, off, anims);
-  for (const b of S) removeBrick(b);
+  for (const b of S) { forgetGen(b); removeBrick(b); }
   const W = base.p.W, D = base.p.D;
   car = { base: base.p, items, cols: [...cols.values()], seat: seat || { lx: 0, lz: 0, y: 1.2 }, n: S.size, group, top,
           wheels: [[-(W / 2 - 0.5), -(D / 2 - 1.5)], [W / 2 - 0.5, -(D / 2 - 1.5)], [-(W / 2 - 0.5), D / 2 - 1.5], [W / 2 - 0.5, D / 2 - 1.5], [0, 0]],
@@ -2640,9 +2802,10 @@ function applyLight() {
 // ---------------------------------------------------------------- save / load
 let saveTimer = 0;
 function serialize() {
-  const b = []; for (const x of bricks) b.push(...brickData(x));
+  const b = []; for (const x of bricks) if (!x.gen) b.push(...brickData(x));
   if (car) for (const d of (planPark() || car.items.map(it => it.orig))) b.push(...d);   // a car being driven saves as parked
   return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget,
+           seed: worldSeed, empty: emptyWorld ? 1 : 0, removed: [...removedGen],
            pl: [player.x, player.y, player.z, player.yaw, player.pitch, player.fly ? 1 : 0] };
 }
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) { console.warn('Save failed', e); } }
@@ -2663,6 +2826,9 @@ function load(data) {
   colorIdx = hotCols[slot];
   nightTarget = night = data.night ? 1 : 0;
   if (Array.isArray(data.pl)) { const [x, y, z, yaw, pitch, fly] = data.pl; Object.assign(player, { x, y, z, yaw, pitch, fly: !!fly, vy: 0 }); }
+  worldSeed = typeof data.seed === 'number' ? data.seed : 1234; emptyWorld = !!data.empty;
+  removedGen = new Set(Array.isArray(data.removed) ? data.removed : []);
+  updateChunks(25);
 }
 $('exportBtn').onclick = () => {
   const blob = new Blob([JSON.stringify(serialize())], { type: 'application/json' });
@@ -2676,14 +2842,20 @@ $('importFile').onchange = async (e) => {
   e.target.value = '';
 };
 $('newBtn').onclick = () => {
-  if (!confirm('Start a new island? Your current world will be replaced. Export it first if you want to keep it.')) return;
-  generateWorld(Math.floor(Math.random() * 1e9)); save(); toast('New island created');
+  if (!confirm('Start a new world? Your current world will be replaced. Export it first if you want to keep it.')) return;
+  generateWorld(Math.floor(Math.random() * 1e9)); save(); toast('New world created');
 };
 $('emptyBtn').onclick = () => {
-  if (!confirm('Clear everything and start with an empty island?')) return;
-  clearWorld(); Object.assign(player, { x: 0.5, y: 0, z: 0.5, vy: 0, fly: false }); save(); toast('Empty island');
+  if (!confirm('Clear everything and start with empty land (no trees or roads)?')) return;
+  clearWorld(); emptyWorld = true; worldSeed = Math.floor(Math.random() * 1e9);
+  Object.assign(player, { x: 0.5, y: 0, z: 0.5, vy: 0, fly: false }); updateChunks(25); save(); toast('Empty land');
 };
 addEventListener('beforeunload', save);
+$('homeBtn').onclick = () => {
+  if (car) { toast('Get out of the car first'); return; }
+  Object.assign(player, { x: 2.5, y: 6, z: 1.5, vy: 0, yaw: -0.5, pitch: -0.05, fly: false });
+  updateChunks(9); toast('Welcome home!'); play();
+};
 
 // ---------------------------------------------------------------- boot
 let loaded = false;
@@ -2703,6 +2875,8 @@ function frame() {
   if (gOpen) { renderGarage(dt); requestAnimationFrame(frame); return; }
   if (isActive()) { if (car) updateCar(dt); else updatePlayer(dt); } else { if (car) engineUpdate(0, 0, true); placeCamera(); }
   updateCarPrompt();
+  updateChunks(chunkQueue.length > 30 ? 3 : 1);
+  sea.position.set(player.x, 0, player.z);
   updateFigure(dt);
   if (charOpen) renderPreview(dt);
   updateTarget();
@@ -2712,13 +2886,13 @@ function frame() {
   sky.position.copy(camera.position);
   sun.target.position.set(player.x, 0, player.z);
   sun.position.set(player.x + 60, 110, player.z + 35);
-  clouds.position.x = ((performance.now() / 1000) * 1.2) % 200 - 100;
+  clouds.position.set(Math.round(player.x / 520) * 520 + ((performance.now() / 1000) * 1.2) % 200 - 100, 0, Math.round(player.z / 520) * 520);
   if ((infoT += dt) > 0.2) { infoT = 0; updateInfo(); }
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
