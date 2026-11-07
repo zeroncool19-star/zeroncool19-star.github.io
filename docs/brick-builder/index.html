@@ -219,7 +219,7 @@
       <div>Tap the hotbar at the top to switch bricks</div>
       <div>👁 Switch first / third person · 🧍 Edit character · 🚘 Garage</div>
       <div>🚗🚤 Walk up to a car or boat and tap <b>Drive</b>. Joystick steers, 🛑 brakes</div>
-      <div>🧱 / ⛏ / 🪓 Tool button: build, dig or chop, then hold the green action button</div>
+      <div>🧱 / ⛏ / 🪓 Tool button: build, dig or chop, then hold the green action button. Slide that finger to turn while you work</div>
       <div>🏊 In water, hold ⬆ to swim up</div>
     </div>
     <div class="keys deskOnly">
@@ -882,6 +882,32 @@ scene.add(sky);
 
 const hemi = new THREE.HemisphereLight(0xdff1ff, 0x5a7a3a, 1.1);
 scene.add(hemi);
+// Lamps and light bricks really light their surroundings: a fixed pool of point lights is moved to the
+// nearest light sources each frame (a constant light count keeps shaders from recompiling).
+const LAMP_N = touchMode ? 4 : 8, lampPool = [];
+for (let i = 0; i < LAMP_N; i++) { const l = new THREE.PointLight(0xffd9a0, 0, 16, 2); l.castShadow = false; scene.add(l); lampPool.push(l); }
+const _lampC = [];
+function updateLamps() {
+  _lampC.length = 0;
+  const px = player.x, py = player.y + 2, pz = player.z, add = (x, y, z, hex, k) => { const d = (x - px) ** 2 + (y - py) ** 2 + (z - pz) ** 2; if (d < 70 * 70) _lampC.push([d, x, y, z, hex, k]); };
+  for (const [key_, bt] of batches) {
+    const [pid, pi] = key_.split('|');
+    if (pi !== '0') continue;
+    if (pid === 'lamp') for (const it of bt.items) { const b = it.b; add(b.x + 0.5, b.y * P + 4.38, b.z + 0.5, '#ffd9a0', 1); }
+    else if (pid.startsWith('light')) for (const it of bt.items) { const b = it.b, [w, d] = dims(b.p, b.r); add(b.x + w / 2, b.y * P + 0.6, b.z + d / 2, COLORS[b.c].h, 0.7); }
+  }
+  if (car) {   // a car's light bricks travel with it
+    const c = Math.cos(car.yaw), s = Math.sin(car.yaw);
+    for (const it of car.items) if (it.p.id.startsWith('light')) add(car.x + it.lx * c + it.lz * s, car.y + it.ly * P + 0.6, car.z - it.lx * s + it.lz * c, COLORS[it.c].h, 0.8);
+  }
+  _lampC.sort((a, b) => a[0] - b[0]);
+  const strength = 8 + 45 * night;
+  for (let i = 0; i < LAMP_N; i++) {
+    const l = lampPool[i], c = _lampC[i];
+    if (!c) { l.intensity = 0; continue; }
+    l.position.set(c[1], c[2], c[3]); l.color.set(c[4]); l.intensity = strength * c[5]; l.distance = 14 + 10 * c[5];
+  }
+}
 const sun = new THREE.DirectionalLight(0xfff4e0, 2.2);
 sun.castShadow = true;
 sun.shadow.mapSize.set(touchMode ? 1024 : 2048, touchMode ? 1024 : 2048);
@@ -2365,9 +2391,16 @@ tapBtn('tbFly', () => {
 });
 function flash(id) { const el = $(id); el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 150); }
 {
-  const el = $('tbPlace');
-  el.addEventListener('pointerdown', (e) => { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (err) {} el.classList.add('on'); navigator.vibrate?.(15); startRepeat(); });
-  const up = () => { el.classList.remove('on'); stopRepeat(); };
+  const el = $('tbPlace'); let aim = null;
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (err) {} aim = { id: e.pointerId, x: e.clientX, y: e.clientY }; el.classList.add('on'); navigator.vibrate?.(15); startRepeat(); });
+  // While held, sliding the same finger turns the view, so you can keep digging/chopping/building as you aim around.
+  el.addEventListener('pointermove', (e) => {
+    if (!aim || e.pointerId !== aim.id) return;
+    player.yaw -= (e.clientX - aim.x) * 0.0065;
+    player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - (e.clientY - aim.y) * 0.0065));
+    aim.x = e.clientX; aim.y = e.clientY; lastLook = performance.now();
+  });
+  const up = () => { aim = null; el.classList.remove('on'); stopRepeat(); };
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
 }
 tapBtn('tbStack', cycleStackDir);
@@ -3448,6 +3481,7 @@ function frame() {
   updateTarget();
   updateSnaps(performance.now());
   updateSmoke(dt);
+  updateLamps();
   night += (nightTarget - night) * Math.min(1, dt * 2.5); applyLight();
   if (inWater(camera.position.x, camera.position.y, camera.position.z)) { scene.fog.color.set('#1d5f8c'); scene.fog.near = 1; scene.fog.far = 30; }
   else { scene.fog.near = FOG_NEAR; scene.fog.far = FOG_FAR; }
@@ -3460,7 +3494,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
