@@ -174,6 +174,11 @@
   body.photo #touchUI, body.photo #bottom, body.photo #info, body.photo #crosshair, body.photo #tut, body.photo #carPrompt, body.photo #toast { display: none !important; }
   body.touch.playing.photo #crosshair, body.photo #crosshair { display: none !important; }
   #photoFlash { position: fixed; inset: 0; background: #fff; opacity: .7; pointer-events: none; z-index: 8; }
+  .resChip { display: inline-block; padding: 5px 10px; margin: 0 6px 6px 0; border-radius: 999px; background: rgba(255,255,255,.08); font-size: 14px; }
+  .resChip small { color: var(--muted); }
+  #talkBtn { position: fixed; left: 50%; transform: translateX(-50%); bottom: 180px; font-size: 16px; font-weight: 700; padding: 12px 20px; border-radius: 999px; background: #4fd8ff; color: #062430; border-color: #4fd8ff; z-index: 4; }
+  body.touch #talkBtn { top: calc(160px + env(safe-area-inset-top)); bottom: auto; }
+  #talkUI .card { max-width: 480px; } #talkUI p { font-size: 16px; line-height: 1.45; }
   .invHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .invJump { flex-basis: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
   .invJump button { flex: none; padding: 5px 11px; font-size: 13px; border-radius: 999px; }
@@ -218,6 +223,7 @@
       <button id="playBtn" class="primary">▶ Play</button>
       <button id="dayBtn">🌗 Day & night cycle</button>
       <button id="mapBtn">🗺 Map</button>
+      <button id="weatherBtn">🌦 Weather: changes</button>
       <button id="photoBtn">📷 Photo mode</button>
       <button id="tutBtn">🎓 Tutorial</button>
       <button id="exportBtn">⬇ Export world</button>
@@ -391,6 +397,9 @@
     <h2>Colour (for the selected slot)</h2>
     <div id="invColors" class="colors"></div>
     <div class="btns" style="margin-top:8px"><button id="allColBtn">🎨 Make all hotbar bricks this colour</button></div>
+    <h2 id="cat-Crafting">🔨 Crafting bench: turn what you find into special parts</h2>
+    <div id="craftBank"></div>
+    <div id="craftList"></div>
     <h2 id="cat-Blueprints">📐 Blueprints: copied builds you can paste again</h2>
     <div class="btns" style="margin-top:4px"><button id="bpSave">💾 Save copied build</button><button id="bpImport">📥 Paste a share code</button></div>
     <div id="bpList"></div>
@@ -421,6 +430,10 @@
   </div>
 </div>
 
+<button id="talkBtn" class="hidden">💬 Talk</button>
+<div id="talkUI" class="overlay hidden">
+  <div class="card"><div id="talkBody"></div><div id="talkBtns" class="btns" style="margin:0"></div></div>
+</div>
 <div id="tut" class="hidden"><div id="tutText"></div><button id="tutSkip">Skip</button></div>
 <div id="photoUI"><button id="photoSnap" title="Take picture">📸</button><button id="photoExit" title="Exit photo mode">✖</button></div>
 <div id="photoFlash" class="hidden"></div>
@@ -688,6 +701,46 @@ def({ id: 'signwall', name: 'Wall sign', cat: 'Decor', W: 2, D: 1, H: 3,
   parts: () => [
     { geo: merge([new RoundedBoxGeometry(1.94, 1.1, 0.16, 2, 0.04).translate(0, 0.6, -0.4)]) },
   ], text: { w: 1.84, h: 1.0, y: 0.6, c: -0.4, z: 0.086 } });
+
+// Big blocks for hills and mountains
+def({ id: 'brick8x8', name: 'Brick 8×8', cat: 'Bricks', W: 8, D: 8, H: 3,
+  parts: () => [{ geo: merge([body(8, 8, 1.2), ...studs(8, 8, 1.2)]) }] });
+def({ id: 'rock8x8', name: 'Rock block 8×8', cat: 'Nature', W: 8, D: 8, H: 12,
+  parts: () => [{ geo: merge([body(8, 8, 4.8), ...studs(8, 8, 4.8)]) }] });
+// Hill blocks used by the world generator: a plain box with a printed stud top, so mountains stay cheap to draw.
+function hillDef(id, name, H) {
+  def({ id, name, cat: 'Nature', W: 8, D: 8, H, hidden: true,
+    parts: () => [
+      { geo: new THREE.BoxGeometry(7.98, H * P - 0.02, 7.98).translate(0, (H * P - 0.02) / 2, 0) },
+      { geo: (() => { const g = new THREE.PlaneGeometry(8, 8).rotateX(-Math.PI / 2).translate(0, H * P + 0.002, 0), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 8, uv.getY(i) * 8); return g; })(), mat: 'g' },
+    ] });
+}
+hillDef('hill8', 'Hill block', 3); hillDef('hillrock8', 'Mountain block', 12);
+// Crafted and treasure parts (locked until crafted or won)
+def({ id: 'chest', name: 'Treasure chest', cat: 'Crafted', W: 2, D: 2, H: 3, locked: true,
+  parts: () => [
+    { geo: merge([body(2, 2, 0.72), new RoundedBoxGeometry(1.94, 0.42, 1.94, 2, 0.12).translate(0, 0.93, 0)]) },
+    { geo: merge([new THREE.BoxGeometry(2.0, 0.1, 0.16).translate(0, 0.72, 0.9), new THREE.BoxGeometry(0.1, 0.9, 2.0).translate(-0.6, 0.6, 0), new THREE.BoxGeometry(0.1, 0.9, 2.0).translate(0.6, 0.6, 0), new THREE.BoxGeometry(0.3, 0.32, 0.08).translate(0, 0.68, 1.0)]), fixed: '#e0b62f' },
+  ] });
+def({ id: 'goldbrick', name: 'Gold brick 2×2', cat: 'Crafted', W: 2, D: 2, H: 3, locked: true,
+  parts: () => [{ geo: merge([body(2, 2, 1.2), ...studs(2, 2, 1.2)]), fixed: '#f0c63a' }] });
+def({ id: 'lightcrystal', name: 'Glow crystal', cat: 'Crafted', W: 1, D: 1, H: 3, locked: true,
+  parts: () => [
+    { geo: merge([body(1, 1, 0.2)]), fixed: '#6b6f75' },
+    { geo: merge([new THREE.OctahedronGeometry(0.38, 0).scale(0.8, 1.35, 0.8).translate(0, 0.72, 0), new THREE.OctahedronGeometry(0.2, 0).scale(0.8, 1.4, 0.8).translate(0.22, 0.45, 0.1)]), mat: 'e' },
+  ] });
+def({ id: 'lightlantern', name: 'Lantern', cat: 'Crafted', W: 1, D: 1, H: 4, locked: true,
+  parts: () => [
+    { geo: merge([body(1, 1, 0.16), new THREE.BoxGeometry(0.8, 0.08, 0.8).translate(0, 1.32, 0), new THREE.ConeGeometry(0.42, 0.22, 4).rotateY(Math.PI / 4).translate(0, 1.47, 0),
+      ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([i, j]) => new THREE.BoxGeometry(0.07, 1.16, 0.07).translate(i * 0.35, 0.74, j * 0.35))]), fixed: '#2b2d31' },
+    { geo: merge([new THREE.BoxGeometry(0.6, 1.0, 0.6).translate(0, 0.72, 0)]), mat: 'e' },
+  ] });
+def({ id: 'pipe1x4', name: 'Copper pipe 1×4', cat: 'Crafted', W: 1, D: 4, H: 3, locked: true,
+  parts: () => [{ geo: merge([new THREE.CylinderGeometry(0.34, 0.34, 3.96, 18).rotateX(Math.PI / 2).translate(0, 0.6, 0),
+    new THREE.CylinderGeometry(0.42, 0.42, 0.3, 18).rotateX(Math.PI / 2).translate(0, 0.6, -1.8), new THREE.CylinderGeometry(0.42, 0.42, 0.3, 18).rotateX(Math.PI / 2).translate(0, 0.6, 1.8)]), fixed: '#c8773a' }] });
+def({ id: 'trophy', name: 'Gold trophy', cat: 'Crafted', W: 1, D: 1, H: 5, locked: true,
+  parts: () => [{ geo: merge([body(1, 1, 0.3), cyl(0.12, 0.6, 12, 0.3), new THREE.CylinderGeometry(0.42, 0.16, 0.7, 18).translate(0, 1.25, 0),
+    new THREE.TorusGeometry(0.2, 0.05, 6, 14).translate(0.42, 1.3, 0), new THREE.TorusGeometry(0.2, 0.05, 6, 14).translate(-0.42, 1.3, 0)]), fixed: '#f0c63a' }] });
 
 // Nature extras
 def({ id: 'tree2x2', name: 'Pine tree', cat: 'Nature', W: 2, D: 2, H: 18,
@@ -1021,6 +1074,7 @@ const MATS = {
   e: new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffd27a, emissiveIntensity: 0.9, roughness: 0.4 }),
   b: new THREE.MeshBasicMaterial({ color: 0xffffff }),
 };
+MATS.g = new THREE.MeshStandardMaterial({ map: studTexture('#ffffff', '#ffffff', '#bdbdbd'), roughness: 0.45 });
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3(1, 1, 1), _c = new THREE.Color();
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 let pickables = [], pickDirty = true;
@@ -1113,13 +1167,19 @@ function supported(p, x0, y0, z0, r) {
 function canPlace(p, x0, y0, z0, r) {
   const [w, d] = dims(p, r);
   if (y0 < -DEPTH * BLKH || y0 + p.H > MAXY || x0 < -WORLD || z0 < -WORLD || x0 + w > WORLD || z0 + d > WORLD) return false;
-  for (const [x, y, z] of cellsOf(p, x0, y0, z0, r)) if (occ.has(key(x, y, z)) || (y < 0 && !cellOpen(x, y, z))) return false;
+  for (const [x, y, z] of cellsOf(p, x0, y0, z0, r)) if (occ.has(key(x, y, z)) || (y < 0 && !cellOpen(x, y, z)) || coarseAt(x, y, z)) return false;
   return true;
 }
+// Hill and mountain blocks are stored per 8x8 column instead of per cell, so big mountains stay light on memory.
+const coarse = new Map(); let coarseMode = false;
+const ckey = (x, z) => Math.floor(x / 8) * 100000 + Math.floor(z / 8);
+function coarseAt(x, y, z) { const s = coarse.get(ckey(x, z)); if (!s) return null; for (const b of s) if (y >= b.y && y < b.y + b.p.H) return b; return null; }
 function addBrick(p, c, x, y, z, r, check = true) {
   if (check && !canPlace(p, x, y, z, r)) return null;
   const [w, d] = dims(p, r);
   const b = { p, c, x, y, z, r, slots: [], cells: [] };
+  if (coarseMode) { b.coarse = true; const k = ckey(x, z); if (!coarse.has(k)) coarse.set(k, new Set()); coarse.get(k).add(b); }
+  else
   for (const [cx, cy, cz, m, st] of cellsOf(p, x, y, z, r)) { const k = key(cx, cy, cz); occ.set(k, { b, m, s: st }); b.cells.push(k); }
   _q.setFromAxisAngle(Y_AXIS, r * Math.PI / 2);
   _m.compose(_v.set(x + w / 2, y * P, z + d / 2), _q, _s);
@@ -1134,6 +1194,7 @@ function addBrick(p, c, x, y, z, r, check = true) {
   return b;
 }
 function removeBrick(b) {
+  if (b.coarse) { const s = coarse.get(ckey(b.x, b.z)); if (s) { s.delete(b); if (!s.size) coarse.delete(ckey(b.x, b.z)); } }
   if (b.textMesh) setSignText(b, '');
   // Remove in descending index order per batch isn't needed: each slot lives in its own batch.
   for (const s of b.slots) s.batch.remove(s.index);
@@ -1143,6 +1204,7 @@ function removeBrick(b) {
 const brickData = (b) => [b.p.idx, b.c, b.x, b.y, b.z, b.r];
 function findBrick(d) {
   const p = PIECES[d[0]];
+  { const cb = coarseAt(d[2], d[3], d[4]); if (cb && cb.p === p && cb.x === d[2] && cb.y === d[3] && cb.z === d[4]) return cb; }
   for (const [x, y, z] of cellsOf(p, d[2], d[3], d[4], d[5])) {
     const o = occ.get(key(x, y, z));
     if (o && o.b.p === p && o.b.x === d[2] && o.b.y === d[3] && o.b.z === d[4] && o.b.r === d[5]) return o.b;
@@ -1152,10 +1214,10 @@ function findBrick(d) {
 function clearWorld() {
   dropCar();
   resetChunks(); removedGen = new Set(); dug.clear(); dugByChunk.clear();
-  res = { wood: 0, coal: 0, copper: 0, gold: 0, crystal: 0 };
+  res = { wood: 0, stone: 0, coal: 0, copper: 0, gold: 0, crystal: 0 };
   for (const b of batches.values()) { scene.remove(b.mesh); b.mesh.dispose(); }
   for (const b of bricks) if (b.textMesh) setSignText(b, '');
-  batches.clear(); occ.clear(); bricks.clear(); pickDirty = true;
+  batches.clear(); occ.clear(); coarse.clear(); bricks.clear(); pickDirty = true;
   undoStack.length = 0; redoStack.length = 0;
 }
 
@@ -1346,11 +1408,13 @@ function genChunk(cx, cz) {
     for (const rz of roadsZ) for (let x = x0; x < x0 + CHUNK; x += 8) { put('plate8x8', 'Dark Grey', x, 0, rz); if ((x - x0) % 32 === 8) put('lamp', 'Black', x + 3, 0, rz + 9); }
     for (const rx of roadsX) for (let z = z0; z < z0 + CHUNK; z += 8) { put('plate8x8', 'Dark Grey', rx, 0, z); if ((z - z0) % 32 === 24) put('lamp', 'Black', rx + 9, 0, z + 3); }
     const near = (v, lines, pad) => lines.some(l => v > l - pad && v < l + 8 + pad);
+    { const keep = genIdx; genIdx = 100000; coarseMode = true; try { genHills(x0, z0, biome); } finally { coarseMode = false; } genIdx = keep; }
+    const flat = (x, z, rad) => !hillTop(x, z) && !hillTop(x - rad - 1, z - rad - 1) && !hillTop(x + rad + 1, z + rad + 1) && !hillTop(x - rad - 1, z + rad + 1) && !hillTop(x + rad + 1, z - rad - 1);
     const spot = (rad) => {
       for (let t = 0; t < 12; t++) {
         const x = x0 + 2 + rad + Math.floor(R() * (CHUNK - 4 - rad * 2)), z = z0 + 2 + rad + Math.floor(R() * (CHUNK - 4 - rad * 2));
         const dry = !waterAt(Math.floor(x / BLK), Math.floor(z / BLK)) && !waterAt(Math.floor((x - rad) / BLK), Math.floor((z - rad) / BLK)) && !waterAt(Math.floor((x + rad) / BLK), Math.floor((z + rad) / BLK));
-        if (dry && !near(z, roadsZ, rad + 3) && !near(x, roadsX, rad + 3)) return [x, z];
+        if (dry && !near(z, roadsZ, rad + 3) && !near(x, roadsX, rad + 3) && flat(x, z, rad)) return [x, z];
       }
       return null;
     };
@@ -1359,6 +1423,7 @@ function genChunk(cx, cz) {
       if (!roadsZ.length && !roadsX.length && R() < 0.06) {
         // A little homestead with a parked car to find and drive away
         buildHouse(x0 + 18, z0 + 14, R() < 0.5 ? 'Cream' : 'White', R() < 0.5 ? 'Red' : 'Dark Grey');
+        if (genMobs) genMobs.push({ x: x0 + 30, z: x0 % 2 ? z0 + 34 : z0 + 32, seed: cx * 31 + cz * 17 + worldSeed });
         const cars = STARTERS.filter(d => !PIECE_BY_ID[d.base].boat);
         placeDesign(starterDesign(cars[Math.floor(R() * cars.length)]), x0 + 40, z0 + 36);
       } else if (R() < 0.07) {
@@ -1392,6 +1457,13 @@ function genChunk(cx, cz) {
       many(5, 3, (x, z) => pineTree(x, z, true));
       if (R() < 0.6) many(1, 3, (x, z) => rockPile(x, z, R, 'Light Grey', 'White'));
     }
+    // Treasure chests hidden around the wilds (their own id range so older saves keep matching)
+    genIdx = 200000;
+    const cr = hash2(cx, cz, worldSeed + 60);
+    if ((biome === 'forest' && cr < 0.08) || (biome === 'desert' && cr < 0.06) || (biome === 'snow' && cr < 0.04)) {
+      const x = x0 + 8 + Math.floor(hash2(cx, cz, worldSeed + 61) * 48), z = z0 + 8 + Math.floor(hash2(cx, cz, worldSeed + 62) * 48);
+      if (flat(x, z, 2) && !waterAt(Math.floor(x / BLK), Math.floor(z / BLK))) put('chest', 'Brown', x, 0, z, Math.floor(cr * 400) % 4);
+    }
   } finally { genTag = null; genList = null; }
   return list;
 }
@@ -1407,14 +1479,15 @@ function loadChunk(cx, cz) {
   const ch = { cx, cz, g, t: null, w: null, water, bricks: [] };
   chunks.set(k, ch);
   if (wet || dugByChunk.has(k)) buildChunkTerrain(ch);
-  ch.bricks = genChunk(cx, cz); pickDirty = true;
+  genMobs = []; ch.bricks = genChunk(cx, cz); pickDirty = true;
+  spawnChunkMobs(ch, genMobs); genMobs = null;
 }
 function disposeChunkMeshes(ch) {
   scene.remove(ch.g); if (ch.g.geometry !== groundGeo) ch.g.geometry.dispose();
   for (const m of [ch.t, ch.w]) if (m) { scene.remove(m); m.geometry.dispose(); }
 }
 function unloadChunk(k, ch) {
-  disposeChunkMeshes(ch);
+  disposeChunkMeshes(ch); removeMobs(ch);
   for (const b of ch.bricks) if (b.gen && bricks.has(b)) removeBrick(b);
   chunks.delete(k); pickDirty = true;
 }
@@ -1435,7 +1508,7 @@ function updateChunks(budget = 1) {
   while (budget-- > 0 && chunkQueue.length) { const [, cx, cz] = chunkQueue.shift(); loadChunk(cx, cz); }
 }
 function resetChunks() {
-  for (const [k, ch] of [...chunks]) { disposeChunkMeshes(ch); chunks.delete(k); }
+  for (const [k, ch] of [...chunks]) { disposeChunkMeshes(ch); removeMobs(ch); chunks.delete(k); }
   chunkQueue = []; lastPC = null; pickDirty = true;
 }
 function forgetGen(b) { if (b.gen) removedGen.add(b.gen); }
@@ -1445,7 +1518,7 @@ function forgetGen(b) { if (b.gen) removedGen.add(b.gen); }
 // Dug blocks are saved; lakes are 2 blocks of water with sandy beds.
 const BLK = 2, BLKH = 3, DEPTH = 40, WATER_LAYERS = 2, BLK_Y = BLKH * P;
 const dug = new Set(), dugByChunk = new Map();
-let res = { wood: 0, coal: 0, copper: 0, gold: 0, crystal: 0 };
+let res = { wood: 0, stone: 0, coal: 0, copper: 0, gold: 0, crystal: 0 };
 const bkey = (bx, by, bz) => ((by + 64) * 16384 + (bx + 8192)) * 16384 + (bz + 8192);
 const bdecode = (k) => { const bz = k % 16384 - 8192, r1 = Math.floor(k / 16384), bx = r1 % 16384 - 8192, by = Math.floor(r1 / 16384) - 64; return [bx, by, bz]; };
 const chunkOfBlock = (bx, bz) => Math.floor(bx * BLK / CHUNK) + ',' + Math.floor(bz * BLK / CHUNK);
@@ -1593,6 +1666,7 @@ function digBlock(bx, by, bz) {
   for (let i = 0; i < 3; i++) puff(bx * BLK + 0.5 + Math.random(), by * BLK_Y + 0.4 + Math.random() * 0.6, bz * BLK + 0.5 + Math.random());
   digSound(); navigator.vibrate?.(15);
   if (ore) { res[ore]++; toast(`+1 ${ORE_NAME[ore]} (${res[ore]})`); brickSound('place', null); }
+  buriedTreasure(bx, by, bz);
   saveSoon();
   return true;
 }
@@ -1668,7 +1742,7 @@ function showToolTarget() {
 
 // ---------------------------------------------------------------- player
 const player = { x: 2.5, y: 0.4, z: 1.5, vy: 0, yaw: -0.5, pitch: 0, ground: false, fly: false };
-function solidAt(x, y, z) { if (y < 0 && !cellOpen(x, y, z)) return true; const o = occ.get(key(x, y, z)); return !!o && o.m === 1; }
+function solidAt(x, y, z) { if (y < 0 && !cellOpen(x, y, z)) return true; const o = occ.get(key(x, y, z)); return (!!o && o.m === 1) || !!coarseAt(x, y, z); }
 function collides(px, py, pz) {
   const x0 = Math.floor(px - PR), x1 = Math.floor(px + PR - 1e-6), z0 = Math.floor(pz - PR), z1 = Math.floor(pz + PR - 1e-6);
   const y0 = Math.floor(py / P + 1e-6), y1 = Math.floor((py + PH) / P - 1e-6);
@@ -1892,7 +1966,7 @@ let lastPlaced = null, repeatTimer = null, stackDir = 0, stackAxis = null;
 const STACK_DIRS = [['up', '⬆', 'UP'], ['down', '⬇', 'DOWN'], ['right', '➡', 'RIGHT'], ['left', '⬅', 'LEFT'], ['away', '⬈', 'AWAY']];
 function placeAt(p, x0, y0, z0) {
   const b = addBrick(p, colorIdx, x0, y0, z0, rot);
-  if (b) { record({ t: 'add', d: brickData(b) }); snapIn(b); brickSound('place', b.p, SNAP_FALL / 1000); lastPlaced = b; tutEvent('place'); }
+  if (b) { record({ t: 'add', d: brickData(b) }); snapIn(b); brickSound('place', b.p, SNAP_FALL / 1000); lastPlaced = b; tutEvent('place'); stats.placed++; }
   return b;
 }
 function placeAction(t = target) {
@@ -1959,6 +2033,7 @@ function removeAction(t = target) {
     t = tt && tt.brick ? { brick: tt.brick } : null;
   }
   if (!t || !t.brick) return;
+  brickLoot(t.brick);
   const d = brickData(t.brick); popOut(t.brick); brickSound('remove', t.brick.p); forgetGen(t.brick); removeBrick(t.brick); record({ t: 'remove', d }); tutEvent('remove');
 }
 function pickAction(t = target) {
@@ -2037,12 +2112,12 @@ function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add
 function updateInfo() {
   const pcx = Math.floor(player.x / CHUNK), pcz = Math.floor(player.z / CHUNK), km = Math.hypot(player.x, player.z) * 0.00053;
   const place = BIOME_NAMES[inVillage(pcx, pcz) ? 'village' : biomeAt(pcx, pcz)] + (km >= 0.1 ? ` · ${km.toFixed(1)} km from home` : '');
-  const RES_ICON = { wood: '🪵', coal: '⚫', copper: '🟠', gold: '🟡', crystal: '💎' };
+  const RES_ICON = RES_ICONS; questTrack(inVillage(pcx, pcz) ? 'village' : biomeAt(pcx, pcz));
   const bag = Object.entries(res).filter(([, v]) => v).map(([k, v]) => `${RES_ICON[k]} ${v}`).join(' · ');
   const doing = car ? (car.boat ? '🚤 Boating' : '🚗 Driving') + ' · speed ' + Math.round(Math.abs(car.speed) * 4) : player.fly ? FLY_LEVELS[player.flyLv || 1][0] + ' ' + FLY_LEVELS[player.flyLv || 1][1] : player.swim ? '🏊 Swimming' : '🚶 Walking';
   const toolTxt = { mine: ' · ⛏ Pickaxe', chop: ' · 🪓 Axe', paint: ' · 🖌 Paint', copy: clip ? ' · 📋 Pasting' : ' · 📋 Copy' }[tool] || '';
   const h = Math.floor(player.y / P);
-  infoEl.innerHTML = `<b>Brick Builder World</b><br>${place}<br>${doing}${toolTxt}<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · ${h < -3 && !car && !player.swim ? '⛏ depth ' + Math.ceil(-player.y * 0.53) + ' m' : 'height ' + h}${bag ? '<br>🎒 ' + bag : ''}${dayMode === 'auto' ? ' · 🕒 ' + clockText() : ''}`;
+  infoEl.innerHTML = `<b>Brick Builder World</b><br>${place}<br>${doing}${toolTxt}<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · ${h < -3 && !car && !player.swim ? '⛏ depth ' + Math.ceil(-player.y * 0.53) + ' m' : 'height ' + h}${bag ? '<br>🎒 ' + bag : ''}${dayMode === 'auto' ? ' · 🕒 ' + clockText() : ''}${wet > 0.4 ? (weather === 'storm' ? ' ⛈' : ' 🌧') : ''}${quest ? '<br>' + questLine() : ''}`;
 }
 function buildInventory() {
   ensureThumbs(colorIdx);
@@ -2050,11 +2125,11 @@ function buildInventory() {
     `<div class="slot${i === slot ? ' sel' : ''}" data-slot="${i}"><span class="k">${(i + 1) % 10}</span><img src="${thumbFor(id, hotCols[i])}" alt=""></div>`).join('');
   $('invColors').innerHTML = COLORS.map((c, i) =>
     `<div class="color${c.t ? ' glass' : ''}${i === colorIdx ? ' sel' : ''}" data-color="${i}" title="${c.n}" style="background-color:${c.h}"></div>`).join('');
-  const cats = [...new Set(PIECES.map(p => p.cat))];
+  const cats = [...new Set(PIECES.filter(pieceAvail).map(p => p.cat))];
   const CAT_ICON = { Bricks: '🧱', Plates: '▭', Tiles: '◻️', Slopes: '📐', Round: '⚪', Special: '🚪', Nature: '🌳', Decor: '🪑', Vehicles: '🚗', Engine: '🔧', Chassis: '🛞', Boats: '🚤' };
-  $('invJump').innerHTML = `<button data-jump="top">🎨 Colours</button>` + cats.map(c => `<button data-jump="${c}">${CAT_ICON[c] || ''} ${c}</button>`).join('');
+  $('invJump').innerHTML = `<button data-jump="top">🎨 Colours</button><button data-jump="Crafting">🔨 Crafting</button><button data-jump="Blueprints">📐 Blueprints</button>` + cats.map(c => `<button data-jump="${c}">${CAT_ICON[c] || ''} ${c}</button>`).join('');
   $('invPieces').innerHTML = cats.map(cat => `<h2 id="cat-${cat}">${cat}</h2><div class="grid">` +
-    PIECES.filter(p => p.cat === cat).map(p => `<div class="piece${p.id === hotbar[slot] ? ' sel' : ''}" data-piece="${p.id}"><img src="${thumbs[p.id]}" alt="">${p.name}</div>`).join('') + '</div>').join('');
+    PIECES.filter(p => p.cat === cat && pieceAvail(p)).map(p => `<div class="piece${p.id === hotbar[slot] ? ' sel' : ''}" data-piece="${p.id}"><img src="${thumbs[p.id]}" alt="">${p.name}</div>`).join('') + '</div>').join('');
 }
 $('inv').addEventListener('click', (e) => {
   const j = e.target.closest('[data-jump]');
@@ -2084,17 +2159,17 @@ function startTouch() {
   if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
 }
 function pauseTouch() { touchPlaying = false; resetTouchInput(); menu.classList.remove('hidden'); setHud(); save(); }
-function openInv() { refreshBlueprints(); invOpen = true; touchPlaying = false; resetTouchInput(); setHud(); buildInventory(); inv.classList.remove('hidden'); menu.classList.add('hidden'); if (locked) document.exitPointerLock(); }
+function openInv() { refreshBlueprints(); setTimeout(refreshCraft, 0); invOpen = true; touchPlaying = false; resetTouchInput(); setHud(); buildInventory(); inv.classList.remove('hidden'); menu.classList.add('hidden'); if (locked) document.exitPointerLock(); }
 function closeInv() { invOpen = false; inv.classList.add('hidden'); play(); }
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   setHud();
   if (locked) { menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; }
-  else { for (const k in keys) keys[k] = false; if (photoMode && !touchMode) setPhoto(false); if (!invOpen && !charOpen && !gOpen && !textOpen && !mapOpen) { menu.classList.remove('hidden'); save(); } }
+  else { for (const k in keys) keys[k] = false; if (photoMode && !touchMode) setPhoto(false); if (!invOpen && !charOpen && !gOpen && !textOpen && !mapOpen && !talkOpen) { menu.classList.remove('hidden'); save(); } }
 });
 $('playBtn').onclick = () => { if (!charSaved) openChar(true); else play(); };
 $('invClose').onclick = closeInv;
-canvas.addEventListener('click', () => { if (!touchMode && !locked && !invOpen && !textOpen && !mapOpen) lock(); });
+canvas.addEventListener('click', () => { if (!touchMode && !locked && !invOpen && !textOpen && !mapOpen && !talkOpen) lock(); });
 document.addEventListener('mousemove', (e) => {
   if (!locked) return;
   lastLook = performance.now();
@@ -2113,6 +2188,7 @@ document.addEventListener('wheel', (e) => {
 }, { passive: true });
 document.addEventListener('keydown', (e) => {
   if (textOpen) return;
+  if (talkOpen) { if (e.code === 'Escape' || e.code === 'KeyJ') closeTalk(); return; }
   if (mapOpen) { if (e.code === 'Escape' || e.code === 'KeyL') closeMap(); return; }
   if (charOpen) { if (e.code === 'Escape' || e.code === 'Enter') { e.preventDefault(); closeChar(); } return; }
   if (gOpen) {
@@ -2149,6 +2225,7 @@ document.addEventListener('keydown', (e) => {
     case 'KeyY': redo(); break;
     case 'KeyT': cycleDayMode(); break;
     case 'KeyL': openMap(); break;
+    case 'KeyJ': talk(); break;
     case 'KeyO': setPhoto(true); break;
     case 'KeyP': toggleView(); break;
     case 'KeyK': openChar(true); break;
@@ -3255,7 +3332,7 @@ function gRefreshParts() {
   const cats = [...new Set(PIECES.map(p => p.cat))];
   $('gCat').innerHTML = cats.map(c => `<option${c === gCat ? ' selected' : ''}>${c}</option>`).join('');
   ensureThumbs(gColor);
-  $('gParts').innerHTML = PIECES.filter(p => p.cat === gCat).map(p =>
+  $('gParts').innerHTML = PIECES.filter(p => p.cat === gCat && pieceAvail(p)).map(p =>
     `<div class="piece${p.id === gPiece ? ' sel' : ''}" data-gp="${p.id}" title="${p.name}"><img src="${thumbs[p.id]}" alt="">${p.name}</div>`).join('');
   $('gColors').innerHTML = COLORS.map((c, i) => `<div class="color${c.t ? ' glass' : ''}${i === gColor ? ' sel' : ''}" data-gc="${i}" title="${c.n}" style="background-color:${c.h}"></div>`).join('');
 }
@@ -3545,7 +3622,7 @@ function setSignText(b, text) {
   grp.position.set(b.x + w / 2, b.y * P, b.z + d / 2); grp.rotation.y = b.r * Math.PI / 2;
   scene.add(grp); b.textMesh = grp;
 }
-function editSign(b) { askText('What should the sign say?', b.text || '', (v) => { setSignText(b, v); saveSoon(); }); }
+function editSign(b) { askText('What should the sign say?', b.text || '', (v) => { setSignText(b, v); if (v) stats.signs++; saveSoon(); }); }
 
 // ---------------------------------------------------------------- paint tool
 function repaint(b, c, rec = true) {
@@ -3734,6 +3811,7 @@ function drawMap() {
     if (Math.abs(x) > WORLD || Math.abs(z) > WORLD) col = '#2a86c9';
     else if (waterAt(Math.floor(x / BLK), Math.floor(z / BLK))) col = '#3d8fd1';
     else if (emptyWorld) col = '#6dbb4f';
+    else if (hillLevels(Math.floor(x / 8), Math.floor(z / 8)) > 0) { const hl = hillLevels(Math.floor(x / 8), Math.floor(z / 8)); col = hl >= 10 ? '#f4f6f8' : hl >= 5 ? '#8d9096' : biomeAt(Math.floor(x / CHUNK), Math.floor(z / CHUNK)) === 'desert' ? '#d4b062' : '#55894a'; }
     else { const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK); col = inVillage(cx, cz) ? '#9bd27a' : MAP_BIOME[biomeAt(cx, cz)] || '#6dbb4f'; }
     const span = k * cell / 2, road = (v) => Math.floor((v + span + 4) / 1024 - 1e-9) > Math.floor((v - span - 4) / 1024);
     if (!emptyWorld && (road(z) || road(x)) && Math.abs(x) < WORLD && Math.abs(z) < WORLD) col = '#55595f';
@@ -3759,7 +3837,7 @@ function refreshMarks() {
 function teleportTo(x, z) {
   x = Math.max(-WORLD + 2, Math.min(WORLD - 2, x)); z = Math.max(-WORLD + 2, Math.min(WORLD - 2, z));
   Object.assign(player, { x, z, y: 24, vy: 0 }); if (player.fly) setFly(0);
-  lastPC = null; updateChunks(25); toast('✨ Teleported');
+  lastPC = null; updateChunks(25); player.y = Math.max(0, topSolidAt(x, z, 80)) + 0.2; toast('✨ Teleported');
 }
 $('mapCanvas').addEventListener('pointerdown', (e) => {
   const cv = $('mapCanvas'), r = cv.getBoundingClientRect(), S = cv.width, px = (e.clientX - r.left) * S / r.width, py = (e.clientY - r.top) * S / r.height;
@@ -3807,7 +3885,391 @@ function updateTutorial() {
 $('tutSkip').onclick = () => endTutorial(false);
 $('tutBtn').onclick = () => { startTutorial(); play(); };
 
+
+// ================================================================ ROUND 2: hills, caves, treasure, crafting, animals, weather, villagers
+// ---------------------------------------------------------------- hills and mountains
+// The land is cut into 8x8 stud columns. Each column gets a height in levels (3 plates each) from noise, by biome.
+const HILL_K = { snow: 40, forest: 16, grass: 11, desert: 9 };
+function hillLevels(gx, gz) {
+  if (emptyWorld) return 0;
+  const x = gx * 8, z = gz * 8;
+  if (Math.abs(x + 4) < 200 && Math.abs(z + 4) < 200) return 0;   // keep the home village flat
+  const k = HILL_K[biomeAt(Math.floor(x / CHUNK), Math.floor(z / CHUNK))];
+  if (!k) return 0;
+  const nearRoad = (v) => { const m = (((v + 4) % 1024) + 1024) % 1024; return m < 22 || m > 1002; };
+  if (nearRoad(x) || nearRoad(z)) return 0;
+  for (const [i, j] of [[-4, -4], [11, -4], [-4, 11], [11, 11], [4, 4]]) if (waterAt(Math.floor((x + i) / BLK), Math.floor((z + j) / BLK))) return 0;
+  const n = vnoise(gx / 12, gz / 12, worldSeed + 20) * 0.65 + vnoise(gx / 4.5, gz / 4.5, worldSeed + 21) * 0.35;
+  return Math.max(0, Math.min(16, Math.floor((n - 0.5) * k)));
+}
+// Caves: long tunnels along some rows of columns, three levels tall, through any hill at least 5 levels high.
+const caveRow = (gx, gz) => hash2(gz, Math.floor(gx / 32), worldSeed + 30) < 0.12;
+const hillTop = (x, z) => hillLevels(Math.floor(x / 8), Math.floor(z / 8)) * 3;   // in plates
+function genHills(x0, z0, biome) {
+  const rockC = biome === 'snow' ? 'Light Grey' : biome === 'desert' ? 'Tan' : 'Dark Grey';
+  const topC = biome === 'snow' ? 'White' : biome === 'desert' ? 'Tan' : biome === 'forest' ? 'Dark Green' : 'Green';
+  for (let i = 0; i < CHUNK / 8; i++) for (let j = 0; j < CHUNK / 8; j++) {
+    const gx = x0 / 8 + i, gz = z0 / 8 + j, L = hillLevels(gx, gz);
+    if (!L) continue;
+    const x = gx * 8, z = gz * 8, cave = L >= 5 && biome !== 'desert' && caveRow(gx, gz);
+    let lv = cave ? 3 : 0; const top = L - 1;
+    while (top - lv >= 4) { put('hillrock8', rockC, x, lv * 3, z); lv += 4; }
+    while (lv < top) { put('hill8', rockC, x, lv * 3, z); lv++; }
+    put('hill8', top >= 9 && biome !== 'desert' ? 'White' : topC, x, top * 3, z);
+    if (cave) {
+      if (gx % 3 === 0) put('lightcrystal', hash2(gx, gz, 5) < 0.5 ? 'Sky Blue' : 'Lavender', x + 1, 0, z + 1);
+      if (hash2(gx, gz, worldSeed + 31) < 0.22) put('chest', 'Brown', x + 3, 0, z + 3);
+    }
+  }
+}
+
+// ---------------------------------------------------------------- resources, treasure and crafting
+let unlocked = new Set();
+const pieceAvail = (p) => !p.hidden && (!p.locked || unlocked.has(p.id));
+const RES_ICONS = { wood: '🪵', stone: '🪨', coal: '⚫', copper: '🟠', gold: '🟡', crystal: '💎' };
+const RES_NAMES = { wood: 'wood', stone: 'stone', coal: 'coal', copper: 'copper', gold: 'gold', crystal: 'crystal' };
+const resText = (o) => Object.entries(o).filter(([k, v]) => v && RES_ICONS[k]).map(([k, v]) => `${RES_ICONS[k]} ${v}`).join('  ');
+let stats = { placed: 0, chests: 0, signs: 0, crafted: 0, driven: 0, quests: 0 };
+function fanfare() {
+  if (!actx || !master) return;
+  const t = actx.currentTime;
+  [523, 659, 784, 1047].forEach((f, i) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'triangle'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t + i * 0.09); g.gain.exponentialRampToValueAtTime(0.16, t + i * 0.09 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.09 + 0.35);
+    o.connect(g).connect(master); o.start(t + i * 0.09); o.stop(t + i * 0.09 + 0.4); });
+}
+function giveLoot(title, loot) {
+  for (const [k, v] of Object.entries(loot)) if (k in res) res[k] += v;
+  toast(`${title} ${resText(loot)}`); fanfare(); navigator.vibrate?.([30, 40, 30]); saveSoon();
+}
+function openChest(b) {
+  const R = Math.random;
+  stats.chests++;
+  giveLoot('💰 Treasure!', { wood: 3 + (R() * 8 | 0), coal: 2 + (R() * 5 | 0), copper: 1 + (R() * 4 | 0), gold: 1 + (R() * 3 | 0), crystal: R() < 0.5 ? 1 : 0 });
+}
+// Called just before the player removes or mines a brick
+function brickLoot(b) {
+  if (!b.gen) return;
+  if (b.p.id === 'chest') openChest(b);
+  else if (b.p.id === 'hillrock8' || b.p.id === 'hill8') { const n = b.p.id === 'hillrock8' ? 4 : 1; res.stone += n; toast(`+${n} stone (${res.stone})`); }
+}
+function buriedTreasure(bx, by, bz) {
+  if (by > -3 || hash2(bx * 31 + by, bz * 17 - by * 3, worldSeed + 77) >= 0.006) return;
+  stats.chests++;
+  giveLoot('💰 Buried treasure!', { gold: 2 + (Math.random() * 3 | 0), crystal: 1, copper: 2 });
+}
+const RECIPES = [
+  ['chest', { wood: 10, gold: 1 }, 'Store your treasure in style'],
+  ['goldbrick', { gold: 3 }, 'Shiny gold bricks'],
+  ['lightcrystal', { crystal: 2, copper: 1 }, 'Glows in the dark and lights up caves'],
+  ['lightlantern', { wood: 3, stone: 2, coal: 2 }, 'A lantern that lights up at night'],
+  ['pipe1x4', { copper: 3 }, 'Copper pipes for machines and engines'],
+];
+const canAfford = (cost) => Object.entries(cost).every(([k, v]) => res[k] >= v);
+function craft(id) {
+  const r = RECIPES.find(x => x[0] === id); if (!r) return;
+  if (unlocked.has(id)) return;
+  if (!canAfford(r[1])) { sfx('bad'); toast(`You need ${resText(r[1])}`); return; }
+  for (const [k, v] of Object.entries(r[1])) res[k] -= v;
+  unlocked.add(id); stats.crafted++;
+  const p = PIECE_BY_ID[id]; hotbar[slot] = id; refreshUI(); showLabel();
+  fanfare(); toast(`🔨 Crafted: ${p.name}! It is in your hotbar and the brick box (Crafted)`); saveSoon();
+  refreshCraft();
+}
+function refreshCraft() {
+  const bank = Object.keys(RES_ICONS).map(k => `<span class="resChip">${RES_ICONS[k]} ${res[k] || 0} <small>${RES_NAMES[k]}</small></span>`).join('');
+  $('craftBank').innerHTML = bank;
+  $('craftList').innerHTML = RECIPES.map(([id, cost, help]) => {
+    const p = PIECE_BY_ID[id], have = unlocked.has(id), ok = canAfford(cost);
+    return `<div class="gRow"><img src="${thumbs[id] || ''}" alt="" style="width:40px;height:40px"><span><b>${p.name}</b> <small>${help}</small><br><small>${resText(cost)}</small></span>` +
+      (have ? '<button disabled>✓ Unlocked</button>' : `<button data-craft="${id}" class="${ok ? 'primary' : ''}"${ok ? '' : ' title="Not enough"'}>🔨 Craft</button>`) + '</div>';
+  }).join('') + (unlocked.has('trophy') ? '' : '<p style="font-size:13px;color:var(--muted)">🏆 The gold trophy is a reward from the villagers\' quests.</p>');
+}
+$('inv').addEventListener('click', (e) => { const c = e.target.closest('[data-craft]'); if (c) craft(c.dataset.craft); });
+
+// ---------------------------------------------------------------- animals and villagers ("mobs")
+const MOB_DEF = {
+  sheep:   { name: 'sheep', body: '#f2f2ee', head: '#3b3b3b', leg: '#3b3b3b', w: 1.3, h: 1.0, d: 1.9, legH: 0.6, head3: [0.6, 0.6, 0.7], speed: 1.5, f: [520, 380] },
+  cow:     { name: 'cow', body: '#f4f4f4', head: '#2e2e2e', leg: '#2e2e2e', spots: '#2e2e2e', w: 1.5, h: 1.2, d: 2.5, legH: 0.9, head3: [0.75, 0.7, 0.8], speed: 1.2, f: [180, 120] },
+  pig:     { name: 'pig', body: '#f2a7b5', head: '#f2a7b5', leg: '#e08d9c', w: 1.2, h: 0.9, d: 1.7, legH: 0.45, head3: [0.75, 0.65, 0.5], snout: '#e07f92', speed: 1.4, f: [300, 200] },
+  chicken: { name: 'chicken', body: '#ffffff', head: '#ffffff', leg: '#f2a33a', w: 0.55, h: 0.55, d: 0.75, legH: 0.4, legs2: true, head3: [0.35, 0.45, 0.35], beak: '#f2a33a', comb: '#d0201a', speed: 1.8, f: [1300, 900] },
+  deer:    { name: 'deer', body: '#9a6232', head: '#9a6232', leg: '#7a4b26', w: 1.0, h: 1.0, d: 1.8, legH: 1.2, head3: [0.5, 0.6, 0.7], antlers: '#d9c7a1', speed: 2.4, f: [700, 600] },
+  penguin: { name: 'penguin', body: '#1e1f22', head: '#1e1f22', leg: '#f2a33a', belly: '#f4f4f4', w: 0.8, h: 1.3, d: 0.7, legH: 0.2, legs2: true, upright: true, head3: [0.55, 0.5, 0.5], beak: '#f2a33a', speed: 0.9, f: [900, 500] },
+  camel:   { name: 'camel', body: '#c99a5b', head: '#c99a5b', leg: '#b0844a', w: 1.2, h: 1.1, d: 2.4, legH: 1.6, hump: true, head3: [0.5, 0.55, 0.9], speed: 1.3, f: [220, 160] },
+};
+const BIOME_MOBS = { grass: ['sheep', 'cow', 'pig', 'chicken'], forest: ['deer', 'pig', 'deer'], snow: ['penguin', 'penguin', 'deer'], desert: ['camel'] };
+const mobMat = {}, MM = (hex, emis) => mobMat[hex] || (mobMat[hex] = new THREE.MeshStandardMaterial({ color: hex, roughness: 0.6 }));
+const RB = (w, h, d) => new RoundedBoxGeometry(w, h, d, 2, Math.min(0.08, w / 3, h / 3, d / 3));
+const mobGeoCache = {};
+function mobGeo(k, fn) { return mobGeoCache[k] || (mobGeoCache[k] = fn()); }
+function buildAnimal(type) {
+  const D = MOB_DEF[type], g = new THREE.Group(), add = (geo, mat, x, y, z, parent = g) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+  const legs = [];
+  const legGeo = mobGeo(type + 'leg', () => RB(D.w * 0.22, D.legH, D.w * 0.22).translate(0, -D.legH / 2, 0));
+  const legSpots = D.legs2 ? [[-0.2, 0], [0.2, 0]] : [[-0.3, -0.32], [0.3, -0.32], [-0.3, 0.32], [0.3, 0.32]];
+  for (const [lx, lz] of legSpots) { const piv = new THREE.Group(); piv.position.set(lx * D.w, D.legH, lz * D.d); g.add(piv); add(legGeo, MM(D.leg), 0, 0, 0, piv); legs.push(piv); }
+  const bodyY = D.legH + D.h / 2;
+  add(mobGeo(type + 'body', () => RB(D.w, D.h, D.d)), MM(D.body), 0, bodyY, 0);
+  if (D.belly) add(mobGeo(type + 'belly', () => RB(D.w * 0.7, D.h * 0.75, 0.1)), MM(D.belly), 0, bodyY - 0.05, D.d / 2);
+  if (D.spots) { add(mobGeo('spot1', () => RB(0.5, 0.06, 0.6)), MM(D.spots), 0.25, bodyY + D.h / 2, -0.3); add(mobGeo('spot2', () => RB(0.06, 0.5, 0.6)), MM(D.spots), -D.w / 2, bodyY + 0.1, 0.4); }
+  if (D.hump) add(mobGeo('hump', () => RB(0.8, 0.55, 0.9)), MM(D.body), 0, bodyY + D.h / 2 + 0.2, -0.1);
+  const [hw, hh, hd] = D.head3;
+  const hy = D.upright ? bodyY + D.h / 2 + hh / 2 - 0.02 : bodyY + D.h * 0.35, hz = D.upright ? 0 : D.d / 2 + hd / 2 - 0.08;
+  const head = add(mobGeo(type + 'head', () => RB(hw, hh, hd)), MM(D.head), 0, hy, hz);
+  const eyeGeo = mobGeo('eye', () => new THREE.BoxGeometry(0.07, 0.07, 0.03));
+  add(eyeGeo, MM('#111111'), -hw * 0.28, hh * 0.15, hd / 2 + 0.01, head); add(eyeGeo, MM('#111111'), hw * 0.28, hh * 0.15, hd / 2 + 0.01, head);
+  if (D.snout) add(mobGeo('snout', () => RB(0.35, 0.25, 0.12)), MM(D.snout), 0, -0.08, hd / 2 + 0.05, head);
+  if (D.beak) add(mobGeo('beak', () => new THREE.ConeGeometry(0.08, 0.22, 4).rotateX(Math.PI / 2)), MM(D.beak), 0, -0.05, hd / 2 + 0.1, head);
+  if (D.comb) add(mobGeo('comb', () => RB(0.06, 0.16, 0.22)), MM(D.comb), 0, hh / 2 + 0.07, 0, head);
+  if (D.antlers) for (const s of [-1, 1]) add(mobGeo('antler', () => RB(0.06, 0.55, 0.06)), MM(D.antlers), s * 0.18, hh / 2 + 0.25, -0.05, head).rotation.z = s * 0.4;
+  if (type === 'sheep') add(mobGeo('wool', () => RB(D.w + 0.1, 0.3, D.d - 0.3)), MM('#ffffff'), 0, bodyY + D.h / 2, 0);
+  return { g, legs };
+}
+const VILLAGER_NAMES = ['Ada', 'Bram', 'Cora', 'Dewi', 'Elin', 'Finn', 'Gwen', 'Huw', 'Iris', 'Jac', 'Kit', 'Lowri', 'Mo', 'Nia', 'Osian', 'Pip'];
+function nameTag(text) {
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const g = cv.getContext('2d');
+  g.fillStyle = 'rgba(15,20,30,.75)'; g.beginPath(); g.roundRect(4, 8, 248, 48, 22); g.fill();
+  g.fillStyle = '#fff'; g.font = 'bold 30px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 33);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false })); s.scale.set(2.4, 0.6, 1); return s;
+}
+function buildVillager(seed) {
+  const R = rng(seed), pick = (a) => a[Math.floor(R() * a.length)], cloth = CLOTH.map(c => c.h);
+  const cfg = { head: Math.floor(R() * 3), face: Math.floor(R() * 8), hair: 1 + Math.floor(R() * 9), body: Math.floor(R() * 6), legs: Math.floor(R() * 4),
+    skin: pick(SKINS.slice(0, 6)).h, hairC: pick(['#7a4b26', '#1e1f22', '#f2cd37', '#c91a09', '#a3a7ab', '#5a3a1e']), topC: pick(cloth), legC: pick(cloth) };
+  const g = buildFigure(cfg), name = VILLAGER_NAMES[Math.floor(R() * VILLAGER_NAMES.length)];
+  const tag = nameTag('💬 ' + name); tag.position.set(0, 4.4, 0); g.add(tag);
+  return { g, name, tag };
+}
+const mobs = new Set();
+let genMobs = null;   // genChunk adds villagers for homesteads here
+function spawnMob(type, x, z, ch, seed) {
+  let m;
+  if (type === 'villager') { const v = buildVillager(seed); m = { type, g: v.g, name: v.name, tag: v.tag, legs: null, speed: 1.1, range: 10 }; }
+  else { const a = buildAnimal(type); m = { type, g: a.g, legs: a.legs, speed: MOB_DEF[type].speed, range: 26 }; }
+  Object.assign(m, { x, z, hx: x, hz: z, y: topSolidAt(x, z, 60), yaw: Math.random() * 6.28, t: Math.random() * 3, moving: false, phase: 0, ch, said: 0 });
+  m.g.position.set(m.x, m.y, m.z); scene.add(m.g); mobs.add(m); ch.mobs.push(m);
+  return m;
+}
+function removeMobs(ch) {
+  for (const m of ch.mobs || []) { scene.remove(m.g); if (m.type === 'villager') { m.tag.material.map.dispose(); m.tag.material.dispose(); disposeFigure(m.g); } mobs.delete(m); }
+  ch.mobs = [];
+}
+function spawnChunkMobs(ch, list) {
+  ch.mobs = [];
+  if (emptyWorld) return;
+  const { cx, cz } = ch, R = rng(Math.floor(hash2(cx, cz, worldSeed + 50) * 2147483647));
+  if (cx === 0 && cz === 0) {   // the home village
+    [[-14, 14], [22, 24], [-20, -16], [30, -8]].forEach(([x, z], i) => spawnMob('villager', x, z, ch, worldSeed + i * 7919));
+  }
+  if (inVillage(cx, cz)) { if (R() < 0.5) for (let i = 0; i < 2; i++) spawnMob(R() < 0.5 ? 'sheep' : 'chicken', cx * CHUNK + 10 + R() * 44, cz * CHUNK + 10 + R() * 44, ch); return; }
+  for (const v of list || []) spawnMob('villager', v.x, v.z, ch, v.seed);
+  const kinds = BIOME_MOBS[biomeAt(cx, cz)]; if (!kinds) return;
+  if (R() > 0.45) return;
+  const type = kinds[Math.floor(R() * kinds.length)], n = 1 + Math.floor(R() * 3), bx = cx * CHUNK + 12 + R() * 40, bz = cz * CHUNK + 12 + R() * 40;
+  for (let i = 0; i < n; i++) {
+    const x = bx + (R() - 0.5) * 8, z = bz + (R() - 0.5) * 8;
+    if (waterAt(Math.floor(x / BLK), Math.floor(z / BLK)) || hillTop(x, z) > 0) continue;
+    if (topSolidAt(x, z, 8) > 0.5) continue;   // not inside trees or rocks
+    spawnMob(type, x, z, ch);
+  }
+}
+let nearVillager = null;
+function mobSound(m) {
+  if (!actx || !master || m.type === 'villager') return;
+  const [f0, f1] = MOB_DEF[m.type].f, t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain(), d = Math.hypot(m.x - player.x, m.z - player.z);
+  o.type = m.type === 'cow' || m.type === 'camel' ? 'sawtooth' : 'triangle';
+  o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + 0.35);
+  const vol = 0.08 * Math.max(0, 1 - d / 20);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol + 0.0001, t + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+  o.connect(g).connect(master); o.start(t); o.stop(t + 0.42);
+}
+function updateMobs(dt) {
+  nearVillager = null; let best = 4.5;
+  for (const m of mobs) {
+    const dx = player.x - m.x, dz = player.z - m.z, dp = Math.hypot(dx, dz);
+    if (dp > 90) continue;
+    if (m.type !== 'villager' && dp < 9 && quest && QUESTS[quest.i].stat === 'kinds' && !quest.seen.includes(m.type)) { quest.seen.push(m.type); toast(`🐾 You found a ${MOB_DEF[m.type].name}! (${quest.seen.length}/3 kinds)`); }
+    if (m.type === 'villager') {
+      if (!car && dp < best && Math.abs(player.y - m.y) < 3) { best = dp; nearVillager = m; }
+      if (dp < 5) { m.moving = false; m.yaw = Math.atan2(dx, dz); m.t = 1.5; }
+    } else if (dp < 4.5 && !car) { m.moving = true; m.yaw = Math.atan2(-dx, -dz); m.t = 1.2; m.flee = true; if (performance.now() - m.said > 6000) { m.said = performance.now(); mobSound(m); } }
+    else if (dp < 12 && Math.random() < dt * 0.05) mobSound(m);
+    m.t -= dt;
+    if (m.t <= 0) { m.flee = false; if (Math.random() < 0.45) { m.moving = false; m.t = 1.5 + Math.random() * 4; } else { m.moving = true; m.yaw += (Math.random() - 0.5) * 2.5; m.t = 1.5 + Math.random() * 4; } }
+    if (m.moving) {
+      if (Math.hypot(m.x - m.hx, m.z - m.hz) > m.range && !m.flee) m.yaw = Math.atan2(m.hx - m.x, m.hz - m.z);
+      const sp = m.speed * (m.flee ? 2.2 : 1), nx = m.x + Math.sin(m.yaw) * sp * dt, nz = m.z + Math.cos(m.yaw) * sp * dt;
+      const gy = topSolidAt(nx, nz, m.y + 1.3);
+      if (waterAt(Math.floor(nx / BLK), Math.floor(nz / BLK)) && gy < 0.1 || gy - m.y > 1.3 || gy < m.y - 2.6) { m.yaw += Math.PI * (0.5 + Math.random()); m.t = 0.6; }
+      else { m.x = nx; m.z = nz; m.y += (gy - m.y) * Math.min(1, dt * 12); }
+      m.phase += dt * sp * 4;
+    }
+    const sw = m.moving ? Math.sin(m.phase) * 0.6 : 0;
+    if (m.legs) m.legs.forEach((l, i) => l.rotation.x = (i % 2 ? sw : -sw) * (i > 1 ? -1 : 1));
+    else animateFigure(m.g, m.moving ? m.speed * 2 : 0, dt, false, false);
+    m.g.position.set(m.x, m.y, m.z); m.g.rotation.y = m.yaw;
+  }
+  updateTalkPrompt();
+}
+
+// ---------------------------------------------------------------- villagers' quests
+const QUESTS = [
+  { text: 'Could you bring me 10 wood? Chop trees with the 🪓 axe.', need: { wood: 10 }, reward: { coal: 4, copper: 2 } },
+  { text: 'Build something for the village! Place 30 bricks anywhere.', stat: 'placed', n: 30, reward: { gold: 1, wood: 5 } },
+  { text: 'Go and find 3 different kinds of animals.', stat: 'kinds', n: 3, reward: { copper: 3, crystal: 1 } },
+  { text: 'Find a treasure chest! Look in caves inside the mountains, or dig deep underground.', stat: 'chests', n: 1, reward: { gold: 2 }, unlock: 'trophy' },
+  { text: 'Dig a mine 15 metres deep with the ⛏ pickaxe.', stat: 'deep', n: 15, reward: { crystal: 1, coal: 5 } },
+  { text: 'I need 6 coal from underground to keep warm.', need: { coal: 6 }, reward: { gold: 2 } },
+  { text: 'Visit a snowfield. Use the 🗺 map to find one!', stat: 'snow', n: 1, reward: { copper: 4, stone: 6 } },
+  { text: 'Put up a sign with words on it.', stat: 'signs', n: 1, reward: { gold: 1, wood: 8 } },
+  { text: 'Go for a long drive: travel 1 km in a car or boat.', stat: 'driven', n: 1000, unit: ' m', reward: { gold: 2, copper: 2 } },
+  { text: 'Craft something at the crafting bench in the 🧱 brick box.', stat: 'crafted', n: 1, reward: { crystal: 2 } },
+  { text: 'Climb to the top of a mountain, at least 36 plates high (no flying!).', stat: 'height', n: 36, reward: { gold: 2, stone: 8 } },
+  { text: 'Bring me 3 gold for the village treasury.', need: { gold: 3 }, reward: { crystal: 3, wood: 10 } },
+];
+let questIdx = 0, quest = null;
+function questStart(i) { quest = { i, start: { ...stats }, seen: [], max: 0, flag: false }; }
+function questProgress() {
+  if (!quest) return null;
+  const q = QUESTS[quest.i];
+  if (q.need) { const [k, n] = Object.entries(q.need)[0]; return [Math.min(n, res[k]), n]; }
+  if (q.stat === 'kinds') return [quest.seen.length, q.n];
+  if (q.stat === 'snow' || q.stat === 'deep' || q.stat === 'height') return [Math.min(q.n, quest.max), q.n];
+  return [Math.min(q.n, Math.floor(stats[q.stat] - quest.start[q.stat])), q.n];
+}
+function questTrack(biome) {   // called a few times a second
+  if (!quest) return;
+  const q = QUESTS[quest.i];
+  if (q.stat === 'snow' && biome === 'snow') quest.max = 1;
+  if (q.stat === 'deep' && !car) quest.max = Math.max(quest.max, Math.floor(-player.y * 0.53));
+  if (q.stat === 'height' && !player.fly && player.ground) quest.max = Math.max(quest.max, Math.floor(player.y / P));
+  const [a, n] = questProgress();
+  if (a >= n && !quest.told) { quest.told = true; fanfare(); toast('📜 Quest done! Go back and talk to a villager for your reward'); }
+}
+const questLine = () => { if (!quest) return ''; const [a, n] = questProgress(), q = QUESTS[quest.i]; return `📜 ${a >= n ? '✅ Talk to a villager' : `${a}/${n}${q.unit || ''}`}`; };
+let talkOpen = false, talkWho = null;
+function updateTalkPrompt() {
+  const show = !!nearVillager && isActive() && !talkOpen && !photoMode;
+  $('talkBtn').classList.toggle('hidden', !show);
+  if (show) { const t = `💬 Talk to ${nearVillager.name}${touchMode ? '' : ' (J)'}`; if ($('talkBtn').textContent !== t) $('talkBtn').textContent = t; }
+}
+function talk() {
+  if (!nearVillager) return;
+  talkWho = nearVillager; talkOpen = true; resetTouchInput(); stopRepeat(); touchPlaying = false; setHud();
+  if (locked) document.exitPointerLock();
+  $('talkUI').classList.remove('hidden'); menu.classList.add('hidden'); renderTalk();
+}
+function closeTalk() { talkOpen = false; $('talkUI').classList.add('hidden'); play(); }
+function rewardText(q) { return resText(q.reward) + (q.unlock ? `  🏆 ${PIECE_BY_ID[q.unlock].name}` : ''); }
+function renderTalk() {
+  const nm = talkWho.name; let html, btns;
+  if (!quest) {
+    const q = QUESTS[questIdx % QUESTS.length];
+    html = `<p>👋 Hello, I'm <b>${nm}</b>! ${questIdx >= QUESTS.length ? 'You have helped the whole village. Will you help again?' : ''}</p><p>${q.text}</p><p><small>Reward: ${rewardText(q)}</small></p>`;
+    btns = '<button data-talk="accept" class="primary">✅ I\'ll do it!</button><button data-talk="close">Not now</button>';
+  } else {
+    const q = QUESTS[quest.i], [a, n] = questProgress();
+    if (a >= n) { html = `<p>🎉 <b>${nm}</b>: You did it, thank you so much!</p><p><small>Your reward: ${rewardText(q)}</small></p>`; btns = '<button data-talk="claim" class="primary">🎁 Take reward</button>'; }
+    else { html = `<p><b>${nm}</b>: How is it going?</p><p>${q.text}</p><p><b>Progress: ${a} / ${n}${q.unit || ''}</b></p>`; btns = '<button data-talk="close" class="primary">OK</button><button data-talk="quit" class="danger">Give up</button>'; }
+  }
+  $('talkBody').innerHTML = `<h1 style="font-size:22px">💬 ${escapeHtml(nm)}</h1>` + html;
+  $('talkBtns').innerHTML = btns;
+}
+$('talkUI').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-talk]'); if (!b) return;
+  const a = b.dataset.talk;
+  if (a === 'accept') { questStart(questIdx % QUESTS.length); toast('📜 New quest: ' + QUESTS[quest.i].text); saveSoon(); closeTalk(); }
+  else if (a === 'claim') {
+    const q = QUESTS[quest.i];
+    if (q.need) for (const [k, v] of Object.entries(q.need)) res[k] -= v;
+    if (q.unlock) unlocked.add(q.unlock);
+    quest = null; questIdx++; stats.quests++;
+    giveLoot('🎁 Reward:', q.reward); if (q.unlock) { hotbar[slot] = q.unlock; refreshUI(); toast(`🏆 You won the ${PIECE_BY_ID[q.unlock].name}! It is in your hotbar`); }
+    renderTalk();
+  }
+  else if (a === 'quit') { quest = null; toast('Quest dropped'); saveSoon(); closeTalk(); }
+  else closeTalk();
+});
+$('talkBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); talk(); });
+
+// ---------------------------------------------------------------- weather
+const WEATHER_MODES = [['auto', '🌦 Weather: changes'], ['clear', '☀ Weather: always clear'], ['rain', '🌧 Weather: rain'], ['storm', '⛈ Weather: storm']];
+let weatherMode = 'auto', weather = 'clear', weatherT = 120, wet = 0, wetTarget = 0, bolt = 0;
+const RAIN_N = touchMode ? 700 : 1600, RAIN_BOX = 50;
+const rainGeo = new THREE.BufferGeometry(), rainPos = new Float32Array(RAIN_N * 3);
+for (let i = 0; i < RAIN_N; i++) { rainPos[i * 3] = (Math.random() - 0.5) * RAIN_BOX; rainPos[i * 3 + 1] = Math.random() * 30; rainPos[i * 3 + 2] = (Math.random() - 0.5) * RAIN_BOX; }
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+const rainMat = new THREE.PointsMaterial({ color: 0xaecbe8, size: 0.12, transparent: true, opacity: 0.75, depthWrite: false });
+const rain = new THREE.Points(rainGeo, rainMat); rain.frustumCulled = false; rain.visible = false; scene.add(rain);
+let rainSnd = null;
+function rainSound(vol) {
+  if (!actx || !master) return;
+  if (!rainSnd) {
+    const len = actx.sampleRate * 2, buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = buf; src.loop = true; f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 0.6; g.gain.value = 0;
+    src.connect(f).connect(g).connect(master); src.start(); rainSnd = g;
+  }
+  rainSnd.gain.setTargetAtTime(vol, actx.currentTime, 0.5);
+}
+function thunder() {
+  bolt = 1;
+  if (!actx || !master) return;
+  const t = actx.currentTime + 0.4 + Math.random() * 1.2, src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  src.buffer = noiseBuf; src.loop = true; f.type = 'lowpass'; f.frequency.value = 160;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.7, t + 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.6);
+  src.connect(f).connect(g).connect(master); src.start(t); src.stop(t + 2.7);
+}
+function setWeather(w, quiet) {
+  weather = w; wetTarget = { clear: 0, cloudy: 0.45, rain: 0.8, storm: 1 }[w];
+  if (!quiet) toast({ clear: '☀ The sky is clearing', cloudy: '☁ Clouds are rolling in', rain: '🌧 It is starting to rain', storm: '⛈ A storm is coming!' }[w]);
+}
+function cycleWeatherMode() {
+  const i = WEATHER_MODES.findIndex(m => m[0] === weatherMode); weatherMode = WEATHER_MODES[(i + 1) % WEATHER_MODES.length][0];
+  $('weatherBtn').textContent = WEATHER_MODES.find(m => m[0] === weatherMode)[1];
+  if (weatherMode !== 'auto') setWeather(weatherMode, true); else weatherT = 60;
+  toast($('weatherBtn').textContent); saveSoon();
+}
+function updateWeather(dt) {
+  if (weatherMode === 'auto' && (weatherT -= dt) <= 0) {
+    const r = Math.random(), next = weather === 'clear' ? (r < 0.6 ? 'cloudy' : 'clear') : weather === 'cloudy' ? (r < 0.45 ? 'rain' : r < 0.6 ? 'storm' : 'clear') : weather === 'rain' ? (r < 0.25 ? 'storm' : 'cloudy') : 'rain';
+    weatherT = 90 + Math.random() * 150; if (next !== weather) setWeather(next);
+  }
+  wet += (wetTarget - wet) * Math.min(1, dt * 0.3);
+  const pcx = Math.floor(player.x / CHUNK), pcz = Math.floor(player.z / CHUNK), snowy = !inVillage(pcx, pcz) && biomeAt(pcx, pcz) === 'snow', dry = !inVillage(pcx, pcz) && biomeAt(pcx, pcz) === 'desert';
+  const fall = Math.max(0, wet - 0.5) * 2 * (dry ? 0 : 1), under = camera.position.y < -1;
+  rain.visible = fall > 0.02 && !under && !gOpen;
+  if (rain.visible) {
+    const n = Math.floor(RAIN_N * fall); rainGeo.setDrawRange(0, n);
+    rainMat.color.set(snowy ? 0xffffff : 0xaecbe8); rainMat.size = snowy ? 0.22 : 0.11;
+    const vy = snowy ? 3 : 26, cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, H = RAIN_BOX / 2;
+    for (let i = 0; i < n; i++) {
+      let x = rainPos[i * 3], y = rainPos[i * 3 + 1] - vy * dt, z = rainPos[i * 3 + 2];
+      if (snowy) { x += Math.sin(y * 0.7 + i) * dt * 0.8; }
+      if (y < cy - 12 || y < -0.2) { y = cy + 18 + Math.random() * 4; x = cx + (Math.random() - 0.5) * RAIN_BOX; z = cz + (Math.random() - 0.5) * RAIN_BOX; }
+      if (x < cx - H) x += RAIN_BOX; else if (x > cx + H) x -= RAIN_BOX;
+      if (z < cz - H) z += RAIN_BOX; else if (z > cz + H) z -= RAIN_BOX;
+      rainPos[i * 3] = x; rainPos[i * 3 + 1] = y; rainPos[i * 3 + 2] = z;
+    }
+    rainGeo.attributes.position.needsUpdate = true;
+  }
+  rainSound(rain.visible && !snowy ? 0.05 * fall : 0);
+  if (weather === 'storm' && wet > 0.8 && !under && Math.random() < dt / 9) thunder();
+  bolt = Math.max(0, bolt - dt * 4);
+}
+const STORM_SKY = new THREE.Color('#59616e'), STORM_FOG = new THREE.Color('#8a929e');
+function applyWeather() {
+  clouds.material.color.setScalar(1 - 0.45 * wet);
+  if (wet < 0.01 && bolt < 0.01) return;
+  const k = wet * (1 - 0.6 * night);
+  skyU.top.value.lerp(STORM_SKY, k * 0.75); skyU.bottom.value.lerp(STORM_FOG, k * 0.7); scene.fog.color.lerp(STORM_FOG, k * 0.6);
+  hemi.intensity *= 1 - 0.35 * wet; sun.intensity *= 1 - 0.65 * wet;
+  if (bolt > 0) { hemi.intensity += bolt * 2.5; skyU.top.value.lerp(new THREE.Color('#e8eeff'), bolt * 0.6); }
+}
+
 function toggleNight() { cycleDayMode(); }
+$('weatherBtn').onclick = cycleWeatherMode;
 $('dayBtn').onclick = cycleDayMode;
 $('mapBtn').onclick = openMap;
 $('gMine').addEventListener('click', (e) => {
@@ -3831,6 +4293,7 @@ function applyLight() {
   MATS.e.emissiveIntensity = 0.6 + 1.6 * night;
   clouds.material.opacity = 0.92 - 0.6 * night;
   clouds.material.emissiveIntensity = 0.55 - 0.45 * night;
+  applyWeather();
   if (dusk > 0.01) {   // sunrise and sunset glow
     skyU.bottom.value.lerp(DUSK_SKY, dusk * 0.75); scene.fog.color.lerp(DUSK_SKY, dusk * 0.45); sun.color.lerp(DUSK_SUN, dusk);
   }
@@ -3842,7 +4305,7 @@ let saveTimer = 0;
 function serialize() {
   const b = []; for (const x of bricks) if (!x.gen) b.push(...brickData(x));
   if (car) for (const d of (planPark() || car.items.map(it => it.orig))) b.push(...d);   // a car being driven saves as parked
-  return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget, day: dayMode, tod: +timeOfDay.toFixed(4), marks,
+  return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget, day: dayMode, unlocked: [...unlocked], stats, quest, questIdx, weather: weatherMode, tod: +timeOfDay.toFixed(4), marks,
            texts: [...bricks].filter(x => x.text && !x.gen).map(x => [x.x, x.y, x.z, x.text]),
            seed: worldSeed, empty: emptyWorld ? 1 : 0, removed: [...removedGen], dug: [...dug], res,
            pl: [player.x, player.y, player.z, player.yaw, player.pitch, player.fly ? 1 : 0] };
@@ -3867,6 +4330,11 @@ function load(data) {
   if (typeof data.tod === 'number') timeOfDay = ((data.tod % 1) + 1) % 1;
   updateDayCycle(0); nightTarget = night = Math.round(nightTarget * 100) / 100;
   $('dayBtn').textContent = DAY_MODES.find(m => m[0] === dayMode)[1];
+  unlocked = new Set(Array.isArray(data.unlocked) ? data.unlocked.filter(id => PIECE_BY_ID[id]) : []);
+  if (data.stats && typeof data.stats === 'object') for (const k of Object.keys(stats)) stats[k] = +data.stats[k] || 0;
+  quest = data.quest && QUESTS[data.quest.i] ? { seen: [], max: 0, ...data.quest } : null; questIdx = +data.questIdx || 0;
+  weatherMode = WEATHER_MODES.some(m => m[0] === data.weather) ? data.weather : 'auto'; $('weatherBtn').textContent = WEATHER_MODES.find(m => m[0] === weatherMode)[1];
+  if (weatherMode !== 'auto') setWeather(weatherMode, true);
   marks = Array.isArray(data.marks) ? data.marks.filter(m => m && typeof m.x === 'number').slice(0, 50) : [];
   for (const t of (Array.isArray(data.texts) ? data.texts : [])) { const o = occ.get(key(t[0], t[1], t[2])); if (o && o.b.p.text && o.b.x === t[0] && o.b.y === t[1] && o.b.z === t[2]) setSignText(o.b, String(t[3]).slice(0, 60)); }
   if (Array.isArray(data.pl)) { const [x, y, z, yaw, pitch, fly] = data.pl; Object.assign(player, { x, y, z, yaw, pitch, fly: !!fly, vy: 0 }); }
@@ -3915,7 +4383,7 @@ addEventListener('resize', () => {
 });
 
 const clock = new THREE.Clock();
-let infoT = 0;
+let infoT = 0, lastCarXZ = null;
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
   if (gOpen) { renderGarage(dt); requestAnimationFrame(frame); return; }
@@ -3929,10 +4397,12 @@ function frame() {
   updateSnaps(performance.now());
   updateSmoke(dt);
   updateLamps();
+  updateMobs(dt); updateWeather(dt);
+  if (car) { if (lastCarXZ) stats.driven += Math.hypot(car.x - lastCarXZ[0], car.z - lastCarXZ[1]) * 0.53; lastCarXZ = [car.x, car.z]; } else lastCarXZ = null;
   updateDayCycle(dt);
   night += (nightTarget - night) * Math.min(1, dt * 2.5); applyLight();
   if (inWater(camera.position.x, camera.position.y, camera.position.z)) { scene.fog.color.set('#1d5f8c'); scene.fog.near = 1; scene.fog.far = 30; }
-  else { scene.fog.near = FOG_NEAR; scene.fog.far = FOG_FAR; }
+  else { scene.fog.near = FOG_NEAR * (1 - 0.5 * wet); scene.fog.far = FOG_FAR * (1 - 0.35 * wet); }
   sky.position.copy(camera.position);
   sun.target.position.set(player.x, 0, player.z);
   { const a = timeOfDay * Math.PI * 2, up = Math.sin(a);
@@ -3943,7 +4413,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
