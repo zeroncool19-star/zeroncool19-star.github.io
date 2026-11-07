@@ -1725,7 +1725,8 @@ function computeTarget(ndc = CENTER) {
   let x0, y0, z0;
   if (ay >= ax && ay >= az) {
     x0 = Math.round(pt.x - w / 2); z0 = Math.round(pt.z - d / 2);
-    y0 = n.y > 0 ? (brick ? brick.y + brick.p.H : Math.round(pt.y / P)) : Math.floor((pt.y - 0.01) / P) - p.H + 1;
+    // aiming at an underside hangs the new brick directly below it (measured from the brick, not the hit point)
+    y0 = n.y > 0 ? (brick ? brick.y + brick.p.H : Math.round(pt.y / P)) : (brick ? brick.y - p.H : Math.round(pt.y / P) - p.H);
   } else if (ax >= az) {
     x0 = n.x > 0 ? Math.round(pt.x) : Math.round(pt.x) - w; z0 = Math.round(pt.z - d / 2); y0 = brick ? brick.y : Math.floor(pt.y / BLK_Y) * BLKH;
     if (brick && brick.p.pins && p.wheel) { const [, bd] = dims(brick.p, brick.r); y0 = brick.y + Math.round((brick.p.H - p.H) / 2); z0 = brick.z + Math.floor((bd - d) / 2); }
@@ -3071,7 +3072,7 @@ function gTarget(ndc) {
   let x0, y0, z0;
   if (ay >= ax && ay >= az) {
     x0 = Math.round(pt.x - w / 2); z0 = Math.round(pt.z - d / 2);
-    y0 = n.y > 0 ? (rec ? rec.y + rec.p.H : 0) : Math.floor((pt.y - 0.01) / P) - p.H + 1;
+    y0 = n.y > 0 ? (rec ? rec.y + rec.p.H : 0) : (rec ? rec.y - p.H : Math.round(pt.y / P) - p.H);
   } else if (ax >= az) {
     x0 = n.x > 0 ? Math.round(pt.x) : Math.round(pt.x) - w; z0 = Math.round(pt.z - d / 2); y0 = rec ? rec.y : 0;
     if (rec && rec.p.pins && p.wheel) { const [, rd] = dims(rec.p, rec.r); y0 = rec.y + Math.round((rec.p.H - p.H) / 2); z0 = rec.z + Math.floor((rd - d) / 2); }
