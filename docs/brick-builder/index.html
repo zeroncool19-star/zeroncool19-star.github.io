@@ -157,7 +157,10 @@
 
   /* Inventory */
   #inv .card { width: min(980px, 100%); }
-  .invHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .invHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .invJump { flex-basis: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+  .invJump button { flex: none; padding: 5px 11px; font-size: 13px; border-radius: 999px; }
+  #invPieces h2 { scroll-margin-top: 120px; }
   #inv .invHead { position: sticky; top: -22px; z-index: 3; background: var(--panel-solid); margin: -22px -24px 0; padding: 14px 24px 12px; border-bottom: 1px solid var(--line); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
   .piece { padding: 4px; border-radius: 10px; border: 2px solid transparent; background: rgba(255,255,255,.05); cursor: pointer; text-align: center; font-size: 11px; color: var(--muted); }
@@ -211,10 +214,10 @@
       <div>🕹 <b>Left joystick</b> – walk (push far to run)</div>
       <div>👆 <b>Drag the screen</b> – look around</div>
       <div>🧱 <b>Place button</b> – puts a brick where the crosshair (+) points. <b>Hold it</b> to keep building</div>
-      <div>⬆ <b>Stack direction</b> – tap to choose up, right, left or away; holding Place keeps adding bricks that way</div>
+      <div>⬆ <b>Stack direction</b> – tap to choose up, down, right, left or away; holding Place keeps adding bricks that way</div>
       <div>✖ <b>Remove button</b> – removes the brick at the crosshair</div>
       <div>✋ <b>Press and hold</b> a brick – copy it</div>
-      <div>⬆ Jump / fly up · ⬇ fly down · 🕊 fly on/off</div>
+      <div>⬆ Jump / fly up · ⬇ fly down · 🕊 tap to fly, again for ⚡ fast and 🚀 turbo, again to land</div>
       <div>↻ Rotate · ↶ Undo · 🧱 All bricks &amp; colours</div>
       <div>Tap the hotbar at the top to switch bricks</div>
       <div>👁 Switch first / third person · 🧍 Edit character · 🚘 Garage</div>
@@ -227,13 +230,13 @@
       <div><kbd>Mouse</kbd>Look around</div>
       <div><kbd>Space</kbd>Jump / fly up</div>
       <div><kbd>Shift</kbd>Sprint / fly down</div>
-      <div><kbd>F</kbd>Toggle flying</div>
+      <div><kbd>F</kbd>Fly: on → fast → turbo → off</div>
       <div><kbd>Left click</kbd>Place brick</div>
       <div><kbd>Right click</kbd> or <kbd>X</kbd>Remove brick</div>
       <div><kbd>Middle click</kbd> or <kbd>G</kbd>Copy brick</div>
       <div><kbd>R</kbd>Rotate brick</div>
       <div><kbd>Hold left click</kbd>Keep placing</div>
-      <div><kbd>B</kbd>Stack direction (up / right / left / away)</div>
+      <div><kbd>B</kbd>Stack direction (up / down / right / left / away)</div>
       <div><kbd>1–0</kbd> / <kbd>Wheel</kbd>Choose hotbar slot</div>
       <div><kbd>E</kbd> / <kbd>Tab</kbd>All bricks &amp; colours</div>
       <div><kbd>C</kbd> / <kbd>V</kbd>Previous / next colour</div>
@@ -359,6 +362,7 @@
     <div class="invHead">
       <h1 style="font-size:22px">Brick box</h1>
       <button id="invClose" class="primary" style="font-size:14px;padding:8px 16px">Done (E)</button>
+      <div id="invJump" class="invJump"></div>
     </div>
     <h2>Hotbar: pick a slot, then click a brick to put it there</h2>
     <div id="invSlots" class="invSlots"></div>
@@ -1625,6 +1629,15 @@ function tryHorizontal(nx, nz) {
   }
 }
 const keys = {}, joy = { x: 0, y: 0 };
+// Flying speeds for exploring the big map: tap fly (or F) to step through them.
+const FLY_LEVELS = [['🕊', 'Flying off', 0], ['🕊', 'Flying', 1], ['⚡', 'Fast flying', 3], ['🚀', 'Turbo flying', 7]];
+function setFly(lv) {
+  player.flyLv = lv; player.fly = lv > 0; player.vy = 0;
+  const el = $('tbFly'); el.textContent = FLY_LEVELS[lv][0]; el.classList.toggle('on', lv > 0);
+  $('tbDown').classList.toggle('hidden', lv === 0);
+  toast(FLY_LEVELS[lv][1] + (lv > 1 ? ` (${FLY_LEVELS[lv][2]}× speed)` : ''));
+}
+function cycleFly() { setFly(player.fly ? ((player.flyLv || 1) + 1) % FLY_LEVELS.length : 1); }
 let touchJump = false, touchDown = false;
 function updatePlayer(dt) {
   const fwd = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - joy.y;
@@ -1634,11 +1647,12 @@ function updatePlayer(dt) {
   const mag = Math.hypot(vx, vz), len = Math.max(1, mag);
   const sprint = keys.ShiftLeft || keys.ShiftRight || touchDown || (!player.fly && Math.hypot(joy.x, joy.y) > 0.95);
   const swim = player.swim = !player.fly && inWater(player.x, player.y + 0.8, player.z);
-  const speed = player.fly ? 16 : swim ? 4.2 : (sprint ? 12 : 7);
+  const flyK = FLY_LEVELS[player.flyLv || 1][2];
+  const speed = player.fly ? 16 * flyK : swim ? 4.2 : (sprint ? 12 : 7);
   vx = vx / len * speed; vz = vz / len * speed;
   let vy;
   const up = keys.Space || touchJump, down = keys.ShiftLeft || keys.ShiftRight || touchDown;
-  if (player.fly) { vy = ((up ? 1 : 0) - (down ? 1 : 0)) * 12; if (!fwd && !str) { vx = 0; vz = 0; } }
+  if (player.fly) { vy = ((up ? 1 : 0) - (down ? 1 : 0)) * 12 * Math.sqrt(flyK); if (!fwd && !str) { vx = 0; vz = 0; } }
   else if (swim) {   // float with the head out of the water; hold jump to swim up, sprint/down to dive
     player.vy += ((up ? 16 : 0) - (down ? 10 : 0) + (player.y < -1.5 ? 5 : -2)) * dt - player.vy * 2 * dt;
     player.vy = Math.max(-3, Math.min(3.5, player.vy)); vy = player.vy;
@@ -1806,7 +1820,7 @@ function updateSnaps(now) {
 }
 
 let lastPlaced = null, repeatTimer = null, stackDir = 0, stackAxis = null;
-const STACK_DIRS = [['up', '⬆', 'UP'], ['right', '➡', 'RIGHT'], ['left', '⬅', 'LEFT'], ['away', '⬈', 'AWAY']];
+const STACK_DIRS = [['up', '⬆', 'UP'], ['down', '⬇', 'DOWN'], ['right', '➡', 'RIGHT'], ['left', '⬅', 'LEFT'], ['away', '⬈', 'AWAY']];
 function placeAt(p, x0, y0, z0) {
   const b = addBrick(p, colorIdx, x0, y0, z0, rot);
   if (b) { record({ t: 'add', d: brickData(b) }); snapIn(b); brickSound('place', b.p, SNAP_FALL / 1000); lastPlaced = b; }
@@ -1820,7 +1834,7 @@ function placeAction(t = target) {
 // Stack: put the next brick against the last one placed, in the chosen direction (up, or sideways from where you look).
 function stackAxisNow() {
   const dir = STACK_DIRS[stackDir][0];
-  if (dir === 'up') return 'up';
+  if (dir === 'up' || dir === 'down') return dir;
   const yaw = player.yaw, sg = dir === 'left' ? -1 : 1;
   const vx = dir === 'away' ? -Math.sin(yaw) : Math.cos(yaw) * sg, vz = dir === 'away' ? -Math.cos(yaw) : -Math.sin(yaw) * sg;
   return Math.abs(vx) >= Math.abs(vz) ? (vx > 0 ? '+x' : '-x') : (vz > 0 ? '+z' : '-z');
@@ -1831,6 +1845,7 @@ function stackAction() {
   const p = currentPiece(), [w, d] = dims(p, rot), [lw, ld] = dims(L.p, L.r), ax = stackAxis || 'up';
   let x0 = L.x + Math.floor((lw - w) / 2), z0 = L.z + Math.floor((ld - d) / 2), y0 = L.y;
   if (ax === 'up') y0 = L.y + L.p.H;
+  else if (ax === 'down') y0 = L.y - p.H;   // hang the next brick underneath and work downwards
   else if (ax === '+x') x0 = L.x + lw; else if (ax === '-x') x0 = L.x - w;
   else if (ax === '+z') z0 = L.z + ld; else z0 = L.z - d;
   if (!canPlace(p, x0, y0, z0, rot) || playerOverlaps(cellsOf(p, x0, y0, z0, rot))) { sfx('bad'); return false; }
@@ -1865,6 +1880,11 @@ function cycleStackDir() {
   toast(`Hold Place to stack ${label.toLowerCase()}`);
 }
 function removeAction(t = target) {
+  if ((!t || !t.brick) && tool !== 'build') {
+    const tt = toolTarget();
+    if (tt && tt.block && tool === 'mine') { digBlock(...tt.block); return; }
+    t = tt && tt.brick ? { brick: tt.brick } : null;
+  }
   if (!t || !t.brick) return;
   const d = brickData(t.brick); popOut(t.brick); brickSound('remove', t.brick.p); forgetGen(t.brick); removeBrick(t.brick); record({ t: 'remove', d });
 }
@@ -1945,7 +1965,7 @@ function updateInfo() {
   const place = BIOME_NAMES[inVillage(pcx, pcz) ? 'village' : biomeAt(pcx, pcz)] + (km >= 0.1 ? ` · ${km.toFixed(1)} km from home` : '');
   const RES_ICON = { wood: '🪵', coal: '⚫', copper: '🟠', gold: '🟡', crystal: '💎' };
   const bag = Object.entries(res).filter(([, v]) => v).map(([k, v]) => `${RES_ICON[k]} ${v}`).join(' · ');
-  const doing = car ? (car.boat ? '🚤 Boating' : '🚗 Driving') + ' · speed ' + Math.round(Math.abs(car.speed) * 4) : player.fly ? '🕊 Flying' : player.swim ? '🏊 Swimming' : '🚶 Walking';
+  const doing = car ? (car.boat ? '🚤 Boating' : '🚗 Driving') + ' · speed ' + Math.round(Math.abs(car.speed) * 4) : player.fly ? FLY_LEVELS[player.flyLv || 1][0] + ' ' + FLY_LEVELS[player.flyLv || 1][1] : player.swim ? '🏊 Swimming' : '🚶 Walking';
   const toolTxt = tool === 'mine' ? ' · ⛏ Pickaxe' : tool === 'chop' ? ' · 🪓 Axe' : '';
   const h = Math.floor(player.y / P);
   infoEl.innerHTML = `<b>Brick Builder World</b><br>${place}<br>${doing}${toolTxt}<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · ${h < -3 && !car && !player.swim ? '⛏ depth ' + Math.ceil(-player.y * 0.53) + ' m' : 'height ' + h}${bag ? '<br>🎒 ' + bag : ''}`;
@@ -1957,10 +1977,14 @@ function buildInventory() {
   $('invColors').innerHTML = COLORS.map((c, i) =>
     `<div class="color${c.t ? ' glass' : ''}${i === colorIdx ? ' sel' : ''}" data-color="${i}" title="${c.n}" style="background-color:${c.h}"></div>`).join('');
   const cats = [...new Set(PIECES.map(p => p.cat))];
-  $('invPieces').innerHTML = cats.map(cat => `<h2>${cat}</h2><div class="grid">` +
+  const CAT_ICON = { Bricks: '🧱', Plates: '▭', Tiles: '◻️', Slopes: '📐', Round: '⚪', Special: '🚪', Nature: '🌳', Decor: '🪑', Vehicles: '🚗', Engine: '🔧', Chassis: '🛞', Boats: '🚤' };
+  $('invJump').innerHTML = `<button data-jump="top">🎨 Colours</button>` + cats.map(c => `<button data-jump="${c}">${CAT_ICON[c] || ''} ${c}</button>`).join('');
+  $('invPieces').innerHTML = cats.map(cat => `<h2 id="cat-${cat}">${cat}</h2><div class="grid">` +
     PIECES.filter(p => p.cat === cat).map(p => `<div class="piece${p.id === hotbar[slot] ? ' sel' : ''}" data-piece="${p.id}"><img src="${thumbs[p.id]}" alt="">${p.name}</div>`).join('') + '</div>').join('');
 }
 $('inv').addEventListener('click', (e) => {
+  const j = e.target.closest('[data-jump]');
+  if (j) { const card = document.querySelector('#inv .card'); if (j.dataset.jump === 'top') card.scrollTo({ top: 0, behavior: 'smooth' }); else { const h = document.getElementById('cat-' + j.dataset.jump), head = document.querySelector('#inv .invHead'); if (h) card.scrollTo({ top: card.scrollTop + h.getBoundingClientRect().top - card.getBoundingClientRect().top - head.offsetHeight - 6, behavior: 'smooth' }); } return; }
   const s = e.target.closest('[data-slot]'), c = e.target.closest('[data-color]'), p = e.target.closest('[data-piece]');
   if (e.target.id === 'allColBtn') { hotCols = hotbar.map(() => colorIdx); refreshUI(); toast(`All hotbar bricks are now ${COLORS[colorIdx].n}`); saveSoon(); return; }
   if (s) selectSlot(+s.dataset.slot);
@@ -2035,7 +2059,7 @@ document.addEventListener('keydown', (e) => {
   switch (e.code) {
     case 'KeyR': rot = (rot + 1) % 4; showLabel(); break;
     case 'KeyB': cycleStackDir(); break;
-    case 'KeyF': player.fly = !player.fly; player.vy = 0; $('tbFly').classList.toggle('on', player.fly); $('tbDown').classList.toggle('hidden', !player.fly); toast(player.fly ? 'Flying on' : 'Flying off'); break;
+    case 'KeyF': cycleFly(); break;
     case 'KeyX': removeAction(); break;
     case 'KeyG': pickAction(); break;
     case 'KeyC': setColor((colorIdx - 1 + COLORS.length) % COLORS.length); break;
@@ -2385,10 +2409,7 @@ holdBtn('tbJump', (v) => touchJump = v);
 holdBtn('tbDown', (v) => touchDown = v);
 tapBtn('tbRot', () => { rot = (rot + 1) % 4; showLabel(); });
 tapBtn('tbUndo', undo);
-tapBtn('tbFly', () => {
-  player.fly = !player.fly; player.vy = 0; $('tbFly').classList.toggle('on', player.fly); $('tbDown').classList.toggle('hidden', !player.fly);
-  toast(player.fly ? 'Flying on' : 'Flying off');
-});
+tapBtn('tbFly', cycleFly);
 function flash(id) { const el = $(id); el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 150); }
 {
   const el = $('tbPlace'); let aim = null;
@@ -2657,7 +2678,7 @@ function enterCar(base) {
           stats: an.st, canSteer: an.canSteer, anims, exhausts, phase: 0, smokeT: 0, boat: an.boat };
   scene.add(group);
   undoStack.length = 0; redoStack.length = 0; stopRepeat();
-  player.fly = false; $('tbFly').classList.remove('on'); $('tbDown').classList.add('hidden');
+  player.fly = false; player.flyLv = 0; $('tbFly').classList.remove('on'); $('tbFly').textContent = '🕊'; $('tbDown').classList.add('hidden');
   player.yaw = car.yaw; player.pitch = -0.25;
   document.body.classList.add('driving'); $('tbJump').textContent = '🛑';
   engineStart(car.stats); brickSound('place', base.p);
@@ -3474,7 +3495,7 @@ function frame() {
   if (gOpen) { renderGarage(dt); requestAnimationFrame(frame); return; }
   if (isActive()) { if (car) updateCar(dt); else updatePlayer(dt); } else { if (car) engineUpdate(0, 0, true); placeCamera(); }
   updateCarPrompt();
-  updateChunks(chunkQueue.length > 30 ? 3 : 1);
+  updateChunks(chunkQueue.length > 30 ? 4 : player.fly && (player.flyLv || 1) > 1 ? 2 : 1);
   sea.position.set(player.x, 0, player.z); sea.visible = Math.max(Math.abs(player.x), Math.abs(player.z)) > WORLD - 420;
   updateFigure(dt);
   if (charOpen) renderPreview(dt);
@@ -3494,7 +3515,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
