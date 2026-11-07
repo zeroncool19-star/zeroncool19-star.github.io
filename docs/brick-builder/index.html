@@ -112,6 +112,9 @@
   body.touch.playing.driving #crosshair, body.driving #crosshair { display: none !important; }
 
   /* Garage */
+  .chk { font-size: 13px; padding: 3px 0; } .chk.ok { color: var(--muted); } .chk.no { color: #ffd166; }
+  #gGuide { background: rgba(80, 200, 255, .1); border: 1px solid rgba(80, 200, 255, .35); border-radius: 12px; padding: 4px 12px 12px; margin-top: 10px; }
+  #gGuideStep { font-size: 14px; } #gGuideStep b { color: #7fd8ff; }
   .stat { display: grid; grid-template-columns: 96px 1fr 44px; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); margin: 5px 0; }
   .stat b { color: var(--text); text-align: right; }
   .bar { height: 10px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
@@ -305,6 +308,13 @@
         <button id="gDrive" class="primary" style="font-size:15px;padding:9px 14px">🚗 Drive it!</button>
         <button id="gClose" aria-label="Close garage">✕</button>
       </div>
+      <div id="gGuide" class="hidden">
+        <h2 id="gGuideTitle">Step by step</h2>
+        <div id="gGuideStep"></div>
+        <div class="btns" style="margin-top:8px"><button id="gGuidePlace" class="primary" style="font-size:14px;padding:8px 14px">✋ Place it for me</button><button id="gGuideExit">Exit guide</button></div>
+      </div>
+      <h2>Build check</h2>
+      <div id="gChecks"></div>
       <h2>Performance</h2>
       <div id="gStats"></div>
       <div class="btns" style="margin-top:8px"><button id="gEngineBtn">▶ Start engine</button></div>
@@ -317,9 +327,14 @@
       <div class="btns" style="margin-top:0">
         <button data-gstart="0">🏎 Red Racer</button><button data-gstart="1">🏖 Beach Buggy</button><button data-gstart="2">🛻 Pickup Truck</button>
         <button data-gstart="3">🚤 Speedboat</button><button data-gstart="4">🎣 Fishing Boat</button>
-        <button data-gnew="carbase4x8">➕ New car 4×8</button><button data-gnew="carbase6x12">➕ New car 6×12</button>
-        <button data-gnew="boathull4x8">➕ New boat 4×8</button><button data-gnew="boathull6x12">➕ New boat 6×12</button>
+        <button data-gnew="frame4x10">➕ New car (chassis)</button><button data-gnew="hullmid4x4">➕ New boat (hull)</button>
+        <button data-gnew="carbase4x8">Ready-made car base</button><button data-gnew="boathull4x8">Ready-made boat hull</button>
         <button id="gNearby" class="hidden">📋 Copy car next to me</button>
+      </div>
+      <h2>📖 Build step by step</h2>
+      <div class="btns" style="margin-top:0">
+        <button data-gguide="0">🏎 Racer</button><button data-gguide="1">🏖 Buggy</button><button data-gguide="2">🛻 Pickup</button>
+        <button data-gguide="3">🚤 Speedboat</button><button data-gguide="4">🎣 Fishing Boat</button>
       </div>
       <h2>My cars</h2>
       <div id="gMine"></div>
@@ -638,7 +653,7 @@ def({ id: 'cactus', name: 'Cactus', cat: 'Nature', W: 1, D: 1, H: 9,
 
 // Vehicles: a car base rolls on four built-in wheels; anything stud-connected on top drives with it.
 function carBaseDef(id, name, W, D) {
-  def({ id, name, cat: 'Vehicles', W, D, H: 3, car: true,
+  def({ id, name: name.replace('Car base', 'Ready-made car base'), cat: 'Vehicles', W, D, H: 3, car: true, builtinWheels: true,
     parts: () => {
       const wx = W / 2 - 0.32, wz = D / 2 - 1.5, wheels = [], hubs = [];
       for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
@@ -736,10 +751,81 @@ def({ id: 'turbo2x2', name: 'Turbo 2×2', cat: 'Engine', eng: 'turbo', W: 2, D: 
     ];
   } });
 
+// ---- Proper car construction: chassis frames, wheel holders / axles with pins, and wheels that clip onto the pins.
+for (const [W, D] of [[4, 8], [4, 10], [6, 10], [6, 12]])
+  def({ id: `frame${W}x${D}`, name: `Chassis frame ${W}×${D}`, cat: 'Chassis', W, D, H: 1, car: true, chassis: true,
+        parts: () => [{ geo: merge([body(W, D, P), ...studs(W, D, P)]) },
+                      { geo: merge([-1, 1].map(sx => new THREE.BoxGeometry(0.16, 0.1, D - 0.2).translate(sx * (W / 2 - 0.12), 0.05, 0))), fixed: DARKM }] });
+function holderDef(id, name, W, D, H) {
+  def({ id, name, cat: 'Chassis', W, D, H, pins: true,
+    parts: () => {
+      const h = H * P, pins = [];
+      for (const sx of [-1, 1]) for (let j = 0; j < D; j++) pins.push(new THREE.CylinderGeometry(0.14, 0.14, 0.42, 12).rotateZ(Math.PI / 2).translate(sx * (W / 2 + 0.12), h / 2, j + 0.5 - D / 2));
+      return [{ geo: merge([body(W, D, h), ...studs(W, D, h)]) }, { geo: merge(pins), fixed: CHROME }];
+    } });
+}
+holderDef('holder2x2', 'Wheel holder 2×2', 2, 2, 1);
+holderDef('axle4x2', 'Axle 4×2', 4, 2, 1);
+holderDef('axle6x2', 'Axle 6×2', 6, 2, 1);
+holderDef('tallaxle4x2', 'Tall axle 4×2 (big wheels)', 4, 2, 3);
+holderDef('tallaxle6x2', 'Tall axle 6×2 (big wheels)', 6, 2, 3);
+function wheelDef(id, name, W, D, H, r, tread) {
+  def({ id, name, cat: 'Chassis', W, D, H, wheel: { r },
+    parts: () => {
+      const c = H * P / 2, tyre = [new THREE.CylinderGeometry(r, r, W * 0.9, 30).rotateZ(Math.PI / 2)];
+      if (tread) for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; tyre.push(new THREE.BoxGeometry(W * 0.92, 0.14, 0.26).rotateX(a).translate(0, Math.cos(a) * r, Math.sin(a) * r)); }
+      const hub = [new THREE.CylinderGeometry(r * 0.52, r * 0.52, W * 0.94, 20).rotateZ(Math.PI / 2)];
+      for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2; hub.push(new THREE.BoxGeometry(W * 0.96, 0.08, r * 0.7).rotateX(a)); }
+      return [animPart(merge(tyre), [0, c, 0], 'wheel', { fixed: '#1e1f22', wheelR: r }), animPart(merge(hub), [0, c, 0], 'wheel', { wheelR: r })];
+    } });
+}
+wheelDef('wheelS', 'Small wheel', 1, 2, 4, 0.78, false);
+wheelDef('wheelM', 'Wheel', 1, 2, 5, 0.98, false);
+wheelDef('wheelL', 'Big wheel', 1, 3, 7, 1.38, false);
+wheelDef('wheelOff', 'Off-road tyre', 2, 3, 7, 1.38, true);
+
+// ---- Proper boat construction: hull sections joined by deck plates, a rudder and a propeller shaft.
+function hullSecHalf(kind, W, D, z) { return kind === 'bow' ? (W / 2) * Math.sqrt(Math.max(0, (z + D / 2) / D)) : W / 2; }
+function hullSecDef(id, name, kind, W, D) {
+  def({ id, name, cat: 'Boats', W, D, H: 3, car: true, chassis: true, boat: true, hull: true,
+    parts: () => {
+      const outline = (sc) => {
+        const pts = [], N = 12;
+        if (kind === 'bow') {
+          for (let k = 0; k <= N; k++) { const z = D / 2 - k * D / N; pts.push([hullSecHalf(kind, W, D, z), -z]); }
+          for (let k = N - 1; k >= 0; k--) { const z = D / 2 - k * D / N; pts.push([-hullSecHalf(kind, W, D, z), -z]); }
+        } else pts.push([W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2], [-W / 2, -D / 2]);
+        const sh = new THREE.Shape(); sh.moveTo(pts[0][0] * sc, pts[0][1] * sc); for (const [x, y] of pts.slice(1)) sh.lineTo(x * sc, y * sc); return sh;
+      };
+      const hull = new THREE.ExtrudeGeometry(outline(0.99), { depth: 1.18, bevelEnabled: false }).rotateX(-Math.PI / 2);
+      const stripe = new THREE.ExtrudeGeometry(outline(1.006), { depth: 0.22, bevelEnabled: false }).rotateX(-Math.PI / 2).translate(0, 0.62, 0);
+      return [{ geo: merge([hull, ...studs(W, D, 1.2, (i, j) => Math.abs(i + 0.5 - W / 2) < hullSecHalf(kind, W, D, j + 0.5 - D / 2) - 0.2)]) },
+              { geo: merge([stripe]), fixed: '#f2f2f2' }];
+    },
+    cell: (i, j) => Math.abs(i + 0.5 - W / 2) < hullSecHalf(kind, W, D, j + 0.5 - D / 2) ? 1 : 0 });
+}
+hullSecDef('hullbow4x4', 'Hull bow 4×4', 'bow', 4, 4);
+hullSecDef('hullmid4x4', 'Hull middle 4×4', 'mid', 4, 4);
+hullSecDef('hullstern4x2', 'Hull stern 4×2', 'stern', 4, 2);
+hullSecDef('hullbow6x4', 'Hull bow 6×4', 'bow', 6, 4);
+hullSecDef('hullmid6x4', 'Hull middle 6×4', 'mid', 6, 4);
+hullSecDef('hullstern6x2', 'Hull stern 6×2', 'stern', 6, 2);
+def({ id: 'rudder1x2', name: 'Rudder', cat: 'Boats', W: 1, D: 2, H: 3, rudder: true,
+  parts: () => [{ geo: merge([body(1, 2, 0.3)]) },
+                { geo: merge([new THREE.CylinderGeometry(0.07, 0.07, 2.4, 8).translate(0, -0.9, 0.85), new THREE.BoxGeometry(0.08, 1.1, 0.8).translate(0, -1.5, 1.25)]), fixed: DARKM }] });
+def({ id: 'propshaft1x2', name: 'Propeller shaft', cat: 'Boats', W: 1, D: 2, H: 1, prop: true,
+  parts: () => {
+    const blades = [new THREE.CylinderGeometry(0.1, 0.1, 0.22, 10).rotateX(Math.PI / 2)];
+    for (let k = 0; k < 3; k++) blades.push(new THREE.BoxGeometry(0.18, 0.46, 0.05).rotateY(0.5).translate(0, 0.26, 0).rotateZ(k * Math.PI * 2 / 3));
+    return [{ geo: merge([body(1, 2, P), ...studs(1, 2, P)]) },
+            { geo: merge([new THREE.CylinderGeometry(0.07, 0.07, 2.3, 8).rotateX(0.45).translate(0, -0.85, 1.0)]), fixed: CHROME },
+            animPart(merge(blades), [0, -1.9, 1.5], 'spinZ', { fixed: '#c9a227', fast: true })];
+  } });
+
 // Boats: a hull with a pointed bow; built and driven like a car, but only on water.
 function hullHalf(W, D, z) { const bow = -D / 2 + 2.5; return z >= bow ? W / 2 : (W / 2) * Math.max(0, (z + D / 2) / 2.5); }
 function boatHullDef(id, name, W, D) {
-  def({ id, name, cat: 'Vehicles', W, D, H: 3, car: true, boat: true,
+  def({ id, name: name.replace('Boat hull', 'Ready-made boat hull'), cat: 'Boats', W, D, H: 3, car: true, boat: true, hull: true,
     parts: () => {
       const outline = (sc) => { const sh = new THREE.Shape(), b = D / 2 - 2.5; sh.moveTo(-W / 2 * sc, -D / 2 * sc); sh.lineTo(W / 2 * sc, -D / 2 * sc); sh.lineTo(W / 2 * sc, b); sh.lineTo(0, D / 2 * sc); sh.lineTo(-W / 2 * sc, b); sh.lineTo(-W / 2 * sc, -D / 2 * sc); return sh; };
       const hull = new THREE.ExtrudeGeometry(outline(0.99), { depth: 1.18, bevelEnabled: false }).rotateX(-Math.PI / 2);
@@ -765,7 +851,7 @@ def({ id: 'outboard1x2', name: 'Outboard motor', cat: 'Engine', eng: 'outboard',
   } });
 
 // Pieces without studs on top: nothing can click onto them. Slopes only have studs on their back row.
-const SMOOTH_TOP = /^(outboard|tile|roundtile|quarter|wedge|curve|ridge|stairs|dome|panel|fence|railing|door1x2|seat|steering|chair|wheel|flag|sign|lamp|flower|bush|grass|mushroom|tree|rock|cactus|exhaust|piston|gear|crank|lever|turbo|vblock)/;
+const SMOOTH_TOP = /^(wheel|rudder|outboard|tile|roundtile|quarter|wedge|curve|ridge|stairs|dome|panel|fence|railing|door1x2|seat|steering|chair|wheel|flag|sign|lamp|flower|bush|grass|mushroom|tree|rock|cactus|exhaust|piston|gear|crank|lever|turbo|vblock)/;
 for (const p of PIECES) {
   if (SMOOTH_TOP.test(p.id)) p.smooth = true;
   if (/^slope/.test(p.id)) p.studTop = (i, j) => j === 0;
@@ -1039,7 +1125,7 @@ function buildHouse(x0, z0, wall, roof) {
 function buildStarterCar(x0, z0) {
   // The Red Racer from the garage, with its corner at (x0, z0)
   const d = starterDesign(STARTERS[0]);
-  for (const e of d.b) put(e[0], e[1], x0 + 2 + e[2], e[3], z0 + 4 + e[4], e[5]);
+  for (const e of d.b) put(e[0], e[1], x0 + 2 + e[2], e[3], z0 + 4 + e[4], e[5]);   // wheels first so the frame sits on them
 }
 function generateWorld(seed = 1234) {
   clearWorld();
@@ -1185,7 +1271,8 @@ function genChunk(cx, cz) {
       if (!roadsZ.length && !roadsX.length && R() < 0.06) {
         // A little homestead with a parked car to find and drive away
         buildHouse(x0 + 18, z0 + 14, R() < 0.5 ? 'Cream' : 'White', R() < 0.5 ? 'Red' : 'Dark Grey');
-        placeDesign(starterDesign(STARTERS[Math.floor(R() * STARTERS.length)]), x0 + 40, z0 + 36);
+        const cars = STARTERS.filter(d => !PIECE_BY_ID[d.base].boat);
+        placeDesign(starterDesign(cars[Math.floor(R() * cars.length)]), x0 + 40, z0 + 36);
       } else if (R() < 0.07) {
         const px = x0 + 32, pz = z0 + 32;
         for (let x = px - 8; x < px + 8; x += 2) for (let z = pz - 8; z < pz + 8; z += 2) {
@@ -1210,7 +1297,7 @@ function genChunk(cx, cz) {
         const bx = x0 + 16 + Math.floor(R() * 32), bz = z0 + 12 + Math.floor(R() * 36), st = STARTERS.filter(d => PIECE_BY_ID[d.base].boat);
         const d = starterDesign(st[Math.floor(R() * st.length)]), bp = PIECE_BY_ID[d.base];
         let wetAll = true;
-        for (let i = 0; i <= bp.W && wetAll; i += 2) for (let j = 0; j <= bp.D; j += 2) if (!waterAt(Math.floor((bx + i) / BLK), Math.floor((bz + j) / BLK))) { wetAll = false; break; }
+        for (let i = -4; i <= bp.W + 4 && wetAll; i += 2) for (let j = -6; j <= bp.D + 12; j += 2) if (!waterAt(Math.floor((bx + i) / BLK), Math.floor((bz + j) / BLK))) { wetAll = false; break; }
         if (wetAll) placeDesign(d, bx, bz, -2);
       }
     } else if (biome === 'snow') {
@@ -1601,8 +1688,10 @@ function computeTarget(ndc = CENTER) {
     y0 = n.y > 0 ? (brick ? brick.y + brick.p.H : Math.round(pt.y / P)) : Math.floor((pt.y - 0.01) / P) - p.H + 1;
   } else if (ax >= az) {
     x0 = n.x > 0 ? Math.round(pt.x) : Math.round(pt.x) - w; z0 = Math.round(pt.z - d / 2); y0 = brick ? brick.y : Math.floor(pt.y / BLK_Y) * BLKH;
+    if (brick && brick.p.pins && p.wheel) { const [, bd] = dims(brick.p, brick.r); y0 = brick.y + Math.round((brick.p.H - p.H) / 2); z0 = brick.z + Math.floor((bd - d) / 2); }
   } else {
     z0 = n.z > 0 ? Math.round(pt.z) : Math.round(pt.z) - d; x0 = Math.round(pt.x - w / 2); y0 = brick ? brick.y : Math.floor(pt.y / BLK_Y) * BLKH;
+    if (brick && brick.p.pins && p.wheel) { const [bw] = dims(brick.p, brick.r); y0 = brick.y + Math.round((brick.p.H - p.H) / 2); x0 = brick.x + Math.floor((bw - w) / 2); }
   }
   const smoothTop = n.y > 0.3 && ay >= ax && ay >= az && brick && (brick.p.smooth || (brick.p.studTop && n.y < 0.98));
   const studOK = (x, y, z) => !smoothTop || studSupported(cellsOf(p, x, y, z, rot), (a, b, c) => !!(occ.get(key(a, b, c)) || {}).s, (a, b, c) => occ.has(key(a, b, c)));
@@ -2349,12 +2438,45 @@ function carStats(pieces, n) {
   const acc = (pw ? 9 + 16 * (1 - Math.exp(-pw / 1.8)) : 5) * accM / (1 + n / 100);
   return { power, top, acc, hand, cyl: Math.max(1, cyl), turbo, exhaust, cnt, n };
 }
+// What a vehicle's parts add up to, plus a checklist of what's missing.
+// parts: [{ p, cx, cz, y, r }] with centres in the car's own coordinates (front is -z) and y in plates.
+function analyzeVehicle(parts) {
+  const has = (pred) => parts.some(q => pred(q.p));
+  const roots = parts.filter(q => q.p.car), boat = roots.some(q => q.p.boat), builtin = roots.some(q => q.p.builtinWheels);
+  const st = carStats(parts.map(q => q.p), parts.length);
+  const wheels = parts.filter(q => q.p.wheel).map(q => ({ lx: q.cx, lz: q.cz, b: q.y * P, r: q.p.wheel.r, step: Math.min(1.25, q.p.wheel.r * 0.85 + 0.1) }));
+  const checks = [];
+  let canSteer, canMove = true;
+  if (boat) {
+    const prop = has(p => p.eng === 'outboard') || (has(p => p.prop) && st.power > 0);
+    canSteer = has(p => p.rudder || p.eng === 'outboard');
+    checks.push([roots.length > 0, 'Hull', 'Hull: start with a hull section']);
+    checks.push([prop, 'Propulsion', 'Propulsion: add an Outboard motor, or an engine plus a Propeller shaft']);
+    checks.push([canSteer, 'Steering', 'Steering: add a Rudder or an Outboard motor']);
+    if (!prop) { st.top = 3; st.acc = 2; }
+  } else {
+    const nW = builtin ? 4 : wheels.length;
+    canMove = nW >= 3; canSteer = builtin || has(p => p.id === 'steering');
+    checks.push([roots.length > 0, 'Chassis', 'Chassis: start with a chassis frame']);
+    checks.push([nW >= 3, `${nW} wheels`, `Wheels: ${nW} fitted, needs at least 3. Clip wheels onto the pins of wheel holders or axles`]);
+    checks.push([canSteer, 'Steering wheel', 'Steering wheel: add one so the car can turn']);
+    checks.push([st.power > 0, 'Engine', 'Engine: add a Motor block or V8, or it will only crawl']);
+    if (wheels.length) {   // wheel size and wheelbase change the drive
+      const rAvg = wheels.reduce((a, w) => a + w.r, 0) / wheels.length, zs = wheels.map(w => w.lz), wb = Math.max(2, Math.max(...zs) - Math.min(...zs));
+      st.top *= 0.8 + 0.2 * rAvg; st.acc *= 1.12 - 0.12 * rAvg; st.hand *= Math.max(0.75, Math.min(1.35, 7 / wb));
+      st.wheelR = rAvg; st.wheelbase = wb;
+    }
+  }
+  checks.push([has(p => p.id === 'seat'), 'Seat', 'Seat: add a Driver seat']);
+  return { st, wheels, checks, boat, builtin, canSteer, canMove };
+}
 // Put an animated part's moving mesh into a parent, pivoting about its own centre.
 function addAnimPart(parent, part, mat, pos, rotY, off, list) {
   const holder = new THREE.Group(), piv = new THREE.Group(), mesh = new THREE.Mesh(part.animGeo, mat);
   holder.position.copy(pos); holder.rotation.y = rotY; piv.position.set(...part.pivot);
   mesh.castShadow = true; piv.add(mesh); holder.add(piv); parent.add(holder);
-  list.push({ mesh, anim: part.anim, fast: !!part.fast, off });
+  if (part.anim === 'wheel') mesh.rotation.order = 'YXZ';
+  list.push({ mesh, anim: part.anim, fast: !!part.fast, off, r: part.wheelR || 1, lz: pos.z, flip: Math.cos(rotY) < -0.5 ? -1 : 1 });
   return mesh;
 }
 function animateParts(list, phase) {
@@ -2364,6 +2486,7 @@ function animateParts(list, phase) {
     else if (a.anim === 'spinX') a.mesh.rotation.x = -ph * 1.6;
     else if (a.anim === 'spinZ') a.mesh.rotation.z = ph * (a.fast ? 6 : 2);
     else if (a.anim === 'rock') a.mesh.rotation.x = Math.sin(ph * 0.8) * 0.45;
+    else if (a.anim === 'wheel') a.mesh.rotation.x = -ph * 1.2 * a.flip;
   }
 }
 const smokeGeo = new THREE.SphereGeometry(0.22, 8, 6), puffs = [];
@@ -2418,19 +2541,31 @@ function nearestCar() {
   return best;
 }
 // Bricks connected through studs: anything sitting on the car (and on those bricks...), minus bricks also held up by the world.
+// A vehicle is everything stud-connected to its root (above or below), plus wheels clipped onto holder pins.
+// Bricks resting on the ground itself never count, and bricks also held up by the world are left behind.
 function collectCar(base) {
-  const S = new Set([base]), q = [base], minY = base.y + base.p.H;
+  const S = new Set([base]), q = [base];
+  const onTerrain = (b) => cellsOf(b.p, b.x, b.y, b.z, b.r).some(([x, y, z]) => worldGround(x, y - 1, z));
+  const take = (o) => { S.add(o); q.push(o); };
   while (q.length) {
     const b = q.pop();
-    for (const [x, y, z] of cellsOf(b.p, b.x, b.y, b.z, b.r)) for (const dy of [1, -1]) {
-      const o = occ.get(key(x, y + dy, z));
-      if (o && o.b !== b && !S.has(o.b) && o.b.y >= minY) { S.add(o.b); q.push(o.b); if (S.size > CAR_MAX) return null; }
+    if (b.p.wheel) continue;
+    for (const [x, y, z] of cellsOf(b.p, b.x, b.y, b.z, b.r)) {
+      for (const dy of [1, -1]) {
+        const o = occ.get(key(x, y + dy, z));
+        if (o && o.b !== b && !S.has(o.b) && (o.b.p.wheel || !onTerrain(o.b))) take(o.b);
+      }
+      if (b.p.pins) for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const o = occ.get(key(x + dx, y, z + dz));
+        if (o && o.b.p.wheel && !S.has(o.b)) take(o.b);
+      }
+      if (S.size > CAR_MAX) return null;
     }
   }
   for (let changed = true; changed;) {
     changed = false;
     for (const b of S) {
-      if (b === base) continue;
+      if (b === base || b.p.wheel) continue;
       const anchored = cellsOf(b.p, b.x, b.y, b.z, b.r).some(([x, y, z]) => { const o = occ.get(key(x, y - 1, z)); return o && o.b !== b && !S.has(o.b); });
       if (anchored) { S.delete(b); changed = true; }
     }
@@ -2440,21 +2575,28 @@ function collectCar(base) {
 function enterCar(base) {
   const S = collectCar(base);
   if (!S) { toast(`That car is too big to drive (max ${CAR_MAX} bricks)`); sfx('bad'); return; }
+  {   // check it's actually buildable into a working vehicle before lifting it out
+    const r0 = base.r, c = COS[r0], s = SIN[r0], [bw, bd] = dims(base.p, r0), bcx = base.x + bw / 2, bcz = base.z + bd / 2;
+    const parts = [...S].map(b => { const [w, d] = dims(b.p, b.r), rx = b.x + w / 2 - bcx, rz = b.z + d / 2 - bcz; return { p: b.p, cx: rx * c - rz * s, cz: rx * s + rz * c, y: b.y - base.y, r: b.r }; });
+    const a = analyzeVehicle(parts);
+    if (!a.canMove) { toast('🔧 ' + a.checks.find(k => !k[0])[2]); sfx('bad'); return; }
+  }
   const r0 = base.r, c = COS[r0], s = SIN[r0], [bw, bd] = dims(base.p, r0), bcx = base.x + bw / 2, bcz = base.z + bd / 2;
   const toLocal = (wx, wz) => { const rx = wx - bcx, rz = wz - bcz; return [rx * c - rz * s, rx * s + rz * c]; };
   const items = [], cols = new Map(), buckets = new Map(), M = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), ONE = new THREE.Vector3(1, 1, 1);
   let seat = null, top = 3;
-  const animated = [], anims = [], exhausts = [];
+  const animated = [], anims = [], exhausts = [], parts = [];
   for (const b of S) {
     const [w, d] = dims(b.p, b.r), [lx, lz] = toLocal(b.x + w / 2, b.z + d / 2), ly = b.y - base.y, lr = (b.r - r0 + 4) % 4;
     items.push({ p: b.p, c: b.c, lx, lz, ly, lr, orig: brickData(b) });
     if (b.p.id === 'seat' && (!seat || lz < seat.lz)) seat = { lx, lz, y: ly * P + 0.45 };
+    parts.push({ p: b.p, cx: lx, cz: lz, y: ly, r: lr });
     if (b.p.eng === 'exhaust') exhausts.push([lx, ly * P + 2.4, lz]);
     for (const [x, y, z, m] of cellsOf(b.p, b.x, b.y, b.z, b.r)) {
-      if (m !== 1) continue;
+      if (m !== 1 || b.p.wheel) continue;   // wheels touch the ground through the wheel model, not as body
       const [cx, cz] = toLocal(x + 0.5, z + 0.5), k = y - base.y, kk = cx + ',' + cz;
       const col = cols.get(kk) || { lx: cx, lz: cz, lo: k, hi: k };
-      col.lo = Math.min(col.lo, k); col.hi = Math.max(col.hi, k); cols.set(kk, col); top = Math.max(top, k + 1);
+      col.lo = Math.min(col.lo, k); col.hi = Math.max(col.hi, k); if (b.p.hull) col.hull = true; cols.set(kk, col); top = Math.max(top, k + 1);
     }
     Q.setFromAxisAngle(Y_AXIS, lr * Math.PI / 2); M.compose(V.set(lx, ly * P, lz), Q, ONE);
     const off = items.length * 1.3;
@@ -2473,18 +2615,20 @@ function enterCar(base) {
   }
   for (const [part, mat, pos, rotY, off] of animated) addAnimPart(group, part, mat, pos, rotY, off, anims);
   for (const b of S) { forgetGen(b); removeBrick(b); }
-  const W = base.p.W, D = base.p.D;
-  car = { base: base.p, items, cols: [...cols.values()], seat: seat || { lx: 0, lz: 0, y: 1.2 }, n: S.size, group, top,
-          wheels: [[-(W / 2 - 0.5), -(D / 2 - 1.5)], [W / 2 - 0.5, -(D / 2 - 1.5)], [-(W / 2 - 0.5), D / 2 - 1.5], [W / 2 - 0.5, D / 2 - 1.5], [0, 0]],
-          x: bcx, z: bcz, y: base.y * P, yaw: r0 * Math.PI / 2, speed: 0, vy: 0, acc: 0, turn: 0, camDist: 7 + Math.max(W, D) * 0.45,
-          stats: carStats(items.map(it => it.p), S.size), anims, exhausts, phase: 0, smokeT: 0, boat: !!base.p.boat };
+  const W = base.p.W, D = base.p.D, an = analyzeVehicle(parts);
+  const legacy = !an.boat && an.builtin && !an.wheels.length;
+  const wheels = legacy ? [[-(W / 2 - 0.5), -(D / 2 - 1.5)], [W / 2 - 0.5, -(D / 2 - 1.5)], [-(W / 2 - 0.5), D / 2 - 1.5], [W / 2 - 0.5, D / 2 - 1.5], [0, 0]].map(([lx, lz]) => ({ lx, lz, b: 0, r: 0.56, step: CAR_STEP })) : an.wheels;
+  const ext = Math.max(W, D, ...items.map(it => Math.abs(it.lz) * 2));
+  car = { base: base.p, items, cols: [...cols.values()], seat: seat || { lx: 0, lz: 0, y: 1.2 }, n: S.size, group, top, wheels, legacy,
+          x: bcx, z: bcz, y: base.y * P, yaw: r0 * Math.PI / 2, speed: 0, vy: 0, acc: 0, turn: 0, camDist: 7 + ext * 0.45, roll: 0,
+          stats: an.st, canSteer: an.canSteer, anims, exhausts, phase: 0, smokeT: 0, boat: an.boat };
   scene.add(group);
   undoStack.length = 0; redoStack.length = 0; stopRepeat();
   player.fly = false; $('tbFly').classList.remove('on'); $('tbDown').classList.add('hidden');
   player.yaw = car.yaw; player.pitch = -0.25;
   document.body.classList.add('driving'); $('tbJump').textContent = '🛑';
   engineStart(car.stats); brickSound('place', base.p);
-  if (!car.stats.power) setTimeout(() => toast('No engine: this car rolls slowly. Add a Motor or V8 in the Garage'), 2200);
+  { const miss = an.checks.find(k => !k[0]); if (miss) setTimeout(() => toast('🔧 ' + miss[2]), 2200); }
   toast(touchMode ? 'Joystick to drive · 🛑 to brake' : 'W/S to drive · A/D to steer · Space brakes · Q to get out');
   if (car.boat && !boatFits(car.x, car.z, car.yaw)) setTimeout(() => toast('Boats only move on water: launch it on a lake'), 1800);
   placeCarModel(); seatPlayer();
@@ -2493,13 +2637,13 @@ function enterCar(base) {
 function planPark() {
   if (!car) return null;
   const r = ((Math.round(car.yaw / (Math.PI / 2)) % 4) + 4) % 4;
-  return fitItems(car.items, car.base, car.x, car.z, Math.round(car.y / P), r);
+  return fitItems(car.items, car.base, car.x, car.z, Math.round(car.y / P), r, !car.boat);
 }
 // Lay out car bricks (in car coordinates) with the base centred near (x, z), at plate height by, facing quarter-turn r.
-function fitItems(items, baseP, x, z, by, r) {
+function fitItems(items, baseP, x, z, by, r, lift = true) {
   const c = COS[r], s = SIN[r], [w, d] = dims(baseP, r);
   const bx = Math.round(x - w / 2), bz = Math.round(z - d / 2);
-  const tries = [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [1, 0, 1], [-1, 0, -1], [1, 0, -1], [-1, 0, 1], [0, 2, 0], [0, 3, 0]];
+  const tries = [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [1, 0, 1], [-1, 0, -1], [1, 0, -1], [-1, 0, 1], [0, 2, 0], [0, 3, 0]].filter(t => lift || !t[1]);
   for (const [dx, dy, dz] of tries) {
     const cx = bx + dx + w / 2, cz = bz + dz + d / 2, out = [];
     let ok = true;
@@ -2559,7 +2703,7 @@ function boatFits(x, z, yaw) {
   for (const col of car.cols) {
     const wx = x + col.lx * c + col.lz * s, wz = z - col.lx * s + col.lz * c;
     if (Math.abs(wx) > WORLD - 0.1 || Math.abs(wz) > WORLD - 0.1) return false;
-    if (col.lo === 0 && !waterAt(Math.floor(wx / BLK), Math.floor(wz / BLK))) return false;
+    if (col.hull && !waterAt(Math.floor(wx / BLK), Math.floor(wz / BLK))) return false;
     for (let cy = by0 + col.lo; cy <= by0 + col.hi; cy++) if (solidAt(Math.floor(wx), cy, Math.floor(wz))) return false;
   }
   return true;
@@ -2573,17 +2717,17 @@ function topSolidAt(x, z, maxY) {
 function carFits(x, z, yaw, y) {
   const c = Math.cos(yaw), s = Math.sin(yaw);
   let g = -Infinity;
-  for (const [lx, lz] of car.wheels) {
-    const wx = x + lx * c + lz * s, wz = z - lx * s + lz * c;
+  for (const w of car.wheels) {   // each wheel rests on whatever is under it (and can climb up to its step height)
+    const wx = x + w.lx * c + w.lz * s, wz = z - w.lx * s + w.lz * c;
     if (Math.abs(wx) > WORLD - 0.3 || Math.abs(wz) > WORLD - 0.3) return null;
-    const tw = topSolidAt(wx, wz, y + CAR_STEP);
+    const tw = topSolidAt(wx, wz, y + w.b + w.step);
     if (tw < 0 && waterAt(Math.floor(wx / BLK), Math.floor(wz / BLK))) return null;
-    g = Math.max(g, tw);
+    g = Math.max(g, tw - w.b);
   }
   for (const col of car.cols) {
     const wx = x + col.lx * c + col.lz * s, wz = z - col.lx * s + col.lz * c;
     if (Math.abs(wx) > WORLD - 0.1 || Math.abs(wz) > WORLD - 0.1) return null;
-    const y0 = Math.floor((g + Math.max(col.lo * P, CAR_STEP)) / P + 1e-6), y1 = Math.floor((g + (col.hi + 1) * P) / P - 1e-6);
+    const y0 = Math.floor((g + Math.max(col.lo * P, car.legacy ? CAR_STEP : col.lo * P + 0.05)) / P + 1e-6), y1 = Math.floor((g + (col.hi + 1) * P) / P - 1e-6);
     for (let cy = y0; cy <= y1; cy++) if (solidAt(Math.floor(wx), cy, Math.floor(wz))) return null;
   }
   return g;
@@ -2600,7 +2744,8 @@ function updateCar(dt) {
   if (brake) car.speed -= Math.sign(car.speed) * Math.min(Math.abs(car.speed), 32 * dt);
   car.speed = Math.max(-9, Math.min(top, car.speed - car.speed * 0.15 * dt));
   car.acc += ((car.speed - v0) / Math.max(dt, 1e-3) - car.acc) * Math.min(1, dt * 6);
-  car.turn = steer * Math.max(-1, Math.min(1, car.speed / 4)) * (2.1 / (1 + Math.abs(car.speed) / 22)) * car.stats.hand;
+  car.turn = car.canSteer ? steer * Math.max(-1, Math.min(1, car.speed / 4)) * (2.1 / (1 + Math.abs(car.speed) / 22)) * car.stats.hand : 0;
+  if (!car.canSteer && steer && performance.now() - (car.noSteerT || 0) > 4000) { car.noSteerT = performance.now(); toast(car.boat ? '🔧 Add a Rudder to steer this boat' : '🔧 Add a Steering wheel to steer'); }
   const fitsAt = (x, z, yw) => car.boat ? (boatFits(x, z, yw) ? car.y : null) : carFits(x, z, yw, car.y);
   const steps = Math.max(1, Math.ceil(Math.abs(car.speed * dt) / 0.25)), h = dt / steps;
   for (let i = 0; i < steps; i++) {
@@ -2628,6 +2773,8 @@ function updateCar(dt) {
   const th = Math.max(0, thr);
   car.phase += dt * (car.stats.power ? 4 + Math.abs(car.speed) * 0.9 + th * 8 : 1 + Math.abs(car.speed) * 0.5);
   animateParts(car.anims, car.phase);
+  car.roll += car.speed * dt;
+  for (const a of car.anims) if (a.anim === 'wheel') { a.mesh.rotation.x = -car.roll / a.r * a.flip; a.mesh.rotation.y = a.lz < 0 && car.canSteer ? steer * 0.45 : 0; }
   if (car.exhausts.length && car.stats.power) {
     car.smokeT += dt * (1 + th * 2.5);
     const c = Math.cos(car.yaw), s = Math.sin(car.yaw);
@@ -2695,57 +2842,72 @@ function horn() {
 // ---------------------------------------------------------------- garage (car workshop)
 // A design is a list of bricks in car-base coordinates: the base sits at (-W/2, 0, -D/2), rotation 0, front facing -z.
 const GARAGE_KEY = 'brick-builder-cars-v1';
+// Starter vehicles built from real parts, in build order (root part first). Coordinates are centred; front is -z; y in plates.
 const STARTERS = [
-  { name: 'Red Racer', base: 'carbase4x8', baseC: 'Dark Grey', b: [
-    ['brick1x4', 'Red', 0, 3, 0, 1], ['brick1x2', 'Red', 0, 3, 1, 0], ['brick1x2', 'Red', 3, 3, 1, 0], ['motor2x2', 'Dark Grey', 1, 3, 1, 0],
-    ['steering', 'Black', 1, 3, 3, 0], ['brick1x4', 'Red', 0, 3, 3, 0],
-    ['brick1x4', 'Red', 3, 3, 3, 0], ['seat', 'Black', 1, 3, 4, 0], ['brick1x2', 'Red', 1, 3, 6, 1], ['brick1x4', 'Red', 0, 3, 7, 1],
-    ['light1x1', 'Yellow', 0, 6, 0, 0], ['light1x1', 'Yellow', 3, 6, 0, 0], ['brick1x4', 'Clear Glass', 0, 6, 2, 1], ['plate1x4', 'Black', 0, 6, 7, 1],
-    ['exhaust1x1', 'Light Grey', 1, 6, 6, 0], ['exhaust1x1', 'Light Grey', 2, 6, 6, 0]] },
-  { name: 'Beach Buggy', base: 'carbase4x8', baseC: 'Black', b: [
-    ['slope4x2', 'Orange', 0, 3, 0, 2], ['light1x1', 'Yellow', 0, 3, 2, 0], ['light1x1', 'Yellow', 3, 3, 2, 0], ['steering', 'Black', 1, 3, 2, 0],
-    ['seat', 'Black', 1, 3, 3, 0], ['motor2x2', 'Black', 1, 3, 5, 0], ['brick1x4', 'Orange', 0, 3, 7, 1],
-    ['round1x1', 'Black', 0, 3, 3, 0], ['round1x1', 'Black', 3, 3, 3, 0], ['round1x1', 'Black', 0, 6, 3, 0], ['round1x1', 'Black', 3, 6, 3, 0],
-    ['round1x1', 'Black', 0, 3, 6, 0], ['round1x1', 'Black', 3, 3, 6, 0], ['plate2x4', 'Orange', 0, 9, 3, 1],
-    ['piston1x1', 'Red', 1, 6, 5, 0], ['piston1x1', 'Red', 2, 6, 5, 0], ['exhaust1x1', 'Light Grey', 1, 6, 6, 0], ['exhaust1x1', 'Light Grey', 2, 6, 6, 0]] },
-  { name: 'Pickup Truck', base: 'carbase6x12', baseC: 'Dark Grey', b: [
-    ['brick1x6', 'Dark Grey', 0, 3, 0, 1], ['vblock2x4', 'Red', 1, 3, 1, 1], ['brick1x2', 'Blue', 0, 3, 1, 0], ['brick1x2', 'Blue', 5, 3, 1, 0],
-    ['exhaust1x1', 'Light Grey', 0, 6, 1, 0], ['exhaust1x1', 'Light Grey', 5, 6, 1, 0], ['turbo2x2', 'Dark Grey', 2, 3, 8, 0],
-    ['light1x1', 'Yellow', 0, 6, 0, 0], ['light1x1', 'Yellow', 5, 6, 0, 0],
-    ['brick1x4', 'Blue', 0, 3, 3, 0], ['brick1x4', 'Blue', 5, 3, 3, 0], ['brick1x4', 'Blue', 0, 6, 3, 0], ['brick1x4', 'Blue', 5, 6, 3, 0],
-    ['steering', 'Black', 2, 3, 3, 0], ['seat', 'Black', 2, 3, 4, 0], ['brick1x6', 'Blue', 0, 3, 7, 1], ['brick1x6', 'Blue', 0, 6, 7, 1],
-    ['brick1x4', 'Clear Glass', 1, 6, 3, 1], ['plate2x6', 'White', 0, 9, 3, 1], ['plate2x6', 'White', 0, 9, 5, 1], ['tile1x6', 'White', 0, 9, 7, 1],
-    ['brick1x4', 'Blue', 0, 3, 8, 0], ['brick1x4', 'Blue', 5, 3, 8, 0], ['brick1x4', 'Blue', 1, 3, 11, 1],
-    ['light1x1', 'Red', 0, 6, 11, 0], ['light1x1', 'Red', 5, 6, 11, 0]] },
-  { name: 'Speedboat', base: 'boathull4x8', baseC: 'Red', b: [
-    ['tile1x2', 'White', 1, 3, 1, 1], ['brick1x4', 'Clear Glass', 0, 3, 2, 1], ['steering', 'Black', 1, 3, 3, 0], ['seat', 'White', 1, 3, 4, 0],
-    ['brick1x2', 'White', 0, 3, 4, 0], ['brick1x2', 'White', 3, 3, 4, 0], ['plate1x4', 'White', 0, 3, 6, 1], ['outboard1x2', 'Dark Grey', 1, 3, 7, 0]] },
-  { name: 'Fishing Boat', base: 'boathull6x12', baseC: 'Blue', b: [
-    ['light1x1', 'Yellow', 2, 3, 1, 0], ['brick1x4', 'White', 0, 3, 4, 0], ['brick1x4', 'White', 5, 3, 4, 0], ['brick1x4', 'White', 0, 6, 4, 0], ['brick1x4', 'White', 5, 6, 4, 0],
-    ['steering', 'Black', 2, 3, 4, 0], ['seat', 'Black', 2, 3, 5, 0], ['brick1x4', 'Clear Glass', 1, 6, 4, 1], ['plate2x6', 'Red', 0, 9, 4, 1], ['plate2x6', 'Red', 0, 9, 6, 1],
-    ['brick2x2', 'Brown', 1, 3, 9, 0], ['brick2x2', 'Brown', 3, 3, 9, 0], ['flag', 'Red', 5, 3, 10, 0], ['outboard1x2', 'Dark Grey', 1, 3, 11, 0], ['outboard1x2', 'Dark Grey', 3, 3, 11, 0]] },
+  { name: 'Red Racer', base: 'frame4x10', b: [
+    ['frame4x10', 'Dark Grey', -2, 3, -5, 0], ['axle4x2', 'Dark Grey', -2, 2, -4, 0], ['axle4x2', 'Dark Grey', -2, 2, 2, 0],
+    ['wheelM', 'White', -3, 0, -4, 0], ['wheelM', 'White', 2, 0, -4, 0], ['wheelM', 'White', -3, 0, 2, 0], ['wheelM', 'White', 2, 0, 2, 0],
+    ['motor2x2', 'Dark Grey', -1, 4, -4, 0], ['brick1x2', 'Red', -2, 4, -4, 0], ['brick1x2', 'Red', 1, 4, -4, 0],
+    ['steering', 'Black', -1, 4, -2, 0], ['seat', 'Black', -1, 4, -1, 0],
+    ['brick1x4', 'Red', -2, 4, -5, 1], ['light1x1', 'Yellow', -2, 7, -5, 0], ['light1x1', 'Yellow', 1, 7, -5, 0],
+    ['brick1x4', 'Red', -2, 4, -2, 0], ['brick1x4', 'Red', 1, 4, -2, 0], ['brick1x4', 'Clear Glass', -2, 7, -3, 1],
+    ['brick1x2', 'Red', -1, 4, 1, 1], ['brick1x4', 'Red', -2, 4, 2, 1], ['brick1x4', 'Red', -2, 4, 3, 1], ['brick1x4', 'Black', -2, 4, 4, 1],
+    ['exhaust1x1', 'Light Grey', -1, 7, 2, 0], ['exhaust1x1', 'Light Grey', 0, 7, 2, 0], ['plate1x4', 'Black', -2, 7, 4, 1]] },
+  { name: 'Beach Buggy', base: 'frame4x8', b: [
+    ['frame4x8', 'Black', -2, 5, -4, 0], ['tallaxle4x2', 'Dark Grey', -2, 2, -4, 0], ['tallaxle4x2', 'Dark Grey', -2, 2, 1, 0],
+    ['wheelOff', 'Orange', -4, 0, -4, 0], ['wheelOff', 'Orange', 2, 0, -4, 0], ['wheelOff', 'Orange', -4, 0, 1, 0], ['wheelOff', 'Orange', 2, 0, 1, 0],
+    ['motor2x2', 'Black', -1, 6, 1, 0], ['piston1x1', 'Red', -1, 9, 1, 0], ['piston1x1', 'Red', 0, 9, 1, 0],
+    ['exhaust1x1', 'Light Grey', -1, 9, 2, 0], ['exhaust1x1', 'Light Grey', 0, 9, 2, 0],
+    ['steering', 'Black', -1, 6, -2, 0], ['seat', 'Black', -1, 6, -1, 0],
+    ['slope4x2', 'Orange', -2, 6, -4, 2], ['light1x1', 'Yellow', -2, 6, -2, 0], ['light1x1', 'Yellow', 1, 6, -2, 0],
+    ['round1x1', 'Black', -2, 6, -1, 0], ['round1x1', 'Black', 1, 6, -1, 0], ['round1x1', 'Black', -2, 9, -1, 0], ['round1x1', 'Black', 1, 9, -1, 0],
+    ['plate2x4', 'Orange', -2, 12, -1, 1], ['brick1x4', 'Orange', -2, 6, 3, 1]] },
+  { name: 'Pickup Truck', base: 'frame6x12', b: [
+    ['frame6x12', 'Dark Grey', -3, 3, -6, 0], ['axle6x2', 'Dark Grey', -3, 2, -5, 0], ['axle6x2', 'Dark Grey', -3, 2, 2, 0],
+    ['wheelM', 'Light Grey', -4, 0, -5, 0], ['wheelM', 'Light Grey', 3, 0, -5, 0], ['wheelM', 'Light Grey', -4, 0, 2, 0], ['wheelM', 'Light Grey', 3, 0, 2, 0],
+    ['vblock2x4', 'Red', -2, 4, -5, 1], ['exhaust1x1', 'Light Grey', -3, 7, -5, 0], ['exhaust1x1', 'Light Grey', 2, 7, -5, 0], ['turbo2x2', 'Dark Grey', -1, 4, 2, 0],
+    ['steering', 'Black', -1, 4, -3, 0], ['seat', 'Black', -1, 4, -2, 0],
+    ['brick1x6', 'Dark Grey', -3, 4, -6, 1], ['brick1x2', 'Blue', -3, 4, -5, 0], ['brick1x2', 'Blue', 2, 4, -5, 0],
+    ['light1x1', 'Yellow', -3, 7, -6, 0], ['light1x1', 'Yellow', 2, 7, -6, 0],
+    ['brick1x4', 'Blue', -3, 4, -3, 0], ['brick1x4', 'Blue', 2, 4, -3, 0], ['brick1x4', 'Blue', -3, 7, -3, 0], ['brick1x4', 'Blue', 2, 7, -3, 0],
+    ['brick1x4', 'Clear Glass', -2, 7, -3, 1], ['brick1x6', 'Blue', -3, 4, 1, 1], ['brick1x6', 'Blue', -3, 7, 1, 1],
+    ['plate2x6', 'White', -3, 10, -3, 1], ['plate2x6', 'White', -3, 10, -1, 1], ['tile1x6', 'White', -3, 10, 1, 1],
+    ['brick1x4', 'Blue', -3, 4, 2, 0], ['brick1x4', 'Blue', 2, 4, 2, 0], ['brick1x4', 'Blue', -2, 4, 5, 1],
+    ['light1x1', 'Red', -3, 7, 5, 0], ['light1x1', 'Red', 2, 7, 5, 0]] },
+  { name: 'Speedboat', base: 'hullbow4x4', b: [
+    ['hullbow4x4', 'Red', -2, 0, -6, 0], ['hullmid4x4', 'Red', -2, 0, -2, 0], ['hullstern4x2', 'Red', -2, 0, 2, 0],
+    ['plate4x4', 'White', -2, 3, -4, 0], ['plate4x4', 'White', -2, 3, 0, 0],
+    ['outboard1x2', 'Dark Grey', -1, 4, 3, 0], ['steering', 'Black', -1, 4, -2, 0], ['seat', 'White', -1, 4, -1, 0],
+    ['brick1x4', 'Clear Glass', -2, 4, -3, 1], ['brick1x2', 'White', -2, 4, -1, 0], ['brick1x2', 'White', 1, 4, -1, 0]] },
+  { name: 'Fishing Boat', base: 'hullbow6x4', b: [
+    ['hullbow6x4', 'Blue', -3, 0, -8, 0], ['hullmid6x4', 'Blue', -3, 0, -4, 0], ['hullmid6x4', 'Blue', -3, 0, 0, 0], ['hullstern6x2', 'Blue', -3, 0, 4, 0],
+    ['plate2x4', 'White', -2, 3, -6, 1], ['plate6x8', 'White', -3, 3, -4, 0], ['plate2x6', 'White', -3, 3, 4, 1],
+    ['plate6x6', 'White', -3, 4, -6, 0], ['plate6x6', 'White', -3, 4, 0, 0],
+    ['motor2x2', 'Dark Grey', -3, 5, 3, 0], ['exhaust1x1', 'Light Grey', -3, 8, 3, 0], ['propshaft1x2', 'Dark Grey', -1, 5, 4, 0], ['rudder1x2', 'Dark Grey', 0, 5, 4, 0],
+    ['steering', 'Black', -1, 5, -3, 0], ['seat', 'Black', -1, 5, -2, 0],
+    ['brick1x4', 'White', -3, 5, -3, 0], ['brick1x4', 'White', 2, 5, -3, 0], ['brick1x4', 'White', -3, 8, -3, 0], ['brick1x4', 'White', 2, 8, -3, 0],
+    ['brick1x4', 'Clear Glass', -2, 8, -3, 1], ['plate2x6', 'Red', -3, 11, -3, 1], ['plate2x6', 'Red', -3, 11, -1, 1],
+    ['brick2x2', 'Brown', -2, 5, 1, 0], ['brick2x2', 'Brown', 0, 5, 1, 0], ['flag', 'Red', 2, 5, 4, 0], ['light1x1', 'Yellow', 0, 5, -6, 0]] },
 ];
-// Starter lists are relative to the base's corner; designs store bricks in centred car coordinates.
-function starterDesign(st) {
-  const bp = PIECE_BY_ID[st.base], ox = -bp.W / 2, oz = -bp.D / 2;
-  return { name: st.name, base: st.base, b: [[st.base, st.baseC, ox, 0, oz, 0], ...st.b.map(([id, c, x, y, z, r]) => [id, c, x + ox, y, z + oz, r])] };
-}
+function starterDesign(st) { return { name: st.name, base: st.base, b: st.b.map(e => [...e]) }; }
 function loadMyCars() { try { const v = JSON.parse(localStorage.getItem(GARAGE_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
 function saveMyCars(list) { try { localStorage.setItem(GARAGE_KEY, JSON.stringify(list)); } catch (e) { toast('Could not save (storage full?)'); } }
 
 // ---- workshop model: its own little grid, separate from the world
 let ws = null;                     // { base: piece, id, name, recs: Set, occ: Map }
 let gOpen = false, gReturn = false, gR = null, gScene, gCam, gRoot, gGhost, gGhostMat, gGround, gAim = null, gAimNdc = null;
-let gPiece = 'motor2x2', gRot = 0, gCat = 'Engine', gColor = 4;
+let gPiece = 'wheelM', gRot = 0, gCat = 'Chassis', gColor = 4;
 const gOrbit = { yaw: Math.PI + 0.7, pitch: 0.5, dist: 16 }, gUndo = [], gRay = new THREE.Raycaster();
-function wsBounds() { const W = ws.base.W, D = ws.base.D; return [-W / 2 - 3, W / 2 + 3, -D / 2 - 3, D / 2 + 3]; }
+function wsBounds() { return [-11, 11, -15, 15]; }
 function wsCanPlace(p, x, y, z, r) {
   const [w, d] = dims(p, r), [x0, x1, z0, z1] = wsBounds();
   if (y < 0 || y + p.H > 60 || x < x0 || x + w > x1 || z < z0 || z + d > z1) return false;
   return cellsOf(p, x, y, z, r).every(([a, b, c]) => !ws.occ.has(key(a, b, c)));
 }
 function wsConnected(p, x, y, z, r) {
-  return cellsOf(p, x, y, z, r).some(([a, b, c]) => ws.occ.has(key(a, b + 1, c)) || ws.occ.has(key(a, b - 1, c)));
+  const cells = cellsOf(p, x, y, z, r);
+  if (p.wheel) return cells.some(([a, b, c]) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => { const o = ws.occ.get(key(a + dx, b, c + dz)); return o && o.p.pins; }));
+  return cells.some(([a, b, c]) => { const u = ws.occ.get(key(a, b + 1, c)), d = ws.occ.get(key(a, b - 1, c)); return (u && !u.p.wheel) || (d && !d.p.wheel); });
 }
 function brickObject(p, c, r) {
   const g = new THREE.Group(), col = COLORS[c];
@@ -2772,20 +2934,19 @@ function wsFind(d) { for (const rec of ws.recs) if (rec.p.id === d[0] && rec.x =
 function wsLoad(design, keepId) {
   ensureGarage();
   if (ws) for (const rec of [...ws.recs]) wsRemove(rec);
-  const bp = PIECE_BY_ID[design.base] || PIECE_BY_ID.carbase4x8;
+  const list = (design.b || []).filter(e => PIECE_BY_ID[e[0]]);
+  let rootE = list.find(e => PIECE_BY_ID[e[0]].car) || null;
+  const bp = rootE ? PIECE_BY_ID[rootE[0]] : (PIECE_BY_ID[design.base] || PIECE_BY_ID.frame4x10);
   ws = { base: bp, id: keepId ? design.id : null, name: design.name || 'My car', recs: new Set(), occ: new Map(), stud: new Set() };
-  const list = design.b || [], baseEntry = list.find(e => PIECE_BY_ID[e[0]]?.car);
-  wsAdd(bp, Math.max(0, cid(baseEntry ? baseEntry[1] : 'Dark Grey')), -bp.W / 2, 0, -bp.D / 2, 0);
-  for (const e of list) {
-    const p = PIECE_BY_ID[e[0]]; if (!p || p.car) continue;
-    wsAdd(p, Math.max(0, cid(e[1])), e[2], e[3], e[4], (e[5] | 0) & 3);
-  }
-  gUndo.length = 0; gOrbit.dist = 9 + Math.max(bp.W, bp.D) * 0.9; gAim = null; gRefreshStats();
+  if (!rootE) rootE = [bp.id, bp.boat ? 'Red' : 'Dark Grey', -bp.W / 2, bp.builtinWheels || bp.boat ? 0 : 3, -bp.D / 2, 0];   // a new, empty car or boat
+  ws.rootRec = wsAdd(bp, Math.max(0, cid(rootE[1])), rootE[2], rootE[3], rootE[4], (rootE[5] | 0) & 3);
+  for (const e of list) if (e !== rootE) wsAdd(PIECE_BY_ID[e[0]], Math.max(0, cid(e[1])), e[2], e[3], e[4], (e[5] | 0) & 3);
+  gUndo.length = 0; gOrbit.dist = 18; gAim = null; gRefreshStats();
   $('gName').value = ws.name; gRefreshLists();
 }
 function wsDesign() {
   return { id: ws.id, name: ($('gName').value || '').trim().slice(0, 40) || 'My car', base: ws.base.id,
-           b: [...ws.recs].sort((a, b) => (b.p.car ? 1 : 0) - (a.p.car ? 1 : 0) || a.y - b.y).map(recData) };
+           b: [...ws.recs].sort((a, b) => (b === ws.rootRec ? 1 : 0) - (a === ws.rootRec ? 1 : 0) || a.y - b.y).map(recData) };
 }
 
 // ---- 3D view
@@ -2857,14 +3018,20 @@ function gTarget(ndc) {
   if (ay >= ax && ay >= az) {
     x0 = Math.round(pt.x - w / 2); z0 = Math.round(pt.z - d / 2);
     y0 = n.y > 0 ? (rec ? rec.y + rec.p.H : 0) : Math.floor((pt.y - 0.01) / P) - p.H + 1;
-  } else if (ax >= az) { x0 = n.x > 0 ? Math.round(pt.x) : Math.round(pt.x) - w; z0 = Math.round(pt.z - d / 2); y0 = rec ? rec.y : 0; }
-  else { z0 = n.z > 0 ? Math.round(pt.z) : Math.round(pt.z) - d; x0 = Math.round(pt.x - w / 2); y0 = rec ? rec.y : 0; }
+  } else if (ax >= az) {
+    x0 = n.x > 0 ? Math.round(pt.x) : Math.round(pt.x) - w; z0 = Math.round(pt.z - d / 2); y0 = rec ? rec.y : 0;
+    if (rec && rec.p.pins && p.wheel) { const [, rd] = dims(rec.p, rec.r); y0 = rec.y + Math.round((rec.p.H - p.H) / 2); z0 = rec.z + Math.floor((rd - d) / 2); }
+  } else {
+    z0 = n.z > 0 ? Math.round(pt.z) : Math.round(pt.z) - d; x0 = Math.round(pt.x - w / 2); y0 = rec ? rec.y : 0;
+    if (rec && rec.p.pins && p.wheel) { const [rw] = dims(rec.p, rec.r); y0 = rec.y + Math.round((rec.p.H - p.H) / 2); x0 = rec.x + Math.floor((rw - w) / 2); }
+  }
   const smoothTop = n.y > 0.3 && ay >= ax && ay >= az && rec && (rec.p.smooth || (rec.p.studTop && n.y < 0.98));
   const ok = (x, y, z) => wsCanPlace(p, x, y, z, gRot) && wsConnected(p, x, y, z, gRot) &&
     supportedBy(cellsOf(p, x, y, z, gRot), (a, b, c) => ws.occ.has(key(a, b, c)), (a, b, c) => ws.stud.has(key(a, b, c)), (a, b, c) => ws.occ.has(key(a, b, c)), (a, b) => b < 0) &&
     (!smoothTop || studSupported(cellsOf(p, x, y, z, gRot), (a, b, c) => ws.stud.has(key(a, b, c)), (a, b, c) => ws.occ.has(key(a, b, c)), (a, b) => b < 0));
-  let valid = !p.car && ok(x0, y0, z0);
-  if (!valid && !p.car && ay >= ax && ay >= az && (w > 1 || d > 1)) {
+  const legacyBase = p.car && !p.chassis;
+  let valid = !legacyBase && ok(x0, y0, z0);
+  if (!valid && !legacyBase && ay >= ax && ay >= az && (w > 1 || d > 1)) {
     const cx = Math.floor(pt.x), cz = Math.floor(pt.z), opts = [];
     for (let x = cx - w + 1; x <= cx; x++) for (let z = cz - d + 1; z <= cz; z++) opts.push([Math.hypot(x - x0, z - z0), x, z]);
     opts.sort((a, b) => a[0] - b[0]);
@@ -2878,11 +3045,12 @@ function renderGarage(dt) {
   gCam.position.set(Math.sin(t.yaw) * Math.cos(t.pitch) * t.dist, cy + Math.sin(t.pitch) * t.dist, Math.cos(t.yaw) * Math.cos(t.pitch) * t.dist);
   gCam.lookAt(0, cy, 0);
   if (gAimNdc && !gAim) gAim = gTarget(gAimNdc);
-  if (gAim && !gAim.p.car) {
+  if (gAim && !(gAim.p.car && !gAim.p.chassis)) {
     if (gGhost.userData.p !== gAim.p) { gGhost.clear(); for (const part of gAim.p.built) gGhost.add(new THREE.Mesh(part.geo, gGhostMat)); gGhost.userData.p = gAim.p; }
     const [w, d] = dims(gAim.p, gRot);
     gGhost.visible = true; gGhost.position.set(gAim.x0 + w / 2, gAim.y0 * P + 0.003, gAim.z0 + d / 2); gGhost.rotation.y = gRot * Math.PI / 2;
-    gGhostMat.color.set(gAim.valid ? COLORS[gColor].h : '#ff3b30'); gGhostMat.opacity = gAim.valid ? 0.5 + 0.1 * Math.sin(performance.now() / 180) : 0.35;
+    gGhostMat.color.set(gAim.valid ? COLORS[gColor].h : '#ff3b30');
+    if (gGuideMark && gGuideMark.visible) gGuideMat.opacity = 0.35 + 0.25 * Math.sin(performance.now() / 160); gGhostMat.opacity = gAim.valid ? 0.5 + 0.1 * Math.sin(performance.now() / 180) : 0.35;
   } else gGhost.visible = false;
   if (gEngineOn && ws) {
     gRevT += dt;
@@ -2896,7 +3064,9 @@ function renderGarage(dt) {
 let gEngineOn = false, gRevT = 0, gPhase = 0, gStats = null;
 function gRefreshStats() {
   if (!ws) return;
-  const st = gStats = carStats([...ws.recs].map(r => r.p), ws.recs.size);
+  const an = analyzeVehicle([...ws.recs].map(r => { const [w, d] = dims(r.p, r.r); return { p: r.p, cx: r.x + w / 2, cz: r.z + d / 2, y: r.y, r: r.r }; }));
+  const st = gStats = an.st;
+  $('gChecks').innerHTML = an.checks.map(([ok, good, bad]) => `<div class="chk ${ok ? 'ok' : 'no'}">${ok ? '✅' : '❌'} ${ok ? good : bad}</div>`).join('');
   const row = (label, v, max, txt) => `<div class="stat"><span>${label}</span><div class="bar"><i style="width:${Math.max(4, Math.min(100, v / max * 100))}%"></i></div><b>${txt}</b></div>`;
   const parts = Object.entries(st.cnt).map(([k, n]) => `${n}× ${ENG_NAMES[k]}`).join(', ');
   $('gStats').innerHTML = row('Top speed', st.top, 36, Math.round(st.top * 4)) + row('Acceleration', st.acc, 32, Math.round(st.acc * 4)) +
@@ -2912,16 +3082,24 @@ $('gEngineBtn').onclick = () => setGarageEngine(!gEngineOn);
 function gReaim() { gAim = gAimNdc ? gTarget(gAimNdc) : null; }
 function gPlaceAction() {
   if (!gAim) { toast(touchMode ? 'Tap the car to aim first' : 'Point at the car first'); return; }
-  if (gAim.p.car) { toast('Car bases start a new car. Use "New 4×8 / 6×12" below'); return; }
-  if (!gAim.valid) { sfx('bad'); return; }
+  if (gAim.p.car && !gAim.p.chassis) { toast('Ready-made bases start a new car. Use the New buttons below'); return; }
+  if (!gAim.valid && guideCurrent() < 0) { sfx('bad'); return; }
+  // In the guide, a placement close to the glowing marker snaps onto it.
+  const gi = guideCurrent();
+  if (gi >= 0) {
+    const e = gGuide.steps[gi];
+    if (e[0] === gAim.p.id && (e[5] & 3) === gRot && Math.abs(e[2] - gAim.x0) + Math.abs(e[3] - gAim.y0) / 3 + Math.abs(e[4] - gAim.z0) <= 3 && wsCanPlace(gAim.p, e[2], e[3], e[4], gRot)) {
+      gAim = { ...gAim, x0: e[2], y0: e[3], z0: e[4] };
+    }
+  }
   const rec = wsAdd(gAim.p, gColor, gAim.x0, gAim.y0, gAim.z0, gRot);
   if (rec) { gUndo.push({ t: 'add', d: recData(rec) }); brickSound('place', rec.p); navigator.vibrate?.(12); gRefreshStats(); }
-  gReaim();
+  gReaim(); if (gGuide) guideRefresh();
 }
 function gRemoveAction() {
   const rec = gAim && gAim.rec;
   if (!rec) return;
-  if (rec.p.car) { toast("The car base can't be removed"); sfx('bad'); return; }
+  if (rec === ws.rootRec) { toast("The first chassis part can't be removed"); sfx('bad'); return; }
   gUndo.push({ t: 'remove', d: recData(rec) }); wsRemove(rec); brickSound('remove', rec.p); gReaim(); gRefreshStats();
 }
 function gUndoAction() {
@@ -2990,10 +3168,10 @@ function spawnDesign(d) {
       let wet = true;
       for (let i = -w / 2; i <= w / 2 && wet; i += 1) for (let j = -dd / 2; j <= dd / 2; j += 1) if (!waterAt(Math.floor((cx + i) / BLK), Math.floor((cz + j) / BLK))) { wet = false; break; }
       if (!wet) continue;
-      const plan = fitItems(items, baseP, cx, cz, -2, r);
+      const plan = fitItems(items, baseP, cx, cz, -2, r, false);   // boats sit in the water, never lifted onto bridges
       if (!plan) continue;
       let base = null;
-      for (const e of plan) { const b = addBrick(PIECES[e[0]], e[1], e[2], e[3], e[4], e[5], false); if (b && b.p.car) base = b; }
+      for (const e of plan) { const b = addBrick(PIECES[e[0]], e[1], e[2], e[3], e[4], e[5], false); if (b && b.p.car && !base) base = b; }
       saveSoon(); if (base) enterCar(base);
       return true;
     }
@@ -3008,7 +3186,7 @@ function spawnDesign(d) {
     const plan = fitItems(items, baseP, cx, cz, by, r);
     if (!plan) continue;
     let base = null;
-    for (const e of plan) { const b = addBrick(PIECES[e[0]], e[1], e[2], e[3], e[4], e[5], false); if (b && b.p.car) base = b; }
+    for (const e of plan) { const b = addBrick(PIECES[e[0]], e[1], e[2], e[3], e[4], e[5], false); if (b && b.p.car && !base) base = b; }
     saveSoon();
     if (base) enterCar(base);
     return true;
@@ -3018,7 +3196,9 @@ function spawnDesign(d) {
 }
 $('gCat').onchange = () => { gCat = $('gCat').value; gRefreshParts(); };
 $('garage').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-gp],[data-gc],[data-gload],[data-gdel],[data-gstart],[data-gnew]');
+  const t = e.target.closest('[data-gp],[data-gc],[data-gload],[data-gdel],[data-gstart],[data-gnew],[data-gguide]');
+  if (t && t.dataset.gguide !== undefined) { startGuide(+t.dataset.gguide); return; }
+  if (t && (t.dataset.gstart !== undefined || t.dataset.gnew || t.dataset.gload)) endGuide(false);
   if (!t) return;
   if (t.dataset.gp) { gPiece = t.dataset.gp; gRot = 0; gGhost.userData.p = null; gReaim(); gRefreshParts(); }
   else if (t.dataset.gc) { gColor = +t.dataset.gc; gRefreshParts(); }
@@ -3030,6 +3210,47 @@ $('garage').addEventListener('click', (e) => {
   else if (t.dataset.gstart) { wsLoad(starterDesign(STARTERS[+t.dataset.gstart])); }
   else if (t.dataset.gnew) { wsLoad({ name: 'My car', base: t.dataset.gnew, b: [] }); }
 });
+// ---- Step-by-step instructions: one glowing marker per part, in build order.
+let gGuide = null, gGuideMark = null;
+const gGuideMat = new THREE.MeshBasicMaterial({ color: '#4fd8ff', transparent: true, opacity: 0.5, depthWrite: false });
+function guideStage(p) { return p.car || p.pins ? 'Chassis' : p.wheel ? 'Wheels' : p.eng || p.prop || p.rudder ? 'Engine' : (p.id === 'seat' || p.id === 'steering') ? 'Cockpit' : 'Body'; }
+function guideCurrent() { return gGuide ? gGuide.steps.findIndex(e => !wsFind(e)) : -1; }
+function startGuide(i) {
+  const d = starterDesign(STARTERS[i]);
+  wsLoad({ name: d.name, base: d.base, b: [d.b[0]] });
+  gGuide = { name: d.name, steps: d.b.slice(1) };
+  $('gGuide').classList.remove('hidden'); $('gName').value = d.name;
+  guideRefresh(); toast(`📖 Build the ${d.name} step by step`);
+  document.querySelector('.gPanel').scrollTop = 0;
+}
+function endGuide(done) {
+  if (done && gGuide) { toast(`🎉 You built the ${gGuide.name}! Press Drive it! to try it`); brickSound('place', null); }
+  gGuide = null; $('gGuide').classList.add('hidden'); if (gGuideMark) gGuideMark.visible = false;
+}
+function guideRefresh() {
+  if (!gGuide) return;
+  const i = guideCurrent();
+  if (i < 0) { endGuide(true); return; }
+  const e = gGuide.steps[i], p = PIECE_BY_ID[e[0]], c = cid(e[1]);
+  gPiece = p.id; gColor = Math.max(0, c); gRot = e[5] & 3; gCat = p.cat; gRefreshParts();
+  const done = gGuide.steps.length - gGuide.steps.filter(x => !wsFind(x)).length;
+  $('gGuideTitle').textContent = `📖 ${gGuide.name}: step ${done + 1} of ${gGuide.steps.length}`;
+  $('gGuideStep').innerHTML = `<b>${guideStage(p)}</b> · add the <b>${p.name}</b> in ${e[1]}. It glows blue where it goes: aim there and press ＋ PLACE.` +
+    (p.wheel ? '<br><small>Wheels clip onto the metal pins on the side of an axle or wheel holder.</small>' : '');
+  if (!gGuideMark) { gGuideMark = new THREE.Group(); gScene.add(gGuideMark); }
+  gGuideMark.clear(); for (const part of p.built) gGuideMark.add(new THREE.Mesh(part.geo, gGuideMat));
+  const [w, d] = dims(p, gRot);
+  gGuideMark.position.set(e[2] + w / 2, e[3] * P + 0.004, e[4] + d / 2); gGuideMark.rotation.y = gRot * Math.PI / 2; gGuideMark.visible = true;
+  gGhost.userData.p = null; gReaim();
+}
+function guidePlaceStep() {
+  const i = guideCurrent(); if (i < 0) return;
+  const e = gGuide.steps[i], rec = wsAdd(PIECE_BY_ID[e[0]], Math.max(0, cid(e[1])), e[2], e[3], e[4], e[5] & 3);
+  if (rec) { gUndo.push({ t: 'add', d: recData(rec) }); brickSound('place', rec.p); gRefreshStats(); }
+  guideRefresh();
+}
+$('gGuidePlace').onclick = guidePlaceStep;
+$('gGuideExit').onclick = () => endGuide(false);
 $('gNearby').onclick = () => { const b = nearestCar(), d = b && designFromWorldCar(b); if (d) { wsLoad(d); toast('Copied the car next to you'); } };
 $('gMixBtn').onclick = () => { const d = mixDesign(+$('gMixF').value, +$('gMixM').value, +$('gMixB').value); if (d) { wsLoad(d); toast('Mixed! Tweak it, then save or drive'); } };
 $('gSave').onclick = () => {
@@ -3239,7 +3460,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
