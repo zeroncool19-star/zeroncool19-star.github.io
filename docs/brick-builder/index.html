@@ -483,8 +483,10 @@ function merge(list) {
   m.computeBoundingBox(); m.computeBoundingSphere();
   return m;
 }
-const body = (W, D, h, x = 0, z = 0) => new RoundedBoxGeometry(W - 0.03, h - 0.02, D - 0.03, 2, 0.04).translate(x, h / 2, z);
-const STUD = new THREE.CylinderGeometry(0.3, 0.3, 0.18, 14);
+const body = (W, D, h, x = 0, z = 0) => new RoundedBoxGeometry(W - 0.03, h - 0.02, D - 0.03, 1, 0.04).translate(x, h / 2, z);
+// Studs are the bulk of what the GPU draws, so they are kept lean: no hidden bottom face, and fewer sides on phones.
+const STUD = (() => { const n = touchMode ? 10 : 12, side = new THREE.CylinderGeometry(0.3, 0.3, 0.18, n, 1, true), top = new THREE.CircleGeometry(0.3, n).rotateX(-Math.PI / 2).translate(0, 0.09, 0);
+  return mergeGeometries([side.toNonIndexed(), top.toNonIndexed()], false); })();
 function studs(W, D, y, filter) {
   const a = [];
   for (let i = 0; i < W; i++) for (let j = 0; j < D; j++)
@@ -591,7 +593,7 @@ def({ id: 'lamp', name: 'Lamp post', cat: 'Special', W: 1, D: 1, H: 12,
 def({ id: 'flower', name: 'Flower', cat: 'Nature', W: 1, D: 1, H: 3,
   parts: () => {
     const petals = [];
-    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; petals.push(new THREE.SphereGeometry(0.13, 10, 8).scale(1, 0.55, 1).translate(Math.cos(a) * 0.16, 0.98, Math.sin(a) * 0.16)); }
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; petals.push(new THREE.SphereGeometry(0.13, 7, 4).scale(1, 0.55, 1).translate(Math.cos(a) * 0.16, 0.98, Math.sin(a) * 0.16)); }
     return [
       { geo: merge([new THREE.CylinderGeometry(0.04, 0.05, 0.95, 8).translate(0, 0.48, 0), new THREE.SphereGeometry(0.16, 10, 6).scale(1, 0.25, 0.5).translate(0.13, 0.42, 0)]), fixed: '#2f9e44' },
       { geo: merge(petals) },
@@ -722,7 +724,7 @@ function hillDef(id, name, H) {
       { geo: (() => { const g = new THREE.PlaneGeometry(8, 8).rotateX(-Math.PI / 2).translate(0, H * P + 0.002, 0), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 8, uv.getY(i) * 8); return g; })(), mat: 'g' },
     ] });
 }
-hillDef('hill8', 'Hill block', 3); hillDef('hillrock8', 'Mountain block', 12);
+hillDef('hill8', 'Hill block', 3); hillDef('hillrock8', 'Mountain block', 12); hillDef('road8', 'Road plate', 1);
 // Crafted and treasure parts (locked until crafted or won)
 def({ id: 'chest', name: 'Treasure chest', cat: 'Crafted', W: 2, D: 2, H: 3, locked: true,
   parts: () => [
@@ -734,7 +736,7 @@ def({ id: 'goldbrick', name: 'Gold brick 2×2', cat: 'Crafted', W: 2, D: 2, H: 3
 def({ id: 'lightcrystal', name: 'Glow crystal', cat: 'Crafted', W: 1, D: 1, H: 3, locked: true,
   parts: () => [
     { geo: merge([body(1, 1, 0.2)]), fixed: '#6b6f75' },
-    { geo: merge([new THREE.OctahedronGeometry(0.38, 0).scale(0.8, 1.35, 0.8).translate(0, 0.72, 0), new THREE.OctahedronGeometry(0.2, 0).scale(0.8, 1.4, 0.8).translate(0.22, 0.45, 0.1)]), mat: 'e' },
+    { geo: merge([new THREE.OctahedronGeometry(0.38, 0).scale(0.8, 1.35, 0.8).translate(0, 0.72, 0), new THREE.OctahedronGeometry(0.2, 0).scale(0.8, 1.4, 0.8).translate(0.22, 0.45, 0.1)]), mat: 'b' },
   ] });
 def({ id: 'lightlantern', name: 'Lantern', cat: 'Crafted', W: 1, D: 1, H: 4, locked: true,
   parts: () => [
@@ -1184,8 +1186,8 @@ const Y_AXIS = new THREE.Vector3(0, 1, 0);
 let pickables = [], pickDirty = true;
 
 class Batch {
-  constructor(geo, mat, transparent) {
-    this.geo = geo; this.mat = mat; this.transparent = transparent;
+  constructor(geo, mat, transparent, flat) {
+    this.geo = geo; this.mat = mat; this.transparent = transparent; this.flat = flat;   // flat plates and tiles cast no shadow
     this.cap = 32; this.count = 0; this.items = [];
     this.mesh = this.make(this.cap); scene.add(this.mesh); pickDirty = true;
   }
@@ -1193,7 +1195,7 @@ class Batch {
     const m = new THREE.InstancedMesh(this.geo, this.mat, cap);
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
-    m.count = 0; m.castShadow = !this.transparent; m.receiveShadow = true; m.userData.batch = this;
+    m.count = 0; m.castShadow = !this.transparent && !this.flat; m.receiveShadow = true; m.userData.batch = this;
     return m;
   }
   grow() {
@@ -1222,11 +1224,24 @@ class Batch {
   }
 }
 const batches = new Map();
-function getBatch(piece, pi, mode) {
-  const key = piece.id + '|' + pi + '|' + mode;
+// Bricks are batched per piece and per 128-stud area of the world, so areas behind the camera or out in the fog
+// are skipped by the renderer (and by the shadow pass) instead of being drawn every frame.
+const REGION = 128;
+function getBatch(piece, pi, mode, x = 0, z = 0) {
+  const rx = Math.floor(x / REGION), rz = Math.floor(z / REGION), key = piece.id + '|' + pi + '|' + mode + '|' + rx + ',' + rz;
   let b = batches.get(key);
-  if (!b) { b = new Batch(piece.built[pi].geo, MATS[mode], mode === 't'); batches.set(key, b); }
+  if (!b) { b = new Batch(piece.built[pi].geo, MATS[mode], mode === 't', piece.H <= 1); b.rx = rx; b.rz = rz; batches.set(key, b); }
   return b;
+}
+let cullT = 0;
+function cullRegions(dt) {
+  if ((cullT -= dt) > 0) return; cullT = 0.25;
+  const far = FOG_FAR + 24;
+  for (const bt of batches.values()) {
+    const x0 = bt.rx * REGION, z0 = bt.rz * REGION;
+    const dx = Math.max(x0 - player.x, 0, player.x - x0 - REGION), dz = Math.max(z0 - player.z, 0, player.z - z0 - REGION);
+    bt.mesh.visible = bt.count > 0 && Math.hypot(dx, dz) < far;
+  }
 }
 
 // ---------------------------------------------------------------- world state
@@ -1290,7 +1305,7 @@ function addBrick(p, c, x, y, z, r, check = true) {
   const col = COLORS[c];
   p.built.forEach((part, pi) => {
     const mode = part.fixed ? (part.mat || 'o') : part.mat === 'b' ? 'b' : (col.t ? 't' : (part.mat || 'o'));
-    const batch = getBatch(p, pi, mode);
+    const batch = getBatch(p, pi, mode, x, z);
     _c.set(part.fixed || col.c);
     b.slots.push({ batch, index: batch.add(_m, _c, { b, pi }) });
   });
@@ -1386,7 +1401,7 @@ function generateWorld(seed = 1234) {
   worldSeed = seed; emptyWorld = false;
   const R = rng(seed);
   // Crossroads made of dark plates, with lamp posts
-  for (let a = -128; a + 8 <= 128; a += 8) { put('plate8x8', 'Dark Grey', a, 0, -4); put('plate8x8', 'Dark Grey', -4, 0, a); }
+  for (let a = -128; a + 8 <= 128; a += 8) { put('road8', 'Dark Grey', a, 0, -4); put('road8', 'Dark Grey', -4, 0, a); }
   for (let a = -118, n = 0; a < 118; a += 20, n++) {
     if (Math.abs(a) < 8) continue;
     const side = n % 2 ? 5 : -6;
@@ -1509,8 +1524,8 @@ function genChunk(cx, cz) {
     const roadsZ = [], roadsX = [];
     for (let k = Math.ceil((z0 + 4) / 1024); k * 1024 - 4 < z0 + CHUNK; k++) roadsZ.push(k * 1024 - 4);
     for (let k = Math.ceil((x0 + 4) / 1024); k * 1024 - 4 < x0 + CHUNK; k++) roadsX.push(k * 1024 - 4);
-    for (const rz of roadsZ) for (let x = x0; x < x0 + CHUNK; x += 8) { put('plate8x8', 'Dark Grey', x, 0, rz); if ((x - x0) % 32 === 8) put('lamp', 'Black', x + 3, 0, rz + 9); }
-    for (const rx of roadsX) for (let z = z0; z < z0 + CHUNK; z += 8) { put('plate8x8', 'Dark Grey', rx, 0, z); if ((z - z0) % 32 === 24) put('lamp', 'Black', rx + 9, 0, z + 3); }
+    for (const rz of roadsZ) for (let x = x0; x < x0 + CHUNK; x += 8) { put('road8', 'Dark Grey', x, 0, rz); if ((x - x0) % 32 === 8) put('lamp', 'Black', x + 3, 0, rz + 9); }
+    for (const rx of roadsX) for (let z = z0; z < z0 + CHUNK; z += 8) { put('road8', 'Dark Grey', rx, 0, z); if ((z - z0) % 32 === 24) put('lamp', 'Black', rx + 9, 0, z + 3); }
     const near = (v, lines, pad) => lines.some(l => v > l - pad && v < l + 8 + pad);
     { const keep = genIdx; genIdx = 100000; coarseMode = true; try { genHills(x0, z0, biome); } finally { coarseMode = false; } genIdx = keep; }
     const flat = (x, z, rad) => !hillTop(x, z) && !hillTop(x - rad - 1, z - rad - 1) && !hillTop(x + rad + 1, z + rad + 1) && !hillTop(x - rad - 1, z + rad + 1) && !hillTop(x + rad + 1, z - rad - 1);
@@ -4778,7 +4793,7 @@ function frame() {
   updateSnaps(performance.now());
   updateSmoke(dt);
   updateLamps();
-  updateMobs(dt); updateWeather(dt); updateTrailer(); updateRace(dt);
+  cullRegions(dt); updateMobs(dt); updateWeather(dt); updateTrailer(); updateRace(dt);
   if (car) { if (lastCarXZ) stats.driven += Math.hypot(car.x - lastCarXZ[0], car.z - lastCarXZ[1]) * 0.53; lastCarXZ = [car.x, car.z]; } else lastCarXZ = null;
   updateDayCycle(dt);
   night += (nightTarget - night) * Math.min(1, dt * 2.5); applyLight();
@@ -4794,7 +4809,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
