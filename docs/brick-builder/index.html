@@ -157,6 +157,23 @@
 
   /* Inventory */
   #inv .card { width: min(980px, 100%); }
+  #textUI .card, #mapUI .card { max-width: 520px; }
+  #textInput { width: 100%; font-size: 18px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: #0d121b; color: var(--text); margin: 6px 0 10px; }
+  #mapCanvas { width: min(78vh, 100%); aspect-ratio: 1; display: block; margin: 6px auto; border-radius: 12px; touch-action: none; cursor: crosshair; background: #2a86c9; }
+  #mapUI .card { max-width: 860px; }
+  #mapMarks { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+  #mapMarks button { padding: 5px 10px; font-size: 13px; border-radius: 999px; }
+  #mapScale { font-size: 12px; color: var(--muted); }
+  #tut { position: fixed; left: 50%; transform: translateX(-50%); top: 12px; z-index: 6; max-width: min(440px, calc(100vw - 32px)); padding: 10px 14px; background: var(--panel-solid); border: 2px solid var(--accent); border-radius: 12px; font-size: 14px; display: flex; gap: 10px; align-items: center; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+  #tut button { padding: 6px 10px; font-size: 12px; flex: none; }
+  body:not(.playing) #tut { display: none; }
+  body.touch #tut { top: calc(118px + env(safe-area-inset-top)); }
+  #photoUI { display: none; position: fixed; right: calc(16px + env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); gap: 10px; z-index: 7; }
+  body.photo #photoUI { display: flex; }
+  #photoUI button { width: 64px; height: 64px; border-radius: 50%; font-size: 26px; padding: 0; }
+  body.photo #touchUI, body.photo #bottom, body.photo #info, body.photo #crosshair, body.photo #tut, body.photo #carPrompt, body.photo #toast { display: none !important; }
+  body.touch.playing.photo #crosshair, body.photo #crosshair { display: none !important; }
+  #photoFlash { position: fixed; inset: 0; background: #fff; opacity: .7; pointer-events: none; z-index: 8; }
   .invHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .invJump { flex-basis: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
   .invJump button { flex: none; padding: 5px 11px; font-size: 13px; border-radius: 999px; }
@@ -199,7 +216,10 @@
     <p class="touchOnly" style="color:var(--accent)">📱 Touch controls are on. Turn your phone sideways for the best view.</p>
     <div class="btns">
       <button id="playBtn" class="primary">▶ Play</button>
-      <button id="dayBtn">☀ / ☾ Day–Night</button>
+      <button id="dayBtn">🌗 Day & night cycle</button>
+      <button id="mapBtn">🗺 Map</button>
+      <button id="photoBtn">📷 Photo mode</button>
+      <button id="tutBtn">🎓 Tutorial</button>
       <button id="exportBtn">⬇ Export world</button>
       <button id="importBtn">⬆ Import world</button>
       <button id="homeBtn">🏠 Return home</button>
@@ -273,6 +293,8 @@
     <button class="tb" id="tbView" title="Camera view">👁</button>
     <button class="tb" id="tbChar" title="Character">🧍</button>
     <button class="tb" id="tbGarage" title="Garage">🚘</button>
+    <button class="tb" id="tbMap" title="Map">🗺</button>
+    <button class="tb" id="tbPhoto" title="Photo mode">📷</button>
   </div>
 </div>
 
@@ -369,9 +391,39 @@
     <h2>Colour (for the selected slot)</h2>
     <div id="invColors" class="colors"></div>
     <div class="btns" style="margin-top:8px"><button id="allColBtn">🎨 Make all hotbar bricks this colour</button></div>
+    <h2 id="cat-Blueprints">📐 Blueprints: copied builds you can paste again</h2>
+    <div class="btns" style="margin-top:4px"><button id="bpSave">💾 Save copied build</button><button id="bpImport">📥 Paste a share code</button></div>
+    <div id="bpList"></div>
     <div id="invPieces"></div>
   </div>
 </div>
+
+<div id="textUI" class="overlay hidden">
+  <div class="card">
+    <h2 id="textTitle" style="margin-top:0">Type here</h2>
+    <input id="textInput" maxlength="60" autocomplete="off">
+    <div class="btns" style="margin:0"><button id="textOk" class="primary">OK ✓</button><button id="textCancel">Cancel</button></div>
+  </div>
+</div>
+
+<div id="mapUI" class="overlay hidden">
+  <div class="card">
+    <div class="invHead" style="position:static;margin:0;padding:0;border:0">
+      <h1 style="font-size:22px">🗺 World map</h1>
+      <div class="btns" style="margin:0">
+        <button id="mapIn">＋</button><button id="mapOut">－</button><button id="mapHome">🏠 Go home</button><button id="mapMark">📍 Mark this spot</button><button id="mapClose" class="primary">Close (L)</button>
+      </div>
+    </div>
+    <canvas id="mapCanvas"></canvas>
+    <div class="btns" style="margin:0;justify-content:center"><button id="mapGo" class="primary hidden">✨ Teleport here</button></div>
+    <div id="mapScale"></div>
+    <div id="mapMarks"></div>
+  </div>
+</div>
+
+<div id="tut" class="hidden"><div id="tutText"></div><button id="tutSkip">Skip</button></div>
+<div id="photoUI"><button id="photoSnap" title="Take picture">📸</button><button id="photoExit" title="Exit photo mode">✖</button></div>
+<div id="photoFlash" class="hidden"></div>
 
 <input type="file" id="importFile" accept=".json,application/json" class="hidden">
 
@@ -631,7 +683,11 @@ def({ id: 'sign', name: 'Sign post', cat: 'Decor', W: 1, D: 1, H: 9,
   parts: () => [
     { geo: merge([cyl(0.08, 2.6, 10)]), fixed: '#7a4b26' },
     { geo: merge([new RoundedBoxGeometry(1.8, 0.9, 0.12, 2, 0.04).translate(0, 3.0, 0)]) },
-  ] });
+  ], text: { w: 1.7, h: 0.8, y: 3.0, z: 0.066 } });
+def({ id: 'signwall', name: 'Wall sign', cat: 'Decor', W: 2, D: 1, H: 3,
+  parts: () => [
+    { geo: merge([new RoundedBoxGeometry(1.94, 1.1, 0.16, 2, 0.04).translate(0, 0.6, -0.4)]) },
+  ], text: { w: 1.84, h: 1.0, y: 0.6, c: -0.4, z: 0.086 } });
 
 // Nature extras
 def({ id: 'tree2x2', name: 'Pine tree', cat: 'Nature', W: 2, D: 2, H: 18,
@@ -1078,6 +1134,7 @@ function addBrick(p, c, x, y, z, r, check = true) {
   return b;
 }
 function removeBrick(b) {
+  if (b.textMesh) setSignText(b, '');
   // Remove in descending index order per batch isn't needed: each slot lives in its own batch.
   for (const s of b.slots) s.batch.remove(s.index);
   for (const k of b.cells) occ.delete(k);
@@ -1097,6 +1154,7 @@ function clearWorld() {
   resetChunks(); removedGen = new Set(); dug.clear(); dugByChunk.clear();
   res = { wood: 0, coal: 0, copper: 0, gold: 0, crystal: 0 };
   for (const b of batches.values()) { scene.remove(b.mesh); b.mesh.dispose(); }
+  for (const b of bricks) if (b.textMesh) setSignText(b, '');
   batches.clear(); occ.clear(); bricks.clear(); pickDirty = true;
   undoStack.length = 0; redoStack.length = 0;
 }
@@ -1540,13 +1598,15 @@ function digBlock(bx, by, bz) {
 }
 
 // ---------------------------------------------------------------- tools: build / mine / chop
-const TOOLS = [['build', '🧱', 'PLACE', 'Build'], ['mine', '⛏', 'MINE', 'Pickaxe: dig ground and break bricks'], ['chop', '🪓', 'CHOP', 'Axe: chop down trees']];
+const TOOLS = [['build', '🧱', 'PLACE', 'Build'], ['mine', '⛏', 'MINE', 'Pickaxe: dig ground and break bricks'], ['chop', '🪓', 'CHOP', 'Axe: chop down trees'],
+  ['paint', '🖌', 'PAINT', 'Paint brush: paints bricks the selected colour (C / V or the brick box to change it)'], ['copy', '📋', 'COPY', 'Copy: point at a build and press COPY, then paste copies anywhere']];
 let tool = 'build';
 function setTool(t) {
   tool = t; const [, icon, label, help] = TOOLS.find(x => x[0] === t);
   $('tbTool').textContent = icon;
   $('tbPlace').innerHTML = (t === 'build' ? '＋' : icon) + `<small>${label}</small>`;
   toast(t === 'build' ? '🧱 Building' : `${icon} ${help}`);
+  updatePlaceLabel(); if (t !== 'copy') hideClipGhost();
 }
 function cycleTool() { const i = TOOLS.findIndex(x => x[0] === tool); setTool(TOOLS[(i + 1) % TOOLS.length][0]); }
 // What the crosshair points at for the pickaxe/axe: an earth block or a brick.
@@ -1584,6 +1644,7 @@ function chopTree(start) {
   return true;
 }
 function toolAction() {
+  if (tool === 'copy' && clip) return pasteAction();
   const t = toolTarget();
   if (!t) return false;
   if (tool === 'mine') {
@@ -1591,6 +1652,8 @@ function toolAction() {
     removeAction({ brick: t.brick }); return true;
   }
   if (tool === 'chop') return t.brick ? chopTree(t.brick) : (toast('🪓 Point at a tree'), false);
+  if (tool === 'paint') return t.brick ? !!repaint(t.brick, colorIdx) : (toast('🖌 Point at a brick'), false);
+  if (tool === 'copy') { if (!t.brick) { toast('📋 Point at a build'); return false; } setClip(copyStructure(t.brick)); return true; }
   return false;
 }
 function showToolTarget() {
@@ -1754,6 +1817,9 @@ function computeTarget(ndc = CENTER) {
   return { brick, x0, y0, z0, valid, piece: p, smoothBlock };
 }
 function updateTarget() {
+  if (!(tool === 'copy' && clip && isActive() && !car && !photoMode)) hideClipGhost();
+  if (photoMode) { target = null; ghost.visible = false; hl.visible = false; return; }
+  if (isActive() && !car && tool === 'copy' && clip) { target = null; showPasteGhost(); return; }
   if (isActive() && !car && tool !== 'build') { target = null; showToolTarget(); return; }
   target = isActive() && !car ? computeTarget() : null;
   if (!target) { ghost.visible = false; hl.visible = false; return; }
@@ -1774,12 +1840,14 @@ function updateTarget() {
 // ---------------------------------------------------------------- undo / redo
 const undoStack = [], redoStack = [];
 function doOp(op, inverse) {
+  if (op.t === 'multi') { const list = inverse ? [...op.ops].reverse() : op.ops; let ok = false; for (const o of list) ok = doOp(o, inverse) || ok; return ok; }
+  if (op.t === 'paint') { const b = findBrick(op.d); if (b) repaint(b, inverse ? op.d[1] : op.c, false); return !!b; }
   const add = (op.t === 'add') !== inverse;
   if (add) return !!addBrick(PIECES[op.d[0]], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5]);
   const b = findBrick(op.d); if (b) { forgetGen(b); removeBrick(b); } return !!b;
 }
-function undo() { const op = undoStack.pop(); if (!op) return toast('Nothing to undo'); doOp(op, true); redoStack.push(op); brickSound(op.t === 'add' ? 'remove' : 'place', PIECES[op.d[0]]); saveSoon(); }
-function redo() { const op = redoStack.pop(); if (!op) return toast('Nothing to redo'); doOp(op, false); undoStack.push(op); brickSound(op.t === 'add' ? 'place' : 'remove', PIECES[op.d[0]]); saveSoon(); }
+function undo() { const op = undoStack.pop(); if (!op) return toast('Nothing to undo'); doOp(op, true); redoStack.push(op); brickSound(op.t === 'add' ? 'remove' : 'place', op.d ? PIECES[op.d[0]] : null); saveSoon(); }
+function redo() { const op = redoStack.pop(); if (!op) return toast('Nothing to redo'); doOp(op, false); undoStack.push(op); brickSound(op.t === 'add' ? 'place' : 'remove', op.d ? PIECES[op.d[0]] : null); saveSoon(); }
 function record(op) { undoStack.push(op); if (undoStack.length > 500) undoStack.shift(); redoStack.length = 0; saveSoon(); }
 
 // ---- Snap-in / pop-off animations -----------------------------------------
@@ -1824,13 +1892,15 @@ let lastPlaced = null, repeatTimer = null, stackDir = 0, stackAxis = null;
 const STACK_DIRS = [['up', '⬆', 'UP'], ['down', '⬇', 'DOWN'], ['right', '➡', 'RIGHT'], ['left', '⬅', 'LEFT'], ['away', '⬈', 'AWAY']];
 function placeAt(p, x0, y0, z0) {
   const b = addBrick(p, colorIdx, x0, y0, z0, rot);
-  if (b) { record({ t: 'add', d: brickData(b) }); snapIn(b); brickSound('place', b.p, SNAP_FALL / 1000); lastPlaced = b; }
+  if (b) { record({ t: 'add', d: brickData(b) }); snapIn(b); brickSound('place', b.p, SNAP_FALL / 1000); lastPlaced = b; tutEvent('place'); }
   return b;
 }
 function placeAction(t = target) {
   if (!t) return false;
   if (!t.valid) { sfx('bad'); if (t.smoothBlock) toast("Smooth tops can't hold bricks"); return false; }
-  return !!placeAt(t.piece, t.x0, t.y0, t.z0);
+  const b = placeAt(t.piece, t.x0, t.y0, t.z0);
+  if (b && b.p.text) { stopRepeat(); editSign(b); }
+  return !!b;
 }
 // Stack: put the next brick against the last one placed, in the chosen direction (up, or sideways from where you look).
 function stackAxisNow() {
@@ -1857,7 +1927,8 @@ function stackAction() {
 function startRepeat() {
   stopRepeat();
   if (car) return;
-  if (tool !== 'build') {   // pickaxe / axe: act now, keep going while held
+  if (tool === 'copy') { toolAction(); return; }
+  if (tool !== 'build') {   // pickaxe / axe / paint: act now, keep going while held
     toolAction();
     const tick = () => { if (!isActive()) return stopRepeat(); toolAction(); repeatTimer = setTimeout(tick, tool === 'mine' ? 230 : 450); };
     repeatTimer = setTimeout(tick, 380);
@@ -1881,17 +1952,19 @@ function cycleStackDir() {
   toast(`Hold Place to stack ${label.toLowerCase()}`);
 }
 function removeAction(t = target) {
+  if (tool === 'copy' && clip) { setClip(null); hideClipGhost(); toast('📋 Copy cleared'); return; }
   if ((!t || !t.brick) && tool !== 'build') {
     const tt = toolTarget();
     if (tt && tt.block && tool === 'mine') { digBlock(...tt.block); return; }
     t = tt && tt.brick ? { brick: tt.brick } : null;
   }
   if (!t || !t.brick) return;
-  const d = brickData(t.brick); popOut(t.brick); brickSound('remove', t.brick.p); forgetGen(t.brick); removeBrick(t.brick); record({ t: 'remove', d });
+  const d = brickData(t.brick); popOut(t.brick); brickSound('remove', t.brick.p); forgetGen(t.brick); removeBrick(t.brick); record({ t: 'remove', d }); tutEvent('remove');
 }
 function pickAction(t = target) {
   if (!t || !t.brick) return false;
   const b = t.brick;
+  if (b.p.text && !b.gen) { editSign(b); return false; }
   const existing = hotbar.indexOf(b.p.id);
   if (existing >= 0) slot = existing; else hotbar[slot] = b.p.id;
   colorIdx = hotCols[slot] = b.c; rot = b.r; refreshUI(); showLabel(); return true;
@@ -1967,9 +2040,9 @@ function updateInfo() {
   const RES_ICON = { wood: '🪵', coal: '⚫', copper: '🟠', gold: '🟡', crystal: '💎' };
   const bag = Object.entries(res).filter(([, v]) => v).map(([k, v]) => `${RES_ICON[k]} ${v}`).join(' · ');
   const doing = car ? (car.boat ? '🚤 Boating' : '🚗 Driving') + ' · speed ' + Math.round(Math.abs(car.speed) * 4) : player.fly ? FLY_LEVELS[player.flyLv || 1][0] + ' ' + FLY_LEVELS[player.flyLv || 1][1] : player.swim ? '🏊 Swimming' : '🚶 Walking';
-  const toolTxt = tool === 'mine' ? ' · ⛏ Pickaxe' : tool === 'chop' ? ' · 🪓 Axe' : '';
+  const toolTxt = { mine: ' · ⛏ Pickaxe', chop: ' · 🪓 Axe', paint: ' · 🖌 Paint', copy: clip ? ' · 📋 Pasting' : ' · 📋 Copy' }[tool] || '';
   const h = Math.floor(player.y / P);
-  infoEl.innerHTML = `<b>Brick Builder World</b><br>${place}<br>${doing}${toolTxt}<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · ${h < -3 && !car && !player.swim ? '⛏ depth ' + Math.ceil(-player.y * 0.53) + ' m' : 'height ' + h}${bag ? '<br>🎒 ' + bag : ''}`;
+  infoEl.innerHTML = `<b>Brick Builder World</b><br>${place}<br>${doing}${toolTxt}<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · ${h < -3 && !car && !player.swim ? '⛏ depth ' + Math.ceil(-player.y * 0.53) + ' m' : 'height ' + h}${bag ? '<br>🎒 ' + bag : ''}${dayMode === 'auto' ? ' · 🕒 ' + clockText() : ''}`;
 }
 function buildInventory() {
   ensureThumbs(colorIdx);
@@ -1999,7 +2072,11 @@ const isActive = () => locked || touchPlaying;
 const menu = $('menu'), inv = $('inv'), cross = $('crosshair');
 function setHud() { cross.classList.toggle('hidden', !isActive()); document.body.classList.toggle('playing', isActive()); }
 function lock() { initAudio(); const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); }
-function play() { if (touchMode) startTouch(); else lock(); }
+let tutChecked = false;
+function play() {
+  if (!tutChecked) { tutChecked = true; let done = false; try { done = !!localStorage.getItem(TUT_KEY); } catch (e) {} if (!done) startTutorial(); }
+  if (touchMode) startTouch(); else lock();
+}
 function startTouch() {
   initAudio(); touchPlaying = true; invOpen = false;
   menu.classList.add('hidden'); inv.classList.add('hidden'); setHud();
@@ -2007,17 +2084,17 @@ function startTouch() {
   if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
 }
 function pauseTouch() { touchPlaying = false; resetTouchInput(); menu.classList.remove('hidden'); setHud(); save(); }
-function openInv() { invOpen = true; touchPlaying = false; resetTouchInput(); setHud(); buildInventory(); inv.classList.remove('hidden'); menu.classList.add('hidden'); if (locked) document.exitPointerLock(); }
+function openInv() { refreshBlueprints(); invOpen = true; touchPlaying = false; resetTouchInput(); setHud(); buildInventory(); inv.classList.remove('hidden'); menu.classList.add('hidden'); if (locked) document.exitPointerLock(); }
 function closeInv() { invOpen = false; inv.classList.add('hidden'); play(); }
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   setHud();
   if (locked) { menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; }
-  else { for (const k in keys) keys[k] = false; if (!invOpen && !charOpen && !gOpen) { menu.classList.remove('hidden'); save(); } }
+  else { for (const k in keys) keys[k] = false; if (photoMode && !touchMode) setPhoto(false); if (!invOpen && !charOpen && !gOpen && !textOpen && !mapOpen) { menu.classList.remove('hidden'); save(); } }
 });
 $('playBtn').onclick = () => { if (!charSaved) openChar(true); else play(); };
 $('invClose').onclick = closeInv;
-canvas.addEventListener('click', () => { if (!touchMode && !locked && !invOpen) lock(); });
+canvas.addEventListener('click', () => { if (!touchMode && !locked && !invOpen && !textOpen && !mapOpen) lock(); });
 document.addEventListener('mousemove', (e) => {
   if (!locked) return;
   lastLook = performance.now();
@@ -2035,6 +2112,8 @@ document.addEventListener('wheel', (e) => {
   selectSlot((slot + (e.deltaY > 0 ? 1 : -1) + hotbar.length) % hotbar.length);
 }, { passive: true });
 document.addEventListener('keydown', (e) => {
+  if (textOpen) return;
+  if (mapOpen) { if (e.code === 'Escape' || e.code === 'KeyL') closeMap(); return; }
   if (charOpen) { if (e.code === 'Escape' || e.code === 'Enter') { e.preventDefault(); closeChar(); } return; }
   if (gOpen) {
     if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Escape') e.target.blur(); return; }
@@ -2053,6 +2132,7 @@ document.addEventListener('keydown', (e) => {
   keys[e.code] = true;
   if (e.code === 'Space') e.preventDefault();
   if (e.repeat) return;
+  if (photoMode) { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); takePhoto(); } else if (e.code === 'KeyO') setPhoto(false); return; }
   if (e.code === 'KeyQ') { toggleCar(); return; }
   if (e.code === 'KeyH') { if (car) horn(); return; }
   if (car && !['KeyT', 'KeyP', 'KeyK'].includes(e.code)) return;
@@ -2067,7 +2147,9 @@ document.addEventListener('keydown', (e) => {
     case 'KeyV': setColor((colorIdx + 1) % COLORS.length); break;
     case 'KeyZ': undo(); break;
     case 'KeyY': redo(); break;
-    case 'KeyT': toggleNight(); break;
+    case 'KeyT': cycleDayMode(); break;
+    case 'KeyL': openMap(); break;
+    case 'KeyO': setPhoto(true); break;
     case 'KeyP': toggleView(); break;
     case 'KeyK': openChar(true); break;
     case 'KeyM': openGarage(true); break;
@@ -2431,6 +2513,8 @@ tapBtn('tbPause', pauseTouch);
 tapBtn('tbInv', openInv);
 tapBtn('tbView', toggleView);
 tapBtn('tbChar', () => openChar(true));
+tapBtn('tbMap', openMap);
+tapBtn('tbPhoto', () => setPhoto(true));
 hotbarEl.addEventListener('click', (e) => {
   const s = e.target.closest('[data-hot]'); if (!s || !isActive()) return;
   selectSlot(+s.dataset.hot);
@@ -3177,8 +3261,9 @@ function gRefreshParts() {
 function gRefreshLists() {
   const mine = loadMyCars();
   $('gMine').innerHTML = mine.length ? mine.map((d, i) =>
-    `<div class="gRow"><span>🚗 ${escapeHtml(d.name)} <small>${PIECE_BY_ID[d.base]?.name.replace('Car base ', '') || ''}</small></span><button data-gload="${i}">Load</button><button data-gdel="${i}" class="danger">🗑</button></div>`).join('')
+    `<div class="gRow"><span>🚗 ${escapeHtml(d.name)} <small>${PIECE_BY_ID[d.base]?.name.replace('Car base ', '') || ''}</small></span><button data-gload="${i}">Load</button><button data-gshare="${i}" title="Share code">🔗</button><button data-gdel="${i}" class="danger">🗑</button></div>`).join('')
     : '<p style="font-size:13px">No saved cars yet. Build one and press 💾 Save.</p>';
+  $('gMine').innerHTML += '<div class="btns" style="margin:6px 0 0"><button data-gimport="1">📥 Add a car from a share code</button></div>';
   const all = mixSources();
   const opts = all.map((s, i) => `<option value="${i}">${escapeHtml(s.name)} (${PIECE_BY_ID[s.base]?.name.replace('Car base ', '')})</option>`).join('');
   for (const id of ['gMixF', 'gMixM', 'gMixB']) { const sel = $(id), v = sel.value; sel.innerHTML = opts; if (v && +v < all.length) sel.value = v; }
@@ -3402,8 +3487,336 @@ function sfx(kind) {
 
 // ---------------------------------------------------------------- day / night
 let night = 0, nightTarget = 0;
-function toggleNight() { nightTarget = nightTarget ? 0 : 1; toast(nightTarget ? 'Night time' : 'Day time'); saveSoon(); }
-$('dayBtn').onclick = toggleNight;
+// ---------------------------------------------------------------- share codes (builds and cars)
+function toCode(obj) { return 'BBW1:' + btoa(unescape(encodeURIComponent(JSON.stringify(obj)))); }
+function fromCode(code) {
+  code = String(code || '').trim();
+  if (!code.startsWith('BBW1:')) throw new Error('Not a Brick Builder code');
+  return JSON.parse(decodeURIComponent(escape(atob(code.slice(5)))));
+}
+async function shareCode(obj, what) {
+  const c = toCode(obj);
+  try { await navigator.clipboard.writeText(c); toast(`🔗 ${what} code copied: paste it to a friend`); }
+  catch (e) { window.prompt(`Copy this ${what} code and send it to a friend:`, c); }
+}
+
+// ---------------------------------------------------------------- text dialog (signs, names)
+let textOpen = false, textCb = null;
+function askText(title, value, cb) {
+  textOpen = true; textCb = cb; resetTouchInput(); stopRepeat();
+  touchPlaying = false; setHud();
+  $('textTitle').textContent = title; $('textInput').value = value || '';
+  $('textUI').classList.remove('hidden'); menu.classList.add('hidden');
+  if (locked) document.exitPointerLock();
+  setTimeout(() => { $('textInput').focus(); $('textInput').select(); }, 50);
+}
+function closeText(ok) {
+  if (!textOpen) return;
+  const v = $('textInput').value.trim().slice(0, 60), cb = textCb;
+  textOpen = false; textCb = null; $('textUI').classList.add('hidden');
+  if (ok && cb) cb(v);
+  if (!gOpen && !mapOpen) play();
+}
+$('textOk').onclick = () => closeText(true);
+$('textCancel').onclick = () => closeText(false);
+$('textInput').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') closeText(true); if (e.key === 'Escape') closeText(false); });
+
+// ---------------------------------------------------------------- signs with words
+function setSignText(b, text) {
+  if (!b || !b.p.text) return;
+  if (b.textMesh) { scene.remove(b.textMesh); b.textMesh.children.forEach(m => { m.material.map.dispose(); m.material.dispose(); }); b.textMesh = null; }
+  b.text = text;
+  if (!text) return;
+  const t = b.p.text, cv = document.createElement('canvas'); cv.width = 512; cv.height = Math.round(512 * t.h / t.w);
+  const g = cv.getContext('2d'), col = COLORS[b.c].c, lum = 0.3 * col.r + 0.59 * col.g + 0.11 * col.b;
+  g.fillStyle = lum > 0.45 ? '#1e1f22' : '#ffffff';
+  let size = 120; g.font = `bold ${size}px system-ui, sans-serif`;
+  while (g.measureText(text).width > cv.width * 0.9 && size > 20) { size -= 6; g.font = `bold ${size}px system-ui, sans-serif`; }
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, cv.width / 2, cv.height / 2);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const grp = new THREE.Group(), geo = new THREE.PlaneGeometry(t.w, t.h);
+  for (const side of [1, -1]) {
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+    m.position.set(0, t.y, (t.c || 0) + t.z * side); if (side < 0) m.rotation.y = Math.PI; grp.add(m);
+  }
+  const [w, d] = dims(b.p, b.r);
+  grp.position.set(b.x + w / 2, b.y * P, b.z + d / 2); grp.rotation.y = b.r * Math.PI / 2;
+  scene.add(grp); b.textMesh = grp;
+}
+function editSign(b) { askText('What should the sign say?', b.text || '', (v) => { setSignText(b, v); saveSoon(); }); }
+
+// ---------------------------------------------------------------- paint tool
+function repaint(b, c, rec = true) {
+  if (!b || b.c === c) return false;
+  const d = brickData(b), text = b.text;
+  forgetGen(b); removeBrick(b);
+  const nb = addBrick(b.p, c, b.x, b.y, b.z, b.r, false);
+  if (text) setSignText(nb, text);
+  if (rec) record({ t: 'paint', d, c });
+  brickSound('place', b.p); navigator.vibrate?.(10);
+  return nb;
+}
+
+// ---------------------------------------------------------------- copy & paste builds, blueprints
+const BP_KEY = 'brick-builder-blueprints-v1';
+let clip = null, clipGhost = null, clipGhostKey = '', pasteAim = null;
+function loadBlueprints() { try { const v = JSON.parse(localStorage.getItem(BP_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function saveBlueprints(list) { try { localStorage.setItem(BP_KEY, JSON.stringify(list)); } catch (e) { toast('Could not save (storage full?)'); } }
+// Everything touching the tapped brick (any side), up to 1500 bricks, stored relative to its lowest corner.
+function copyStructure(start) {
+  const S = new Set([start]), q = [start];
+  while (q.length && S.size < 1500) {
+    const b = q.pop();
+    for (const [x, y, z] of cellsOf(b.p, b.x, b.y, b.z, b.r)) for (const [dx, dy, dz] of DIRS) {
+      const o = occ.get(key(x + dx, y + dy, z + dz));
+      if (o && !S.has(o.b)) { S.add(o.b); q.push(o.b); }
+    }
+  }
+  const arr = [...S], mx = Math.min(...arr.map(b => b.x)), my = Math.min(...arr.map(b => b.y)), mz = Math.min(...arr.map(b => b.z));
+  return { name: 'Copied build', items: arr.map(b => [b.p.id, COLORS[b.c].n, b.x - mx, b.y - my, b.z - mz, b.r, b.text || '']) };
+}
+function setClip(c) {
+  clip = c; clipGhostKey = '';
+  if (c) { if (tool !== 'copy') setTool('copy'); toast(`📋 ${c.items.length} bricks copied: aim and press PLACE to paste, ↻ turns it, ✖ clears`); }
+  updatePlaceLabel();
+}
+// The clipboard turned by r quarter turns, re-anchored at (0,0,0).
+function clipLayout(r) {
+  const c = COS[r], s = SIN[r], out = [];
+  for (const [id, cn, x, y, z, ir, text] of clip.items) {
+    const p = PIECE_BY_ID[id]; if (!p) continue;
+    const [iw, id_] = dims(p, ir), cx = x + iw / 2, cz = z + id_ / 2, nr = (ir + r) % 4, [nw, nd] = dims(p, nr);
+    out.push({ p, c: Math.max(0, cid(cn)), x: cx * c + cz * s - nw / 2, z: -cx * s + cz * c - nd / 2, y, r: nr, text });
+  }
+  const mx = Math.min(...out.map(o => o.x)), mz = Math.min(...out.map(o => o.z));
+  for (const o of out) { o.x = Math.round(o.x - mx); o.z = Math.round(o.z - mz); }
+  const W = Math.max(...out.map(o => o.x + dims(o.p, o.r)[0])), D = Math.max(...out.map(o => o.z + dims(o.p, o.r)[1]));
+  return { items: out, W, D };
+}
+function pasteTarget() {
+  refreshPickables();
+  raycaster.far = REACH + camDist + 20; raycaster.setFromCamera(CENTER, camera);
+  const hit = raycaster.intersectObjects(pickables, false).find(h => h.object.userData.isGround || h.instanceId !== undefined);
+  if (!hit) return null;
+  const L = clipLayout(rot), pt = hit.point;
+  let n = hit.face.normal.clone(), bx, by, bz, brick = null;
+  if (!hit.object.userData.isGround) { brick = hit.object.userData.batch.items[hit.instanceId].b; n.applyAxisAngle(Y_AXIS, brick.r * Math.PI / 2); }
+  if (n.y > 0.5) { bx = Math.floor(pt.x); bz = Math.floor(pt.z); by = brick ? brick.y + brick.p.H : Math.round(pt.y / P); }
+  else { bx = Math.floor(pt.x + n.x * 0.5); bz = Math.floor(pt.z + n.z * 0.5); by = brick ? brick.y : Math.round(pt.y / P); }
+  const x0 = bx - Math.floor(L.W / 2), z0 = bz - Math.floor(L.D / 2);
+  const valid = L.items.every(o => canPlace(o.p, x0 + o.x, by + o.y, z0 + o.z, o.r) && !playerOverlaps(cellsOf(o.p, x0 + o.x, by + o.y, z0 + o.z, o.r)));
+  return { L, x0, y0: by, z0, valid };
+}
+const clipGhostMat = new THREE.MeshBasicMaterial({ color: '#4fd8ff', transparent: true, opacity: 0.35, depthWrite: false });
+function showPasteGhost() {
+  ghost.visible = false; hl.visible = false;
+  pasteAim = pasteTarget();
+  if (!pasteAim) { if (clipGhost) clipGhost.visible = false; return; }
+  const k = rot + ':' + clip.items.length;
+  if (k !== clipGhostKey) {
+    if (clipGhost) { scene.remove(clipGhost); clipGhost.geometry.dispose(); }
+    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), ONE = new THREE.Vector3(1, 1, 1), geos = [];
+    for (const o of pasteAim.L.items.slice(0, 600)) {
+      const [w, d] = dims(o.p, o.r); Q.setFromAxisAngle(Y_AXIS, o.r * Math.PI / 2); M.compose(V.set(o.x + w / 2, o.y * P, o.z + d / 2), Q, ONE);
+      geos.push(o.p.built[0].geo.clone().applyMatrix4(M));
+    }
+    clipGhost = new THREE.Mesh(mergeGeometries(geos, false), clipGhostMat); geos.forEach(g => g.dispose());
+    scene.add(clipGhost); clipGhostKey = k;
+  }
+  clipGhost.visible = true; clipGhost.position.set(pasteAim.x0, pasteAim.y0 * P + 0.01, pasteAim.z0);
+  clipGhostMat.color.set(pasteAim.valid ? '#4fd8ff' : '#ff3b30');
+}
+function pasteAction() {
+  const t = pasteAim || pasteTarget();
+  if (!t) return false;
+  if (!t.valid) { sfx('bad'); toast("It doesn't fit there"); return false; }
+  const ops = [];
+  for (const o of t.L.items) {
+    const b = addBrick(o.p, o.c, t.x0 + o.x, t.y0 + o.y, t.z0 + o.z, o.r, false);
+    if (b) { ops.push({ t: 'add', d: brickData(b) }); if (o.text) setSignText(b, o.text); }
+  }
+  record({ t: 'multi', ops }); brickSound('place', t.L.items[0].p); navigator.vibrate?.(25);
+  toast(`📋 Pasted ${ops.length} bricks`);
+  return true;
+}
+function hideClipGhost() { if (clipGhost) clipGhost.visible = false; }
+function updatePlaceLabel() {
+  if (tool === 'copy') $('tbPlace').innerHTML = clip ? '📋<small>PASTE</small>' : '📋<small>COPY</small>';
+}
+// Blueprints panel inside the brick box
+function refreshBlueprints() {
+  const list = loadBlueprints();
+  $('bpList').innerHTML = (list.length ? list.map((b, i) =>
+    `<div class="gRow"><span>📐 ${escapeHtml(b.name)} <small>${b.items.length} bricks</small></span><button data-bpuse="${i}">Use</button><button data-bpshare="${i}">🔗</button><button data-bpdel="${i}" class="danger">🗑</button></div>`).join('')
+    : '<p style="font-size:13px">No blueprints yet. Copy a build with the 📋 tool, then save it here.</p>');
+  $('bpSave').disabled = !clip;
+}
+$('bpSave').onclick = () => {
+  if (!clip) return;
+  askText('Name this blueprint', clip.name === 'Copied build' ? '' : clip.name, (name) => {
+    const list = loadBlueprints(); list.unshift({ name: name || 'My build', items: clip.items }); saveBlueprints(list);
+    clip.name = name || 'My build'; toast('💾 Blueprint saved');
+  });
+};
+$('bpImport').onclick = () => {
+  askText('Paste a build code', '', (code) => {
+    try { const o = fromCode(code); if (o.type !== 'build' || !Array.isArray(o.items)) throw 0;
+      const list = loadBlueprints(); list.unshift({ name: o.name || 'Shared build', items: o.items }); saveBlueprints(list);
+      setClip({ name: o.name, items: o.items }); toast('📥 Build imported: aim and press PLACE to paste it');
+    } catch (e) { toast("That code didn't work"); }
+  });
+};
+$('inv').addEventListener('click', (e) => {
+  const u = e.target.closest('[data-bpuse]'), sh = e.target.closest('[data-bpshare]'), dl = e.target.closest('[data-bpdel]');
+  const list = loadBlueprints();
+  if (u) { const b = list[+u.dataset.bpuse]; if (b) { setClip({ name: b.name, items: b.items }); closeInv(); } }
+  else if (sh) { const b = list[+sh.dataset.bpshare]; if (b) shareCode({ type: 'build', name: b.name, items: b.items }, 'Build'); }
+  else if (dl) { const b = list[+dl.dataset.bpdel]; if (b && confirm(`Delete "${b.name}"?`)) { list.splice(+dl.dataset.bpdel, 1); saveBlueprints(list); refreshBlueprints(); } }
+});
+
+// ---------------------------------------------------------------- photo mode
+let photoMode = false;
+function setPhoto(on) {
+  photoMode = on; document.body.classList.toggle('photo', on);
+  if (on) { hideClipGhost(); toast(touchMode ? '📷 Photo mode: drag to frame your shot' : '📷 Photo mode: Enter takes a picture, O exits'); }
+}
+function takePhoto() {
+  renderer.render(scene, camera);
+  const a = document.createElement('a'); a.href = renderer.domElement.toDataURL('image/png'); a.download = `brick-world-${Date.now()}.png`; a.click();
+  const f = $('photoFlash'); f.classList.remove('hidden'); setTimeout(() => f.classList.add('hidden'), 180);
+  toast('📸 Picture saved');
+}
+$('photoBtn').onclick = () => { setPhoto(true); play(); };
+$('photoSnap').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); takePhoto(); });
+$('photoExit').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); setPhoto(false); });
+
+// ---------------------------------------------------------------- day & night cycle
+// Auto: one day lasts 16 minutes (sunrise 06:00, sunset 18:00). Day and Night modes hold the light.
+const DAY_LEN = 960;
+let dayMode = 'auto', timeOfDay = 0.3, dusk = 0;
+function updateDayCycle(dt) {
+  if (dayMode === 'auto') {
+    timeOfDay = (timeOfDay + dt / DAY_LEN) % 1;
+    const h = Math.sin(timeOfDay * Math.PI * 2);          // 0 at sunrise (t=0), 1 at noon (t=.25), 0 at sunset (t=.5)
+    nightTarget = Math.max(0, Math.min(1, (0.06 - h) / 0.26));
+    dusk = Math.max(0, 1 - Math.abs(h) / 0.22);
+  } else { nightTarget = dayMode === 'night' ? 1 : 0; dusk = 0; }
+}
+function clockText() { const hrs = (timeOfDay * 24 + 6) % 24; return `${String(Math.floor(hrs)).padStart(2, '0')}:${String(Math.floor((hrs % 1) * 60)).padStart(2, '0')}`; }
+const DAY_MODES = [['auto', '🌗 Day & night cycle'], ['day', '☀ Always day'], ['night', '☾ Always night']];
+function cycleDayMode() {
+  const i = DAY_MODES.findIndex(m => m[0] === dayMode); dayMode = DAY_MODES[(i + 1) % 3][0];
+  $('dayBtn').textContent = DAY_MODES.find(m => m[0] === dayMode)[1]; toast(DAY_MODES.find(m => m[0] === dayMode)[1]); saveSoon();
+}
+
+// ---------------------------------------------------------------- map & teleport
+let mapOpen = false, mapZoom = 8, mapPick = null;
+let marks = [];
+const MAP_BIOME = { grass: '#6dbb4f', forest: '#3d8b3a', desert: '#e2c47f', snow: '#f1f5f8', lake: '#e6d59a' };
+function openMap() {
+  if (car) { toast('Get out of the car to use the map'); return; }
+  mapOpen = true; tutEvent('map'); resetTouchInput(); stopRepeat(); touchPlaying = false; setHud();
+  $('mapUI').classList.remove('hidden'); menu.classList.add('hidden');
+  if (locked) document.exitPointerLock();
+  mapPick = null; requestAnimationFrame(drawMap); refreshMarks();
+}
+function closeMap() { mapOpen = false; $('mapUI').classList.add('hidden'); play(); }
+function drawMap() {
+  const cv = $('mapCanvas'), S = Math.min(cv.clientWidth || 500, 900);
+  cv.width = S; cv.height = S;
+  const g = cv.getContext('2d'), half = S / 2, cell = 4, k = mapZoom;   // k studs per pixel
+  const wx = (px) => player.x + (px - half) * k, wz = (py) => player.z + (py - half) * k;
+  for (let py = 0; py < S; py += cell) for (let px = 0; px < S; px += cell) {
+    const x = wx(px + cell / 2), z = wz(py + cell / 2);
+    let col;
+    if (Math.abs(x) > WORLD || Math.abs(z) > WORLD) col = '#2a86c9';
+    else if (waterAt(Math.floor(x / BLK), Math.floor(z / BLK))) col = '#3d8fd1';
+    else if (emptyWorld) col = '#6dbb4f';
+    else { const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK); col = inVillage(cx, cz) ? '#9bd27a' : MAP_BIOME[biomeAt(cx, cz)] || '#6dbb4f'; }
+    const span = k * cell / 2, road = (v) => Math.floor((v + span + 4) / 1024 - 1e-9) > Math.floor((v - span - 4) / 1024);
+    if (!emptyWorld && (road(z) || road(x)) && Math.abs(x) < WORLD && Math.abs(z) < WORLD) col = '#55595f';
+    g.fillStyle = col; g.fillRect(px, py, cell, cell);
+  }
+  const toPx = (x, z) => [half + (x - player.x) / k, half + (z - player.z) / k];
+  g.font = 'bold 13px system-ui, sans-serif'; g.textAlign = 'center';
+  const pin = (x, z, label, col) => { const [px, py] = toPx(x, z); if (px < -20 || py < -20 || px > S + 20 || py > S + 20) return;
+    g.fillStyle = col; g.beginPath(); g.arc(px, py - 8, 7, 0, Math.PI * 2); g.fill(); g.beginPath(); g.moveTo(px - 5, py - 5); g.lineTo(px + 5, py - 5); g.lineTo(px, py + 3); g.fill();
+    g.fillStyle = '#fff'; g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 3; g.strokeText(label, px, py - 18); g.fillText(label, px, py - 18); };
+  pin(2, 1, '🏠 Home', '#ffcf33');
+  marks.forEach(m => pin(m.x, m.z, m.n, '#ff5a4a'));
+  if (mapPick) pin(mapPick.x, mapPick.z, 'Teleport here?', '#4fd8ff');
+  // player arrow
+  g.save(); g.translate(half, half); g.rotate(-player.yaw); g.fillStyle = '#fff'; g.strokeStyle = '#1e1f22'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(0, -11); g.lineTo(8, 9); g.lineTo(0, 4); g.lineTo(-8, 9); g.closePath(); g.fill(); g.stroke(); g.restore();
+  $('mapScale').textContent = `${Math.round(S * k * 0.00053 * 10) / 10} km across`;
+  $('mapGo').classList.toggle('hidden', !mapPick);
+}
+function refreshMarks() {
+  $('mapMarks').innerHTML = marks.length ? marks.map((m, i) => `<button data-mk="${i}">📍 ${escapeHtml(m.n)}</button>`).join('') + '' : '<span style="font-size:12px;color:var(--muted)">Mark places to find them again and teleport back.</span>';
+}
+function teleportTo(x, z) {
+  x = Math.max(-WORLD + 2, Math.min(WORLD - 2, x)); z = Math.max(-WORLD + 2, Math.min(WORLD - 2, z));
+  Object.assign(player, { x, z, y: 24, vy: 0 }); if (player.fly) setFly(0);
+  lastPC = null; updateChunks(25); toast('✨ Teleported');
+}
+$('mapCanvas').addEventListener('pointerdown', (e) => {
+  const cv = $('mapCanvas'), r = cv.getBoundingClientRect(), S = cv.width, px = (e.clientX - r.left) * S / r.width, py = (e.clientY - r.top) * S / r.height;
+  mapPick = { x: player.x + (px - S / 2) * mapZoom, z: player.z + (py - S / 2) * mapZoom }; drawMap();
+});
+$('mapGo').onclick = () => { if (mapPick) { const p = mapPick; closeMap(); teleportTo(p.x, p.z); } };
+$('mapIn').onclick = () => { mapZoom = Math.max(1, mapZoom / 2); drawMap(); };
+$('mapOut').onclick = () => { mapZoom = Math.min(64, mapZoom * 2); drawMap(); };
+$('mapHome').onclick = () => { closeMap(); teleportTo(2.5, 1.5); };
+$('mapMark').onclick = () => askText('Name this place', '', (n) => { marks.push({ n: n || `Place ${marks.length + 1}`, x: Math.round(player.x), z: Math.round(player.z) }); saveSoon(); refreshMarks(); drawMap(); toast('📍 Place marked'); });
+$('mapClose').onclick = closeMap;
+$('mapMarks').addEventListener('click', (e) => { const b = e.target.closest('[data-mk]'); if (!b) return; const m = marks[+b.dataset.mk]; mapPick = { x: m.x, z: m.z }; drawMap(); });
+
+// ---------------------------------------------------------------- tutorial
+const TUT_KEY = 'brick-builder-tutorial-done';
+const TUT_STEPS = [
+  ['Walk around', 'Use the joystick (W A S D) to walk a few steps.', (t) => Math.hypot(player.x - t.x, player.z - t.z) > 6],
+  ['Look around', 'Drag the screen (move the mouse) to look around.', (t) => Math.abs(player.yaw - t.yaw) > 0.8],
+  ['Place a brick', 'Aim at the ground and press ＋ PLACE (left click).', (t) => t.place > 0],
+  ['Remove a brick', 'Aim at a brick and press ✖ (right click).', (t) => t.remove > 0],
+  ['Find more bricks', 'Open the brick box 🧱 (E) to see every brick and colour.', (t) => t.inv],
+  ['Dig', 'Switch the tool to ⛏ with the tool button (N), then dig the ground.', (t) => t.dig > 0],
+  ['Go for a drive', 'Walk to the red car by the house and tap 🚗 Drive (Q).', (t) => t.car],
+  ['See the world', 'Open the map 🗺 (L). Tap anywhere to teleport!', (t) => t.map],
+];
+let tut = null;
+function startTutorial() {
+  tut = { step: 0, x: player.x, z: player.z, yaw: player.yaw, place: 0, remove: 0, inv: false, dig: 0, dug0: dug.size, car: false, map: false };
+  $('tut').classList.remove('hidden'); updateTutorial();
+}
+function endTutorial(done) {
+  tut = null; $('tut').classList.add('hidden');
+  try { localStorage.setItem(TUT_KEY, '1'); } catch (e) {}
+  if (done) toast("🎉 You're ready! Build anything you like");
+}
+function tutEvent(k) { if (!tut) return; if (typeof tut[k] === 'number') tut[k]++; else tut[k] = true; }
+function updateTutorial() {
+  if (!tut) return;
+  if (car) tut.car = true; if (invOpen) tut.inv = true; tut.dig = dug.size - tut.dug0;
+  while (tut.step < TUT_STEPS.length && TUT_STEPS[tut.step][2](tut)) { tut.step++; tut.x = player.x; tut.z = player.z; tut.yaw = player.yaw; if (tut.step < TUT_STEPS.length) brickSound('place', null); }
+  if (tut.step >= TUT_STEPS.length) { endTutorial(true); return; }
+  const [title, text] = TUT_STEPS[tut.step];
+  $('tutText').innerHTML = `<b>🎓 ${tut.step + 1}/${TUT_STEPS.length} · ${title}</b><br>${text}`;
+}
+$('tutSkip').onclick = () => endTutorial(false);
+$('tutBtn').onclick = () => { startTutorial(); play(); };
+
+function toggleNight() { cycleDayMode(); }
+$('dayBtn').onclick = cycleDayMode;
+$('mapBtn').onclick = openMap;
+$('gMine').addEventListener('click', (e) => {
+  const sh = e.target.closest('[data-gshare]'), im = e.target.closest('[data-gimport]');
+  if (sh) { const d = loadMyCars()[+sh.dataset.gshare]; if (d) shareCode({ type: 'car', name: d.name, base: d.base, b: d.b }, 'Car'); }
+  if (im) askText('Paste a car code', '', (code) => {
+    try { const o = fromCode(code); if (o.type !== 'car' || !PIECE_BY_ID[o.base] || !Array.isArray(o.b)) throw 0;
+      const list = loadMyCars(); list.unshift({ name: o.name || 'Shared car', base: o.base, b: o.b }); saveMyCars(list); gRefreshLists(); toast(`📥 ${o.name || 'Car'} added to My cars`);
+    } catch (err) { toast("That code didn't work"); }
+  });
+});
 const DAY = { top: new THREE.Color('#4d9be6'), bot: new THREE.Color('#d8efff'), fog: new THREE.Color('#bfe3ff') };
 const NIGHT = { top: new THREE.Color('#050a1c'), bot: new THREE.Color('#1c2a4a'), fog: new THREE.Color('#141d33') };
 function applyLight() {
@@ -3416,14 +3829,19 @@ function applyLight() {
   MATS.e.emissiveIntensity = 0.6 + 1.6 * night;
   clouds.material.opacity = 0.92 - 0.6 * night;
   clouds.material.emissiveIntensity = 0.55 - 0.45 * night;
+  if (dusk > 0.01) {   // sunrise and sunset glow
+    skyU.bottom.value.lerp(DUSK_SKY, dusk * 0.75); scene.fog.color.lerp(DUSK_SKY, dusk * 0.45); sun.color.lerp(DUSK_SUN, dusk);
+  }
 }
+const DUSK_SKY = new THREE.Color('#ff9b62'), DUSK_SUN = new THREE.Color('#ffb070');
 
 // ---------------------------------------------------------------- save / load
 let saveTimer = 0;
 function serialize() {
   const b = []; for (const x of bricks) if (!x.gen) b.push(...brickData(x));
   if (car) for (const d of (planPark() || car.items.map(it => it.orig))) b.push(...d);   // a car being driven saves as parked
-  return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget,
+  return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget, day: dayMode, tod: +timeOfDay.toFixed(4), marks,
+           texts: [...bricks].filter(x => x.text && !x.gen).map(x => [x.x, x.y, x.z, x.text]),
            seed: worldSeed, empty: emptyWorld ? 1 : 0, removed: [...removedGen], dug: [...dug], res,
            pl: [player.x, player.y, player.z, player.yaw, player.pitch, player.fly ? 1 : 0] };
 }
@@ -3443,7 +3861,12 @@ function load(data) {
   if (typeof data.colorIdx === 'number' && COLORS[data.colorIdx]) colorIdx = data.colorIdx;
   hotCols = hotbar.map((id, i) => Array.isArray(data.hotCols) && COLORS[data.hotCols[i]] ? data.hotCols[i] : colorIdx);
   colorIdx = hotCols[slot];
-  nightTarget = night = data.night ? 1 : 0;
+  dayMode = ['auto', 'day', 'night'].includes(data.day) ? data.day : data.night ? 'night' : 'auto';
+  if (typeof data.tod === 'number') timeOfDay = ((data.tod % 1) + 1) % 1;
+  updateDayCycle(0); nightTarget = night = Math.round(nightTarget * 100) / 100;
+  $('dayBtn').textContent = DAY_MODES.find(m => m[0] === dayMode)[1];
+  marks = Array.isArray(data.marks) ? data.marks.filter(m => m && typeof m.x === 'number').slice(0, 50) : [];
+  for (const t of (Array.isArray(data.texts) ? data.texts : [])) { const o = occ.get(key(t[0], t[1], t[2])); if (o && o.b.p.text && o.b.x === t[0] && o.b.y === t[1] && o.b.z === t[2]) setSignText(o.b, String(t[3]).slice(0, 60)); }
   if (Array.isArray(data.pl)) { const [x, y, z, yaw, pitch, fly] = data.pl; Object.assign(player, { x, y, z, yaw, pitch, fly: !!fly, vy: 0 }); }
   worldSeed = typeof data.seed === 'number' ? data.seed : 1234; emptyWorld = !!data.empty;
   removedGen = new Set(Array.isArray(data.removed) ? data.removed : []);
@@ -3504,19 +3927,21 @@ function frame() {
   updateSnaps(performance.now());
   updateSmoke(dt);
   updateLamps();
+  updateDayCycle(dt);
   night += (nightTarget - night) * Math.min(1, dt * 2.5); applyLight();
   if (inWater(camera.position.x, camera.position.y, camera.position.z)) { scene.fog.color.set('#1d5f8c'); scene.fog.near = 1; scene.fog.far = 30; }
   else { scene.fog.near = FOG_NEAR; scene.fog.far = FOG_FAR; }
   sky.position.copy(camera.position);
   sun.target.position.set(player.x, 0, player.z);
-  sun.position.set(player.x + 60, 110, player.z + 35);
+  { const a = timeOfDay * Math.PI * 2, up = Math.sin(a);
+    if (dayMode === 'auto' && up > 0.02) sun.position.set(player.x + Math.cos(a) * 120, 12 + up * 110, player.z + 35); else sun.position.set(player.x + 60, 110, player.z + 35); }
   clouds.position.set(Math.round(player.x / 520) * 520 + ((performance.now() / 1000) * 1.2) % 200 - 100, 0, Math.round(player.z / 520) * 520);
-  if ((infoT += dt) > 0.2) { infoT = 0; updateInfo(); }
+  if ((infoT += dt) > 0.2) { infoT = 0; updateInfo(); updateTutorial(); }
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
