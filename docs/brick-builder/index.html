@@ -593,7 +593,7 @@ def({ id: 'doorframe1x4x4', name: 'Door frame 1×4×4', cat: 'Special', W: 4, D:
   cell: (i, j, k) => (i >= 1 && i <= 2 && k <= 10) ? 0 : 1 });
 def({ id: 'door1x2', name: 'Door (walk-through)', cat: 'Special', W: 2, D: 1, H: 11,
   parts: () => [
-    { geo: merge([new RoundedBoxGeometry(1.94, 4.36, 0.22, 2, 0.04).translate(0, 2.2, 0),
+    { geo: merge([new RoundedBoxGeometry(1.94, 4.36, 0.22, 1, 0.04).translate(0, 2.2, 0),
                   new THREE.BoxGeometry(1.4, 1.6, 0.26).translate(0, 3.2, 0), new THREE.BoxGeometry(1.4, 1.6, 0.26).translate(0, 1.1, 0)]) },
     { geo: merge([new THREE.SphereGeometry(0.1, 12, 8).translate(0.68, 2.15, 0.16), new THREE.SphereGeometry(0.1, 12, 8).translate(0.68, 2.15, -0.16)]), fixed: '#d4af37' },
   ], cell: () => 2 });
@@ -705,13 +705,18 @@ def({ id: 'window1x4x3', name: 'Window 1×4×3', cat: 'Special', W: 4, D: 1, H: 
       { geo: merge([new THREE.BoxGeometry(3.62, 3.02, 0.06).translate(0, 1.8, 0)]), mat: 't', fixed: '#cfeaff' },
     ];
   } });
+// Stud-free copies used by generated town buildings, where each storey hides the studs below it anyway.
+def({ id: 'gwindow4', name: 'Building window', cat: 'Special', W: 4, D: 1, H: 9, hidden: true,
+  parts: () => { const s = poly([[0, 0], [4, 0], [4, 3.6], [0, 3.6]]); s.holes.push(rectPath(0.2, 0.3, 1.9, 3.3), rectPath(2.1, 0.3, 3.8, 3.3));
+    return [{ geo: merge([extrude(s, 4, 3.6, 0.6)]) }, { geo: merge([new THREE.BoxGeometry(3.62, 3.02, 0.06).translate(0, 1.8, 0)]), mat: 't', fixed: '#cfeaff' }]; } });
+def({ id: 'gstrip4', name: 'Building strip', cat: 'Special', W: 1, D: 4, H: 3, hidden: true, parts: () => [{ geo: merge([body(1, 4, 1.2)]) }] });
 for (const W of [2, 4]) def({ id: `panel1x${W}x3`, name: `Wall panel 1×${W}×3`, cat: 'Special', W, D: 1, H: 9,
-  parts: () => [{ geo: merge([new RoundedBoxGeometry(W - 0.03, 3.58, 0.2, 2, 0.04).translate(0, 1.8, 0)]) }] });
+  parts: () => [{ geo: merge([new RoundedBoxGeometry(W - 0.03, 3.58, 0.2, 1, 0.04).translate(0, 1.8, 0)]) }] });
 def({ id: 'doorframe1x6x5', name: 'Garage frame 1×6×5', cat: 'Special', W: 6, D: 1, H: 15,
   parts: () => [{ geo: merge([extrude(poly([[0,0],[1,0],[1,5.6],[5,5.6],[5,0],[6,0],[6,6],[0,6]]), 6, 6, 1), ...studs(6, 1, 6)]) }],
   cell: (i, j, k) => (i >= 1 && i <= 4 && k <= 13) ? 0 : 1 });
 def({ id: 'railing1x4', name: 'Railing 1×4', cat: 'Special', W: 4, D: 1, H: 3,
-  parts: () => [{ geo: merge([new RoundedBoxGeometry(3.97, 0.16, 0.3, 2, 0.05).translate(0, 1.1, 0),
+  parts: () => [{ geo: merge([new RoundedBoxGeometry(3.97, 0.16, 0.3, 1, 0.05).translate(0, 1.1, 0),
     ...[-1.75, -0.875, 0, 0.875, 1.75].map(x => new THREE.CylinderGeometry(0.06, 0.06, 1.05, 8).translate(x, 0.52, 0))]) }] });
 for (const [W, D] of [[1, 1], [1, 2], [2, 2]]) def({ id: `light${W}x${D}`, name: `Light brick ${W}×${D}`, cat: 'Special', W, D, H: 3,
   parts: () => [{ geo: merge([body(W, D, 1.2), ...studs(W, D, 1.2)]), mat: 'b' }] });
@@ -726,8 +731,8 @@ def({ id: 'table2x2', name: 'Table 2×2', cat: 'Decor', W: 2, D: 2, H: 6,
   parts: () => [{ geo: merge([body(2, 2, 0.4).translate(0, 2.0, 0), ...studs(2, 2, 2.4),
     ...[[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]].map(([x, z]) => cyl(0.09, 2.0, 10).translate(x, 0, z))]) }] });
 def({ id: 'chair', name: 'Chair', cat: 'Decor', W: 1, D: 1, H: 6,
-  parts: () => [{ geo: merge([new RoundedBoxGeometry(0.9, 0.18, 0.9, 2, 0.04).translate(0, 1.1, 0),
-    new RoundedBoxGeometry(0.9, 1.2, 0.14, 2, 0.04).translate(0, 1.8, -0.38),
+  parts: () => [{ geo: merge([new RoundedBoxGeometry(0.9, 0.18, 0.9, 1, 0.04).translate(0, 1.1, 0),
+    new RoundedBoxGeometry(0.9, 1.2, 0.14, 1, 0.04).translate(0, 1.8, -0.38),
     ...[[-0.36, -0.36], [0.36, -0.36], [-0.36, 0.36], [0.36, 0.36]].map(([x, z]) => cyl(0.06, 1.05, 8).translate(x, 0, z))]) }] });
 def({ id: 'flag', name: 'Flag', cat: 'Decor', W: 1, D: 1, H: 15,
   parts: () => [
@@ -737,11 +742,11 @@ def({ id: 'flag', name: 'Flag', cat: 'Decor', W: 1, D: 1, H: 15,
 def({ id: 'sign', name: 'Sign post', cat: 'Decor', W: 1, D: 1, H: 9,
   parts: () => [
     { geo: merge([cyl(0.08, 2.6, 10)]), fixed: '#7a4b26' },
-    { geo: merge([new RoundedBoxGeometry(1.8, 0.9, 0.12, 2, 0.04).translate(0, 3.0, 0)]) },
+    { geo: merge([new RoundedBoxGeometry(1.8, 0.9, 0.12, 1, 0.04).translate(0, 3.0, 0)]) },
   ], text: { w: 1.7, h: 0.8, y: 3.0, z: 0.066 } });
 def({ id: 'signwall', name: 'Wall sign', cat: 'Decor', W: 2, D: 1, H: 3,
   parts: () => [
-    { geo: merge([new RoundedBoxGeometry(1.94, 1.1, 0.16, 2, 0.04).translate(0, 0.6, -0.4)]) },
+    { geo: merge([new RoundedBoxGeometry(1.94, 1.1, 0.16, 1, 0.04).translate(0, 0.6, -0.4)]) },
   ], text: { w: 1.84, h: 1.0, y: 0.6, c: -0.4, z: 0.086 } });
 
 // Big blocks for hills and mountains
@@ -761,7 +766,7 @@ hillDef('hill8', 'Hill block', 3); hillDef('hillrock8', 'Mountain block', 12); h
 // Crafted and treasure parts (locked until crafted or won)
 def({ id: 'chest', name: 'Treasure chest', cat: 'Crafted', W: 2, D: 2, H: 3, locked: true,
   parts: () => [
-    { geo: merge([body(2, 2, 0.72), new RoundedBoxGeometry(1.94, 0.42, 1.94, 2, 0.12).translate(0, 0.93, 0)]) },
+    { geo: merge([body(2, 2, 0.72), new RoundedBoxGeometry(1.94, 0.42, 1.94, 1, 0.12).translate(0, 0.93, 0)]) },
     { geo: merge([new THREE.BoxGeometry(2.0, 0.1, 0.16).translate(0, 0.72, 0.9), new THREE.BoxGeometry(0.1, 0.9, 2.0).translate(-0.6, 0.6, 0), new THREE.BoxGeometry(0.1, 0.9, 2.0).translate(0.6, 0.6, 0), new THREE.BoxGeometry(0.3, 0.32, 0.08).translate(0, 0.68, 1.0)]), fixed: '#e0b62f' },
   ] });
 def({ id: 'goldbrick', name: 'Gold brick 2×2', cat: 'Crafted', W: 2, D: 2, H: 3, locked: true,
@@ -816,7 +821,7 @@ function carBaseDef(id, name, W, D) {
         hubs.push(new THREE.CylinderGeometry(0.27, 0.27, 0.54, 14).rotateZ(Math.PI / 2).translate(sx * wx, 0.56, sz * wz));
       }
       return [
-        { geo: merge([body(W, D, 0.4).translate(0, 0.8, 0), new RoundedBoxGeometry(W - 1.3, 0.36, D - 0.6, 2, 0.05).translate(0, 0.62, 0), ...studs(W, D, 1.2)]) },
+        { geo: merge([body(W, D, 0.4).translate(0, 0.8, 0), new RoundedBoxGeometry(W - 1.3, 0.36, D - 0.6, 1, 0.05).translate(0, 0.62, 0), ...studs(W, D, 1.2)]) },
         { geo: merge(wheels), fixed: '#1e1f22' },
         { geo: merge(hubs), fixed: '#c9ccd1' },
       ];
@@ -826,8 +831,8 @@ function carBaseDef(id, name, W, D) {
 carBaseDef('carbase4x8', 'Car base 4×8', 4, 8);
 carBaseDef('carbase6x12', 'Car base 6×12', 6, 12);
 def({ id: 'seat', name: 'Driver seat', cat: 'Vehicles', W: 2, D: 2, H: 3,
-  parts: () => [{ geo: merge([new RoundedBoxGeometry(1.9, 0.45, 1.5, 2, 0.12).translate(0, 0.225, -0.2),
-                              new RoundedBoxGeometry(1.9, 0.75, 0.32, 2, 0.1).translate(0, 0.8, 0.8)]) }] });
+  parts: () => [{ geo: merge([new RoundedBoxGeometry(1.9, 0.45, 1.5, 1, 0.12).translate(0, 0.225, -0.2),
+                              new RoundedBoxGeometry(1.9, 0.75, 0.32, 1, 0.1).translate(0, 0.8, 0.8)]) }] });
 def({ id: 'steering', name: 'Steering wheel', cat: 'Vehicles', W: 2, D: 1, H: 3,
   parts: () => [{ geo: merge([body(1.6, 0.8, 0.2), new THREE.CylinderGeometry(0.07, 0.07, 0.95, 10).rotateX(0.5).translate(0, 0.6, 0.1),
                               new THREE.TorusGeometry(0.42, 0.06, 8, 26).rotateX(-0.45).translate(0, 1.0, 0.3),
@@ -849,10 +854,10 @@ def({ id: 'motor2x2', name: 'Motor block 2×2', cat: 'Engine', eng: 'motor', W: 
   ] });
 def({ id: 'vblock2x4', name: 'V8 block 2×4', cat: 'Engine', eng: 'vblock', W: 2, D: 4, H: 3,
   parts: () => [
-    { geo: merge([body(2, 4, 0.55), new RoundedBoxGeometry(0.72, 0.72, 3.5, 2, 0.08).rotateZ(0.55).translate(-0.42, 0.85, 0),
-                  new RoundedBoxGeometry(0.72, 0.72, 3.5, 2, 0.08).rotateZ(-0.55).translate(0.42, 0.85, 0)]) },
-    { geo: merge([new RoundedBoxGeometry(0.5, 0.16, 3.3, 2, 0.06).rotateZ(0.55).translate(-0.64, 1.18, 0),
-                  new RoundedBoxGeometry(0.5, 0.16, 3.3, 2, 0.06).rotateZ(-0.55).translate(0.64, 1.18, 0)]), fixed: CHROME },
+    { geo: merge([body(2, 4, 0.55), new RoundedBoxGeometry(0.72, 0.72, 3.5, 1, 0.08).rotateZ(0.55).translate(-0.42, 0.85, 0),
+                  new RoundedBoxGeometry(0.72, 0.72, 3.5, 1, 0.08).rotateZ(-0.55).translate(0.42, 0.85, 0)]) },
+    { geo: merge([new RoundedBoxGeometry(0.5, 0.16, 3.3, 1, 0.06).rotateZ(0.55).translate(-0.64, 1.18, 0),
+                  new RoundedBoxGeometry(0.5, 0.16, 3.3, 1, 0.06).rotateZ(-0.55).translate(0.64, 1.18, 0)]), fixed: CHROME },
     { geo: merge([new THREE.BoxGeometry(0.42, 0.3, 3.0).translate(0, 1.0, 0)]), fixed: DARKM },
     animPart(pulley(), [0, 0.42, -2.06], 'spinZ', { fixed: DARKM }),
   ] });
@@ -879,7 +884,7 @@ def({ id: 'crank1x4', name: 'Crankshaft 1×4', cat: 'Engine', eng: 'crank', W: 1
     [-0.9, -0.3, 0.3, 0.9].forEach((z, k) => { const sg = k % 2 ? 1 : -1;
       bits.push(new THREE.BoxGeometry(0.14, 0.45, 0.16).translate(0, sg * 0.16, z), new THREE.CylinderGeometry(0.06, 0.06, 0.22, 8).rotateX(Math.PI / 2).translate(0, sg * 0.33, z + 0.1)); });
     return [
-      { geo: merge([new RoundedBoxGeometry(0.9, 0.85, 0.5, 2, 0.06).translate(0, 0.425, -1.7), new RoundedBoxGeometry(0.9, 0.85, 0.5, 2, 0.06).translate(0, 0.425, 1.7)]) },
+      { geo: merge([new RoundedBoxGeometry(0.9, 0.85, 0.5, 1, 0.06).translate(0, 0.425, -1.7), new RoundedBoxGeometry(0.9, 0.85, 0.5, 1, 0.06).translate(0, 0.425, 1.7)]) },
       animPart(merge(bits), [0, 0.62, 0], 'spinZ', { fixed: CHROME }),
     ];
   } });
@@ -999,7 +1004,7 @@ def({ id: 'outboard1x2', name: 'Outboard motor', cat: 'Engine', eng: 'outboard',
     const blades = [new THREE.CylinderGeometry(0.09, 0.09, 0.2, 10).rotateX(Math.PI / 2)];
     for (let k = 0; k < 3; k++) blades.push(new THREE.BoxGeometry(0.16, 0.42, 0.04).rotateY(0.5).translate(0, 0.24, 0).rotateZ(k * Math.PI * 2 / 3));
     return [
-      { geo: merge([body(2, 1, 0.3), new RoundedBoxGeometry(1.0, 1.0, 0.95, 2, 0.18).translate(0, 0.85, 0.35)]) },
+      { geo: merge([body(2, 1, 0.3), new RoundedBoxGeometry(1.0, 1.0, 0.95, 1, 0.18).translate(0, 0.85, 0.35)]) },
       { geo: merge([new THREE.BoxGeometry(0.16, 2.4, 0.22).translate(0, -0.6, 0.7), new THREE.CylinderGeometry(0.13, 0.13, 0.5, 10).rotateX(Math.PI / 2).translate(0, -1.75, 0.8)]), fixed: DARKM },
       animPart(merge(blades), [0, -1.75, 1.1], 'spinZ', { fixed: CHROME, fast: true }),
     ];
@@ -1010,26 +1015,26 @@ def({ id: 'outboard1x2', name: 'Outboard motor', cat: 'Engine', eng: 'outboard',
 // ---- Opening doors, shutters and garage doors (each has a hidden "open" twin it swaps with)
 def({ id: 'swingdoor1x2', name: 'Opening door', cat: 'Special', W: 2, D: 1, H: 11, toggleTo: 'swingdoor1x2o',
   parts: () => [
-    { geo: merge([new RoundedBoxGeometry(1.94, 4.36, 0.22, 2, 0.04).translate(0, 2.2, 0), new THREE.BoxGeometry(1.4, 1.6, 0.26).translate(0, 3.2, 0), new THREE.BoxGeometry(1.4, 1.6, 0.26).translate(0, 1.1, 0)]) },
+    { geo: merge([new RoundedBoxGeometry(1.94, 4.36, 0.22, 1, 0.04).translate(0, 2.2, 0), new THREE.BoxGeometry(1.4, 1.6, 0.26).translate(0, 3.2, 0), new THREE.BoxGeometry(1.4, 1.6, 0.26).translate(0, 1.1, 0)]) },
     { geo: merge([new THREE.SphereGeometry(0.1, 12, 8).translate(0.68, 2.15, 0.16), new THREE.SphereGeometry(0.1, 12, 8).translate(0.68, 2.15, -0.16)]), fixed: '#d4af37' },
   ] });
 def({ id: 'swingdoor1x2o', name: 'Opening door (open)', cat: 'Special', W: 2, D: 1, H: 11, hidden: true, toggleTo: 'swingdoor1x2',
   parts: () => [
-    { geo: merge([new RoundedBoxGeometry(0.22, 4.36, 1.94, 2, 0.04).translate(-0.86, 2.2, -0.97 - 0.11)]) },
+    { geo: merge([new RoundedBoxGeometry(0.22, 4.36, 1.94, 1, 0.04).translate(-0.86, 2.2, -0.97 - 0.11)]) },
     { geo: merge([new THREE.SphereGeometry(0.1, 12, 8).translate(-0.7, 2.15, -1.75)]), fixed: '#d4af37' },
   ], cell: () => 2 });
 def({ id: 'shutters1x2', name: 'Window shutters', cat: 'Special', W: 2, D: 1, H: 9, toggleTo: 'shutters1x2o',
-  parts: () => [{ geo: merge([-0.49, 0.49].flatMap(x => [new RoundedBoxGeometry(0.95, 3.56, 0.14, 2, 0.03).translate(x, 1.8, 0.3),
+  parts: () => [{ geo: merge([-0.49, 0.49].flatMap(x => [new RoundedBoxGeometry(0.95, 3.56, 0.14, 1, 0.03).translate(x, 1.8, 0.3),
     ...[0.6, 1.2, 1.8, 2.4, 3.0].map(y => new THREE.BoxGeometry(0.8, 0.06, 0.18).translate(x, y, 0.32))])) }] });
 def({ id: 'shutters1x2o', name: 'Window shutters (open)', cat: 'Special', W: 2, D: 1, H: 9, hidden: true, toggleTo: 'shutters1x2',
-  parts: () => [{ geo: merge([-1, 1].flatMap(s => [new RoundedBoxGeometry(0.14, 3.56, 0.95, 2, 0.03).translate(s * 1.05, 1.8, 0.85),
+  parts: () => [{ geo: merge([-1, 1].flatMap(s => [new RoundedBoxGeometry(0.14, 3.56, 0.95, 1, 0.03).translate(s * 1.05, 1.8, 0.85),
     ...[0.6, 1.2, 1.8, 2.4, 3.0].map(y => new THREE.BoxGeometry(0.18, 0.06, 0.8).translate(s * 1.07, y, 0.85))])) }], cell: () => 2 });
 def({ id: 'garagedoor1x4', name: 'Garage door (fits the garage frame)', cat: 'Special', W: 4, D: 1, H: 14, toggleTo: 'garagedoor1x4o',
-  parts: () => [{ geo: merge([new RoundedBoxGeometry(3.96, 5.56, 0.16, 2, 0.03).translate(0, 2.8, 0),
+  parts: () => [{ geo: merge([new RoundedBoxGeometry(3.96, 5.56, 0.16, 1, 0.03).translate(0, 2.8, 0),
     ...[0.7, 1.4, 2.1, 2.8, 3.5, 4.2, 4.9].map(y => new THREE.BoxGeometry(3.9, 0.08, 0.24).translate(0, y, 0))]) },
     { geo: merge([new THREE.BoxGeometry(0.7, 0.12, 0.12).translate(0, 0.7, 0.16)]), fixed: '#c9ccd1' }] });
 def({ id: 'garagedoor1x4o', name: 'Garage door (open)', cat: 'Special', W: 4, D: 1, H: 14, hidden: true, toggleTo: 'garagedoor1x4',
-  parts: () => [{ geo: merge([new RoundedBoxGeometry(3.96, 0.16, 1.6, 2, 0.03).translate(0, 5.45, 0.2)]) }],
+  parts: () => [{ geo: merge([new RoundedBoxGeometry(3.96, 0.16, 1.6, 1, 0.03).translate(0, 5.45, 0.2)]) }],
   cell: (i, j, k) => k >= 13 ? 1 : 0 });
 // ---- Corner stairs: an inside corner (two flights meeting) and an outside corner
 function cornerStairs(id, name, inside) {
@@ -1045,13 +1050,13 @@ cornerStairs('stairscornerout4', 'Corner stairs (outside) 4×4', false);
 function gateDef(id, name, start) {
   def({ id, name, cat: 'Race', W: 8, D: 1, H: 12, race: start ? 'start' : 'check',
     parts: () => {
-      const posts = merge([-3.5, 3.5].map(x => new RoundedBoxGeometry(0.9, 4.0, 0.9, 2, 0.08).translate(x, 2.0, 0)));
+      const posts = merge([-3.5, 3.5].map(x => new RoundedBoxGeometry(0.9, 4.0, 0.9, 1, 0.08).translate(x, 2.0, 0)));
       const parts = [{ geo: posts }];
       if (start) {
         const w = [], b = [];
         for (let i = 0; i < 16; i++) for (let j = 0; j < 2; j++) ((i + j) % 2 ? w : b).push(new THREE.BoxGeometry(0.5, 0.4, 0.3).translate(-3.75 + i * 0.5, 4.2 + j * 0.4, 0));
         parts.push({ geo: merge(w), fixed: '#f4f4f4' }, { geo: merge(b), fixed: '#1e1f22' });
-      } else parts.push({ geo: merge([new RoundedBoxGeometry(7.96, 0.8, 0.3, 2, 0.06).translate(0, 4.4, 0)]), fixed: '#f4f4f4' },
+      } else parts.push({ geo: merge([new RoundedBoxGeometry(7.96, 0.8, 0.3, 1, 0.06).translate(0, 4.4, 0)]), fixed: '#f4f4f4' },
                         { geo: merge([new THREE.BoxGeometry(5.4, 0.3, 0.34).translate(0, 4.4, 0)]) });
       return parts;
     },
@@ -1084,7 +1089,7 @@ def({ id: 'helibody4x6', name: 'Helicopter body 4×6', cat: 'Aircraft', W: 4, D:
     { geo: merge([-1.5, 1.5].flatMap(x => [new THREE.BoxGeometry(0.16, 0.14, 6.2).translate(x, 0.07, 0), new THREE.BoxGeometry(0.1, 0.5, 0.1).translate(x, 0.35, -1.6), new THREE.BoxGeometry(0.1, 0.5, 0.1).translate(x, 0.35, 1.6)])), fixed: DARKM },
   ], cell: (i, j, k) => k === 2 ? 1 : 0 });
 def({ id: 'wing8x4', name: 'Wing 8×4', cat: 'Aircraft', W: 8, D: 4, H: 1, wing: true,
-  parts: () => [{ geo: merge([new RoundedBoxGeometry(7.96, P - 0.02, 3.96, 2, 0.15).translate(0, P / 2, 0), ...studs(8, 4, P)]) }] });
+  parts: () => [{ geo: merge([new RoundedBoxGeometry(7.96, P - 0.02, 3.96, 1, 0.15).translate(0, P / 2, 0), ...studs(8, 4, P)]) }] });
 def({ id: 'tailfin1x3', name: 'Tail fin', cat: 'Aircraft', W: 1, D: 3, H: 6,
   parts: () => [{ geo: merge([extrude(poly([[0, 0], [3, 0], [0.8, 2.4], [0, 2.4]]), 3, 2.4, 0.2).rotateY(Math.PI / 2)]) }] });
 def({ id: 'propeller2x1', name: 'Propeller', cat: 'Aircraft', W: 2, D: 1, H: 6, eng: 'propeller',
@@ -1153,7 +1158,7 @@ function updateLamps() {
     for (const it of car.items) if (it.p.id.startsWith('light')) add(car.x + it.lx * c + it.lz * s, car.y + it.ly * P + 0.6, car.z - it.lx * s + it.lz * c, COLORS[it.c].h, 0.8);
   }
   _lampC.sort((a, b) => a[0] - b[0]);
-  const strength = 8 + 45 * night;
+  const strength = 8 + 45 * Math.max(night, player.y < -3 ? 1 : 0);   // full strength at night and underground
   for (let i = 0; i < LAMP_N; i++) {
     const l = lampPool[i], c = _lampC[i];
     if (!c) { l.intensity = 0; continue; }
@@ -1330,7 +1335,7 @@ function addBrick(p, c, x, y, z, r, check = true) {
   if (check && !canPlace(p, x, y, z, r)) return null;
   const [w, d] = dims(p, r);
   const b = { p, c, x, y, z, r, slots: [], cells: [] };
-  if (coarseMode) { b.coarse = true; const k = ckey(x, z); if (!coarse.has(k)) coarse.set(k, new Set()); coarse.get(k).add(b); }
+  if (coarseMode && p.hidden && p.W === 8 && p.D === 8) { b.coarse = true; const k = ckey(x, z); if (!coarse.has(k)) coarse.set(k, new Set()); coarse.get(k).add(b); }
   else
   for (const [cx, cy, cz, m, st] of cellsOf(p, x, y, z, r)) { const k = key(cx, cy, cz); occ.set(k, { b, m, s: st }); b.cells.push(k); }
   _q.setFromAxisAngle(Y_AXIS, r * Math.PI / 2);
@@ -1566,13 +1571,13 @@ function genChunk(cx, cz) {
       for (let t = 0; t < 12; t++) {
         const x = x0 + 2 + rad + Math.floor(R() * (CHUNK - 4 - rad * 2)), z = z0 + 2 + rad + Math.floor(R() * (CHUNK - 4 - rad * 2));
         const dry = !waterAt(Math.floor(x / BLK), Math.floor(z / BLK)) && !waterAt(Math.floor((x - rad) / BLK), Math.floor((z - rad) / BLK)) && !waterAt(Math.floor((x + rad) / BLK), Math.floor((z + rad) / BLK));
-        if (dry && !near(z, roadsZ, rad + 3) && !near(x, roadsX, rad + 3) && flat(x, z, rad)) return [x, z];
+        if (dry && !near(z, roadsZ, rad + 3) && !near(x, roadsX, rad + 3) && flat(x, z, rad) && !siteAt(x, z, rad + 6)) return [x, z];
       }
       return null;
     };
     const many = (n, rad, fn) => { for (let i = 0; i < n; i++) { const p = spot(rad); if (p) fn(p[0], p[1]); } };
     if (biome === 'grass') {
-      if (!roadsZ.length && !roadsX.length && R() < 0.06) {
+      if (!roadsZ.length && !roadsX.length && R() < 0.06 && !siteAt(x0 + 32, z0 + 32, 48)) {
         // A little homestead with a parked car to find and drive away
         buildHouse(x0 + 18, z0 + 14, R() < 0.5 ? 'Cream' : 'White', R() < 0.5 ? 'Red' : 'Dark Grey');
         if (genMobs) genMobs.push({ x: x0 + 30, z: x0 % 2 ? z0 + 34 : z0 + 32, seed: cx * 31 + cz * 17 + worldSeed });
@@ -1609,6 +1614,9 @@ function genChunk(cx, cz) {
       many(5, 3, (x, z) => pineTree(x, z, true));
       if (R() < 0.6) many(1, 3, (x, z) => rockPile(x, z, R, 'Light Grey', 'White'));
     }
+    // Towns, the airport, the port and mines (each with its own id range)
+    genIdx = 300000; genSiteParts(x0, z0);
+    genIdx = 400000; genMineBricks(x0, z0);
     // Treasure chests hidden around the wilds (their own id range so older saves keep matching)
     genIdx = 200000;
     const cr = hash2(cx, cz, worldSeed + 60);
@@ -1630,7 +1638,7 @@ function loadChunk(cx, cz) {
   for (let i = 0; i < NB; i++) for (let j = 0; j < NB; j++) if (waterAt(cx * NB + i, cz * NB + j)) { water[i * NB + j] = 1; wet = true; }
   const ch = { cx, cz, g, t: null, w: null, water, bricks: [] };
   chunks.set(k, ch);
-  if (wet || dugByChunk.has(k)) buildChunkTerrain(ch);
+  if (wet || dugByChunk.has(k) || mineSetChunk(cx, cz).size) buildChunkTerrain(ch);
   genMobs = []; ch.bricks = genChunk(cx, cz); pickDirty = true;
   spawnChunkMobs(ch, genMobs); genMobs = null;
 }
@@ -1685,7 +1693,7 @@ function waterAt(bx, bz) {
 function isOpen(bx, by, bz) {
   if (by >= 0) return true;
   if (by < -DEPTH) return false;
-  return dug.has(bkey(bx, by, bz)) || (by >= -WATER_LAYERS && waterAt(bx, bz));
+  return dug.has(bkey(bx, by, bz)) || (by >= -WATER_LAYERS && waterAt(bx, bz)) || mineOpen(bx, by, bz);
 }
 const cellOpen = (x, y, z) => isOpen(Math.floor(x / BLK), Math.floor(y / BLKH), Math.floor(z / BLK));
 const inWater = (x, y, z) => y < 0 && y > -WATER_LAYERS * BLK_Y && waterAt(Math.floor(x / BLK), Math.floor(z / BLK));
@@ -1722,7 +1730,7 @@ const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1
 // Rebuild a chunk's ground surface (with holes), cave walls and water surface.
 function buildChunkTerrain(ch) {
   const x0 = ch.cx * CHUNK, z0 = ch.cz * CHUNK, ox = x0 + CHUNK / 2, oz = z0 + CHUNK / 2, NB = CHUNK / BLK;
-  const bx0 = x0 / BLK, bz0 = z0 / BLK, water = ch.water, dset = dugByChunk.get(ch.cx + ',' + ch.cz);
+  const bx0 = x0 / BLK, bz0 = z0 / BLK, water = ch.water, dsetD = dugByChunk.get(ch.cx + ',' + ch.cz), ms = mineSetChunk(ch.cx, ch.cz), dset = ms.size ? new Set([...(dsetD || []), ...ms]) : dsetD;
   const topOpen = (i, j) => water[i * NB + j] || (dset && dset.has(bkey(bx0 + i, -1, bz0 + j)));
   let anyTop = false;
   for (let i = 0; i < NB && !anyTop; i++) for (let j = 0; j < NB; j++) if (topOpen(i, j)) { anyTop = true; break; }
@@ -2263,7 +2271,8 @@ let toastTimer = 0;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1600); }
 function updateInfo() {
   const pcx = Math.floor(player.x / CHUNK), pcz = Math.floor(player.z / CHUNK), km = Math.hypot(player.x, player.z) * 0.00053;
-  const place = BIOME_NAMES[inVillage(pcx, pcz) ? 'village' : biomeAt(pcx, pcz)] + (km >= 0.1 ? ` · ${km.toFixed(1)} km from home` : '');
+  const here = siteAt(player.x, player.z), SITE_ICON = { town: '🏙 ', village: '🏘 ', airport: '✈ ', port: '⚓ ' };
+  const place = (here ? SITE_ICON[here.type] + here.name : BIOME_NAMES[inVillage(pcx, pcz) ? 'village' : biomeAt(pcx, pcz)]) + (km >= 0.1 ? ` · ${km.toFixed(1)} km from home` : '');
   const RES_ICON = RES_ICONS; questTrack(inVillage(pcx, pcz) ? 'village' : biomeAt(pcx, pcz));
   const bag = Object.entries(res).filter(([, v]) => v).map(([k, v]) => `${RES_ICON[k]} ${v}`).join(' · ');
   const doing = car ? (car.air ? (isAirborne() ? (car.air === 'heli' ? '🚁 Flying' : '✈ Flying') : (car.air === 'heli' ? '🚁 Landed' : '✈ Taxiing')) : car.boat ? '🚤 Boating' : '🚗 Driving') + ' · speed ' + Math.round(Math.abs(car.speed) * 4) + (car.air ? ' · altitude ' + Math.max(0, Math.round(car.y * 0.53)) + ' m' : '') + (fuelOn && car.stats.power ? ` · ⛽ ${Math.round(fuel)}%` : '') + (trailer ? ' · 🔗 trailer' : '') : player.fly ? FLY_LEVELS[player.flyLv || 1][0] + ' ' + FLY_LEVELS[player.flyLv || 1][1] : player.swim ? '🏊 Swimming' : '🚶 Walking';
@@ -3999,6 +4008,7 @@ function drawMap() {
     if (Math.abs(x) > WORLD || Math.abs(z) > WORLD) col = '#2a86c9';
     else if (waterAt(Math.floor(x / BLK), Math.floor(z / BLK))) col = '#3d8fd1';
     else if (emptyWorld) col = '#6dbb4f';
+    else if (siteAt(x, z)) col = { town: '#b8ab9b', village: '#c7bb9f', airport: '#a3a8ae', port: '#a99f8f' }[siteAt(x, z).type];
     else if (hillLevels(Math.floor(x / 8), Math.floor(z / 8)) > 0) { const hl = hillLevels(Math.floor(x / 8), Math.floor(z / 8)); col = hl >= 10 ? '#f4f6f8' : hl >= 5 ? '#8d9096' : biomeAt(Math.floor(x / CHUNK), Math.floor(z / CHUNK)) === 'desert' ? '#d4b062' : '#55894a'; }
     else { const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK); col = inVillage(cx, cz) ? '#9bd27a' : MAP_BIOME[biomeAt(cx, cz)] || '#6dbb4f'; }
     const span = k * cell / 2, road = (v) => Math.floor((v + span + 4) / 1024 - 1e-9) > Math.floor((v - span - 4) / 1024);
@@ -4011,6 +4021,9 @@ function drawMap() {
     g.fillStyle = col; g.beginPath(); g.arc(px, py - 8, 7, 0, Math.PI * 2); g.fill(); g.beginPath(); g.moveTo(px - 5, py - 5); g.lineTo(px + 5, py - 5); g.lineTo(px, py + 3); g.fill();
     g.fillStyle = '#fff'; g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 3; g.strokeText(label, px, py - 18); g.fillText(label, px, py - 18); };
   pin(2, 1, '🏠 Home', '#ffcf33');
+  const SI = { town: '🏙', village: '🏘', airport: '✈', port: '⚓' };
+  for (const st of allSites().values()) { const c = st.type === 'port' ? [st.X + st.ax * (st.S - 40) + st.px * 60, st.Z + st.az * (st.S - 40) + st.pz * 60] : st.type === 'airport' ? [st.X + 240, st.Z + 110] : [st.X, st.Z];
+    if (st.type !== 'village' || k <= 16) pin(c[0], c[1], SI[st.type] + ' ' + st.name, st.type === 'village' ? '#9c8a6a' : '#7c5cff'); }
   marks.forEach(m => pin(m.x, m.z, m.n, '#ff5a4a'));
   if (mapPick) pin(mapPick.x, mapPick.z, 'Teleport here?', '#4fd8ff');
   // player arrow
@@ -4020,7 +4033,10 @@ function drawMap() {
   $('mapGo').classList.toggle('hidden', !mapPick);
 }
 function refreshMarks() {
-  $('mapMarks').innerHTML = marks.length ? marks.map((m, i) => `<button data-mk="${i}">📍 ${escapeHtml(m.n)}</button>`).join('') + '' : '<span style="font-size:12px;color:var(--muted)">Mark places to find them again and teleport back.</span>';
+  const SI = { town: '🏙', village: '🏘', airport: '✈', port: '⚓' };
+  const near = [...allSites().values()].filter(st => st.type !== 'village').sort((a, b) => Math.hypot(a.X - player.x, a.Z - player.z) - Math.hypot(b.X - player.x, b.Z - player.z)).slice(0, 6);
+  $('mapMarks').innerHTML = near.map(st => `<button data-site="${st.i},${st.j}">${SI[st.type]} ${escapeHtml(st.name)}</button>`).join('') +
+    (marks.length ? marks.map((m, i) => `<button data-mk="${i}">📍 ${escapeHtml(m.n)}</button>`).join('') : '<span style="font-size:12px;color:var(--muted)">Tap a place to go there. Mark spots with 📍 to find them again.</span>');
 }
 function teleportTo(x, z) {
   x = Math.max(-WORLD + 2, Math.min(WORLD - 2, x)); z = Math.max(-WORLD + 2, Math.min(WORLD - 2, z));
@@ -4037,7 +4053,8 @@ $('mapOut').onclick = () => { mapZoom = Math.min(64, mapZoom * 2); drawMap(); };
 $('mapHome').onclick = () => { closeMap(); teleportTo(2.5, 1.5); };
 $('mapMark').onclick = () => askText('Name this place', '', (n) => { marks.push({ n: n || `Place ${marks.length + 1}`, x: Math.round(player.x), z: Math.round(player.z) }); saveSoon(); refreshMarks(); drawMap(); toast('📍 Place marked'); });
 $('mapClose').onclick = closeMap;
-$('mapMarks').addEventListener('click', (e) => { const b = e.target.closest('[data-mk]'); if (!b) return; const m = marks[+b.dataset.mk]; mapPick = { x: m.x, z: m.z }; drawMap(); });
+$('mapMarks').addEventListener('click', (e) => { const sb = e.target.closest('[data-site]'); if (sb) { const st = allSites().get(sb.dataset.site); if (st) { mapPick = st.type === 'port' ? { x: st.X + st.ax * (st.S - 40) + st.px * 60, z: st.Z + st.az * (st.S - 40) + st.pz * 60 } : st.type === 'airport' ? { x: st.X + 110, z: st.Z + 120 } : { x: st.X + 2, z: st.Z + 12 }; mapZoom = Math.min(mapZoom, 4); drawMap(); } return; }
+  const b = e.target.closest('[data-mk]'); if (!b) return; const m = marks[+b.dataset.mk]; mapPick = { x: m.x, z: m.z }; drawMap(); });
 
 // ---------------------------------------------------------------- tutorial
 const TUT_KEY = 'brick-builder-tutorial-done';
@@ -4084,11 +4101,12 @@ function hillLevels(gx, gz) {
   if (Math.abs(x + 4) < 200 && Math.abs(z + 4) < 200) return 0;   // keep the home village flat
   const k = HILL_K[biomeAt(Math.floor(x / CHUNK), Math.floor(z / CHUNK))];
   if (!k) return 0;
+  if (siteAt(x + 4, z + 4, 20)) return 0;   // towns, the airport and the port stay flat
   const nearRoad = (v) => { const m = (((v + 4) % 1024) + 1024) % 1024; return m < 22 || m > 1002; };
   if (nearRoad(x) || nearRoad(z)) return 0;
   for (const [i, j] of [[-4, -4], [11, -4], [-4, 11], [11, 11], [4, 4]]) if (waterAt(Math.floor((x + i) / BLK), Math.floor((z + j) / BLK))) return 0;
   const n = vnoise(gx / 12, gz / 12, worldSeed + 20) * 0.65 + vnoise(gx / 4.5, gz / 4.5, worldSeed + 21) * 0.35;
-  return Math.max(0, Math.min(16, Math.floor((n - 0.5) * k)));
+  return Math.max(0, Math.min(16, Math.floor((n - 0.5) * k)), rangeLevels(gx, gz));
 }
 // Caves: long tunnels along some rows of columns, three levels tall, through any hill at least 5 levels high.
 const caveRow = (gx, gz) => hash2(gz, Math.floor(gx / 32), worldSeed + 30) < 0.12;
@@ -4099,14 +4117,16 @@ function genHills(x0, z0, biome) {
   for (let i = 0; i < CHUNK / 8; i++) for (let j = 0; j < CHUNK / 8; j++) {
     const gx = x0 / 8 + i, gz = z0 / 8 + j, L = hillLevels(gx, gz);
     if (!L) continue;
-    const x = gx * 8, z = gz * 8, cave = L >= 5 && biome !== 'desert' && caveRow(gx, gz);
-    let lv = cave ? 3 : 0; const top = L - 1;
+    const x = gx * 8, z = gz * 8, cave = (L >= 5 && biome !== 'desert' && caveRow(gx, gz)) || !!mineTunnel(gx, gz);
+    const hollow = cave ? (mineTunnel(gx, gz) ? 4 : 3) : 0;
+    if (cave && L <= hollow) continue;
+    let lv = hollow; const top = L - 1;
     while (top - lv >= 4) { put('hillrock8', rockC, x, lv * 3, z); lv += 4; }
     while (lv < top) { put('hill8', rockC, x, lv * 3, z); lv++; }
     put('hill8', top >= 9 && biome !== 'desert' ? 'White' : topC, x, top * 3, z);
     if (cave) {
       if (gx % 3 === 0) put('lightcrystal', hash2(gx, gz, 5) < 0.5 ? 'Sky Blue' : 'Lavender', x + 1, 0, z + 1);
-      if (hash2(gx, gz, worldSeed + 31) < 0.22) put('chest', 'Brown', x + 3, 0, z + 3);
+      if (hash2(gx, gz, worldSeed + 31) < 0.22) put('chest', 'Brown', x + 3, 0, z + 6);   // against the wall, out of the walkway
     }
   }
 }
@@ -4693,6 +4713,233 @@ function toggleOpen(b) {
   return !!nb;
 }
 
+
+// ================================================================ towns, airport, port, mountain ranges and mines
+// ---------------------------------------------------------------- places at road crossroads
+const TOWN_NAMES = ['Brickford', 'Studley', 'Plateham', 'Clickton', 'Bricksby', 'Tilehaven', 'Slopeworth', 'Rivetvale', 'Blockbury', 'Stackport', 'Cornerstone', 'Mortarby',
+  'Cobbleton', 'Pebblewick', 'Gableton', 'Archfield', 'Towerby', 'Brickhaven', 'Studfield', 'Platewick', 'Kingsbrick', 'Lowstud', 'Highstack', 'Oakbrick'];
+let siteCache = null, siteSeed = null;
+function dryBox(x0, z0, x1, z1, step = 32) {
+  for (let x = x0; x <= x1; x += step) for (let z = z0; z <= z1; z += step) if (waterAt(Math.floor(x / BLK), Math.floor(z / BLK))) return false;
+  return true;
+}
+function allSites() {
+  if (siteSeed === worldSeed && siteCache) return siteCache;
+  const map = new Map(), N = Math.floor((WORLD - 600) / 1024), list = [];
+  if (!emptyWorld) {
+    for (let i = -N; i <= N; i++) for (let j = -N; j <= N; j++) if (i || j) list.push([Math.hypot(i, j), i, j]);
+    list.sort((a, b) => a[0] - b[0]);
+    const used = new Set(), taken = new Set();
+    const PRE = ['Brick', 'Stud', 'Plate', 'Click', 'Tile', 'Slope', 'Rivet', 'Block', 'Stack', 'Corner', 'Mortar', 'Cobble', 'Pebble', 'Gable', 'Arch', 'Tower', 'King', 'Oak', 'Ash', 'Elm', 'Red', 'Blue', 'High', 'Low', 'Stone', 'Mill', 'Bright', 'Green', 'Silver', 'Golden', 'Fox', 'Wolf', 'Bear', 'Raven'];
+    const SUF = ['ford', 'ley', 'ham', 'ton', 'by', 'haven', 'worth', 'vale', 'bury', 'port', 'field', 'wick', 'stead', 'mouth', 'bridge', 'dale'];
+    const nameOf = (i, j) => { const n = PRE.length * SUF.length; let k = Math.floor(hash2(i, j, worldSeed + 71) * n);
+      for (let t = 0; t < n; t++, k = (k + 37) % n) { const nm = PRE[k % PRE.length] + SUF[Math.floor(k / PRE.length)]; if (!taken.has(nm)) { taken.add(nm); return nm; } } return 'Brickton'; };
+    // the airport: nearest crossroads with a dry patch of land beside it
+    for (const [, i, j] of list) { const X = i * 1024, Z = j * 1024;
+      if (dryBox(X + 16, Z + 16, X + 480, Z + 214)) { map.set(i + ',' + j, { type: 'airport', i, j, X, Z, name: nameOf(i, j) + ' Airport', box: [X + 8, Z + 8, X + 488, Z + 222] }); used.add(i + ',' + j); break; } }
+    // the port: nearest crossroads with a big lake shore along one of its roads
+    port: for (const [, i, j] of list) { if (used.has(i + ',' + j)) continue; const X = i * 1024, Z = j * 1024;
+      for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const px = az, pz = ax;   // sideways
+        const at = (u, v) => [X + u * ax + v * px, Z + u * az + v * pz];
+        { const a = at(40, 16), b = at(80, 110); if (!dryBox(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1]))) continue; }
+        for (let u = 80; u <= 420; u += 8) {
+          const wet = (uu) => { const [x, z] = at(uu, 64); return waterAt(Math.floor(x / BLK), Math.floor(z / BLK)); };
+          if (!wet(u)) continue;
+          if (![16, 40, 80, 110].every(k => wet(u + k))) break;
+          const S = u - 4, c = [at(S - 130, 0), at(S + 90, 130)], box = [Math.min(c[0][0], c[1][0]) - 8, Math.min(c[0][1], c[1][1]) - 8, Math.max(c[0][0], c[1][0]) + 8, Math.max(c[0][1], c[1][1]) + 8];
+          map.set(i + ',' + j, { type: 'port', i, j, X, Z, ax, az, px, pz, S, name: 'Port ' + nameOf(i, j), box }); used.add(i + ',' + j); break port;
+        }
+      } }
+    // towns and villages at the other crossroads
+    for (const [, i, j] of list) {
+      if (used.has(i + ',' + j)) continue; const X = i * 1024, Z = j * 1024, h = hash2(i, j, worldSeed + 70);
+      if (h < 0.24 && dryBox(X - 124, Z - 124, X + 124, Z + 124)) map.set(i + ',' + j, { type: 'town', i, j, X, Z, name: nameOf(i, j), box: [X - 128, Z - 128, X + 128, Z + 128] });
+      else if (h < 0.62 && dryBox(X - 64, Z - 64, X + 64, Z + 64)) map.set(i + ',' + j, { type: 'village', i, j, X, Z, name: nameOf(i, j) + ' Village', box: [X - 72, Z - 72, X + 72, Z + 72] });
+    }
+  }
+  siteCache = map; siteSeed = worldSeed; planCache.clear(); mineCache.clear(); mineChunkCache.clear();
+  return map;
+}
+function siteAt(x, z, pad = 0) {
+  const s = allSites().get(Math.round(x / 1024) + ',' + Math.round(z / 1024));
+  return s && x >= s.box[0] - pad && x < s.box[2] + pad && z >= s.box[1] - pad && z < s.box[3] + pad ? s : null;
+}
+const siteOverlaps = (s, x0, z0, x1, z1) => s && x0 < s.box[2] && x1 > s.box[0] && z0 < s.box[3] && z1 > s.box[1];
+
+// ---------------------------------------------------------------- building helpers
+// A box building from wall panels and windows. W must be a multiple of 4 and D one more than a multiple of 4 plus 1 (4k+2).
+function buildBlock(x0, z0, W, D, storeys, col, o = {}) {
+  const seg = (i, s) => (o.alt ? (i + s) % 2 === 0 : true) ? 'gwindow4' : 'panel1x4x3', door = Math.floor(W / 8);
+  for (let s = 0; s < storeys; s++) {
+    const y = s === 0 ? 0 : 12 + (s - 1) * 9;
+    for (const [z, front] of [[z0 + D - 1, true], [z0, false]]) for (let i = 0; i < W / 4; i++) {
+      const x = x0 + i * 4;
+      if (s === 0 && front && (o.open || i === door)) { if (!o.open) { put('doorframe1x4x4', o.trim || 'White', x, 0, z, 0); put('door1x2', 'Brown', x + 1, 0, z, 0); } continue; }
+      put(seg(i, s), col, x, y, z, 0); if (s === 0) put('gstrip4', o.trim || col, x, 9, z, 1);
+    }
+    for (const x of [x0, x0 + W - 1]) for (let i = 0; i < (D - 2) / 4; i++) {
+      const z = z0 + 1 + i * 4;
+      put(seg(i, s), col, x, y, z, 1); if (s === 0) put('gstrip4', o.trim || col, x, 9, z, 0);
+    }
+  }
+  const top = 12 + (storeys - 1) * 9;
+  cover(x0, z0, W, D, top, o.roof || 'Dark Grey');
+  return top + 1;
+}
+function cover(x0, z0, W, D, y, col) {
+  for (let x = x0; x + 8 <= x0 + W; x += 8) {
+    let z = z0; for (; z + 8 <= z0 + D; z += 8) put('road8', col, x, y, z);   // printed-stud roof plates are cheap to draw
+    for (; z + 2 <= z0 + D; z += 2) put('plate2x8', col, x, y, z, 1);
+  }
+  if (W % 8 === 4) { const x = x0 + W - 4; let z = z0; for (; z + 8 <= z0 + D; z += 8) put('plate4x8', col, x, y, z); for (; z + 2 <= z0 + D; z += 2) put('plate2x4', col, x, y, z, 1); }
+}
+function signOn(x, y, z, r, text, col = 'White') { const b = put('signwall', col, x, y, z, r); if (b && b.p) setSignText(b, text); }
+function fountain(x, z) {
+  for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) if (Math.abs(i) === 2 || Math.abs(j) === 2) put('brick2x2', 'Light Grey', x + i * 2, 0, z + j * 2); else put('tile2x2', 'Blue Glass', x + i * 2, 0, z + j * 2);
+  put('round2x2', 'White', x, 1, z); put('round2x2', 'White', x, 4, z); put('dome2x2' in PIECE_BY_ID ? 'dome2x2' : 'round2x2', 'Sky Blue', x, 7, z);
+}
+function streetLamps(x0, z0, x1, z1, step = 24) { for (let x = x0; x <= x1; x += step) for (let z = z0; z <= z1; z += step) put('lamp', 'Black', x, 0, z); }
+const SHOPS = [['BAKERY', 'Cream'], ['CAFE', 'Orange'], ['TOYS', 'Red'], ['BRICKS', 'Yellow'], ['PIZZA', 'Red'], ['BOOKS', 'Blue'], ['GROCER', 'Green'], ['POST', 'Red'], ['BANK', 'Light Grey'], ['HOTEL', 'Tan']];
+const PICK = (arr, h) => arr[Math.floor(h * arr.length) % arr.length];
+
+// ---------------------------------------------------------------- site plans: a list of parts, each built by the chunk it starts in
+const planCache = new Map();
+function sitePlan(s) {
+  const k = s.i + ',' + s.j; if (planCache.has(k)) return planCache.get(k);
+  const parts = [], add = (x, z, f) => parts.push({ x, z, f }), H = (a, b) => hash2(s.i * 97 + a, s.j * 89 + b, worldSeed + 72);
+  const { X, Z } = s;
+  const carDesign = (n) => { const cars = STARTERS.filter(d => !PIECE_BY_ID[d.base].boat && !PIECE_BY_ID[d.base].air); return starterDesign(cars[n % cars.length]); };
+  if (s.type === 'town') {
+    const lines = [-96, -48, 48, 96];
+    for (const o of lines) for (let a = -120; a < 120; a += 8) { add(X + a, Z + o - 4, () => put('road8', 'Dark Grey', X + a, 0, Z + o - 4)); add(X + o - 4, Z + a, () => put('road8', 'Dark Grey', X + o - 4, 0, Z + a)); }
+    for (const o of [-120, -72, -24, 24, 72, 120]) for (const q of [-102, -42, 42, 102]) { add(X + o, Z + q, () => put('lamp', 'Black', X + o, 0, Z + q)); }
+    const spots = [-2, -1, 0, 1];
+    for (const bi of spots) for (const bj of spots) {
+      const bx = X + bi * 48 + 4, bz = Z + bj * 48 + 4, h = H(bi, bj), center = (bi === -1 || bi === 0) && (bj === -1 || bj === 0);
+      if (center) add(bx + 4, bz + 3, () => { const st = 5 + Math.floor(h * 6); const top = buildBlock(bx + 4, bz + 3, 32, 34, st, PICK(['Dark Grey', 'Blue', 'Light Grey', 'Navy'], h), { roof: 'Dark Grey', trim: 'Light Grey' });
+        put('brick2x2', 'Light Grey', bx + 10, top, bz + 10); put('brick2x2', 'Light Grey', bx + 26, top, bz + 24); put('flag', 'Red', bx + 18, top, bz + 18);
+        if (h < 0.5) signOn(bx + 18, 12, bz + 37, 0, PICK(['OFFICES', 'TOWN HALL', 'TOWER', 'LIBRARY'], h * 7), 'Navy'); });
+      else if (h < 0.18) add(bx + 20, bz + 20, () => { fountain(bx + 20, bz + 20); for (const [i, j] of [[4, 4], [32, 4], [4, 32], [32, 32]]) oakTree(bx + i, bz + j, rng(Math.floor(h * 1e6) + i)); put('bench' in PIECE_BY_ID ? 'bench' : 'fence1x4', 'Brown', bx + 12, 0, bz + 12); });
+      else if (h < 0.5) for (const half of [0, 1]) add(bx + 2 + half * 20, bz + 11, () => {
+        const st = 4 + Math.floor(H(bi * 3 + half, bj) * 4), c = PICK(['Tan', 'Cream', 'Red', 'Dark Red', 'White', 'Light Grey'], H(half, bi + bj));
+        buildBlock(bx + 2 + half * 20, bz + 11, 16, 18, st, c, { alt: true, roof: 'Dark Grey' }); })
+      else if (h < 0.78) for (const half of [0, 1]) add(bx + 2 + half * 20, bz + 14, () => {
+        const [name, c] = PICK(SHOPS, H(bi + half * 5, bj * 3)); const top = buildBlock(bx + 2 + half * 20, bz + 14, 16, 18, 2, c, { trim: 'White', roof: 'Dark Grey' });
+        signOn(bx + 9 + half * 20, 12, bz + 32, 0, name, 'White'); put('fence1x4', 'White', bx + 4 + half * 20, 0, bz + 35); })
+      else for (const [i, j] of [[2, 2], [22, 2], [2, 22], [22, 22]]) add(bx + i, bz + j, () => buildHouse(bx + i, bz + j, PICK(['Cream', 'White', 'Tan', 'Light Grey'], H(i, j + bi)), PICK(['Red', 'Dark Grey', 'Brown', 'Blue'], H(j, i + bj))));
+    }
+    for (let n = 0; n < 6; n++) { const o = lines[n % 4], a = -110 + Math.floor(H(n, 9) * 196); add(X + o - 2, Z + a, () => placeDesign(carDesign(n), X + o - 2, Z + a, 1)); }
+    for (let n = 0; n < 6; n++) add(X - 30 + n * 12, Z + 8, () => { if (genMobs) genMobs.push({ x: X - 30 + n * 12, z: Z + 8 + (n % 2) * 40 - 20, seed: s.i * 1000 + s.j * 37 + n }); });
+  } else if (s.type === 'village') {
+    const houses = [[12, 12], [12, -26], [-26, 12], [-26, -26], [36, 12], [12, 36], [-50, 12], [12, -50]];
+    houses.forEach(([i, j], n) => { if (H(n, 1) < 0.85) add(X + i, Z + j, () => buildHouse(X + i, Z + j, PICK(['Cream', 'White', 'Tan'], H(n, 2)), PICK(['Red', 'Dark Grey', 'Brown'], H(n, 3)))); });
+    add(X + 36, Z - 30, () => { const [name, c] = PICK(SHOPS, H(5, 5)); buildBlock(X + 36, Z - 30, 16, 18, 2, c, { trim: 'White' }); signOn(X + 43, 12, Z - 12, 0, name); });
+    add(X - 40, Z - 40, () => fountain(X - 40, Z - 40));
+    add(X + 26, Z + 26, () => placeDesign(carDesign(Math.floor(H(7, 7) * 9)), X + 26, Z + 26));
+    for (let n = 0; n < 3; n++) add(X + 8 + n, Z + 8, () => { if (genMobs) genMobs.push({ x: X + 8 + n * 6, z: Z + 8, seed: s.i * 1000 + s.j * 41 + n }); });
+  } else if (s.type === 'airport') {
+    for (let a = 40; a < 440; a += 8) for (let b = 40; b < 72; b += 8) add(X + a, Z + b, () => put('road8', 'Dark Grey', X + a, 0, Z + b));
+    for (let a = 48; a < 432; a += 16) add(X + a, Z + 56, () => put('tile1x8', 'White', X + a, 1, Z + 55, 1));
+    for (let a = 40; a < 440; a += 16) { add(X + a, Z + 38, () => put('light1x1', 'Yellow', X + a, 0, Z + 38)); add(X + a, Z + 73, () => put('light1x1', 'Yellow', X + a, 0, Z + 73)); }
+    for (let a = 40; a < 176; a += 8) for (let b = 72; b < 160; b += 8) add(X + a, Z + b, () => put('road8', 'Light Grey', X + a, 0, Z + b));
+    add(X + 184, Z + 92, () => { buildBlock(X + 184, Z + 92, 48, 26, 2, 'White', { trim: 'Light Grey', roof: 'Light Grey' }); signOn(X + 207, 12, Z + 118, 0, 'AIRPORT', 'Blue'); });
+    add(X + 250, Z + 96, () => { for (let k = 0; k < 10; k++) put('brick2x2', 'White', X + 251, k * 3, Z + 97);
+      put('brick4x4', 'Blue Glass', X + 250, 30, Z + 96); put('brick4x4', 'Blue Glass', X + 250, 33, Z + 96); put('plate6x6', 'Dark Grey', X + 249, 36, Z + 95); put('light1x1', 'Red', X + 252, 37, Z + 98); });
+    for (const hx of [176, 232]) add(X + hx, Z + 160, () => buildBlock(X + hx, Z + 160, 48, 34, 3, 'Light Grey', { open: true, roof: 'Dark Grey' }));
+    for (let n = 0; n < 3; n++) add(X + 60 + n * 34, Z + 104, () => placeDesign(starterDesign(STARTERS.find(d => d.base === 'planebody2x10')), X + 60 + n * 34, Z + 104, 1));
+    add(X + 150, Z + 136, () => { put('plate8x8', 'Yellow', X + 146, 1, Z + 132); placeDesign(starterDesign(STARTERS.find(d => d.base === 'helibody4x6')), X + 148, Z + 133, 2); });
+    add(X + 30, Z + 80, () => put('flag', 'Orange', X + 30, 0, Z + 80));
+    for (let n = 0; n < 2; n++) add(X + 190 + n, Z + 130, () => { if (genMobs) genMobs.push({ x: X + 196 + n * 10, z: Z + 130, seed: s.i * 1000 + s.j * 43 + n }); });
+  } else if (s.type === 'port') {
+    const { ax, az, px, pz, S } = s, at = (u, v) => [X + u * ax + v * px, Z + u * az + v * pz];
+    // lay a rectangle given in port coordinates (u along the road toward the water, v sideways) as world plates
+    const rect = (u0, u1, v0, v1, col) => { const a = at(u0, v0), b = at(u1, v1), x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), z0 = Math.min(a[1], b[1]), z1 = Math.max(a[1], b[1]);
+      for (let x = x0; x < x1; x += 8) for (let z = z0; z < z1; z += 8) add(x, z, () => put('road8', col, x, 0, z)); };
+    rect(S - 120, S + 8, 12, 124, 'Light Grey');
+    for (const v of [20, 60, 100]) rect(S + 8, S + 88, v, v + 8, 'Brown');
+    const box = (u, v, w, d) => { const a = at(u, v), b = at(u + w, v + d); return [Math.min(a[0], b[0]), Math.min(a[1], b[1])]; };
+    for (const [u, v] of [[S - 112, 20], [S - 112, 72]]) { const [x, z] = box(u, v, 40, 40); add(x, z, () => { buildBlock(x, z + 1, 40, 38, 2, PICK(['Red', 'Blue', 'Green', 'Dark Grey'], hash2(u, v, worldSeed)), { open: hash2(v, u, 5) < 0.5, roof: 'Light Grey' }); }); }
+    for (const v of [36, 84]) { const [x, z] = at(S - 4, v); add(x, z, () => { for (let k = 0; k < 11; k++) put('brick2x2', 'Yellow', x, 1 + k * 3, z);
+      for (let k = 1; k <= 6; k++) { const [cx, cz] = [x + ax * k * 2, z + az * k * 2]; put('brick2x2', 'Yellow', cx, 34, cz); }
+      const [hx, hz] = [x + ax * 11, z + az * 11]; for (let k = 0; k < 3; k++) put('brick1x1', 'Dark Grey', hx, 31 - k * 3, hz); }); }
+    const cols = ['Red', 'Blue', 'Green', 'Orange', 'Yellow', 'Teal', 'White'];
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) { const [x, z] = box(S - 60 + c * 10, 40 + r * 12, 6, 6); add(x, z, () => { const n = 1 + Math.floor(hash2(r, c, worldSeed + 9) * 3); for (let k = 0; k < n; k++) { put('brick4x6', cols[(r * 4 + c + k) % cols.length], x, 1 + k * 3, z, ax ? 1 : 0); } }); }
+    { const [x, z] = at(S + 84, 62); add(x, z, () => { for (let k = 0; k < 9; k++) put('round2x2', k % 2 ? 'White' : 'Red', x, 1 + k * 3, z); put('light2x2', 'Yellow', x, 28, z); put('cone1x1', 'Red', x, 31, z); }); }
+    const boats = STARTERS.filter(d => PIECE_BY_ID[d.base].boat);
+    for (const [v, n] of [[34, 0], [74, 1], [112, 0]]) { const [x, z] = at(S + 40, v); add(x, z, () => { if (waterAt(Math.floor(x / BLK), Math.floor(z / BLK))) placeDesign(starterDesign(boats[n % boats.length]), x - 2, z - 6, -2); }); }
+    { const [x, z] = at(S - 10, 14); add(x, z, () => signOn(x, 1, z, 0, 'PORT', 'Blue')); }
+    for (let n = 0; n < 3; n++) { const [x, z] = at(S - 30, 30 + n * 30); add(x, z, () => { if (genMobs) genMobs.push({ x, z, seed: s.i * 1000 + s.j * 47 + n }); }); }
+  }
+  planCache.set(k, parts); return parts;
+}
+function genSiteParts(x0, z0) {
+  for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+    const s = allSites().get((Math.round(x0 / 1024) + di) + ',' + (Math.round(z0 / 1024) + dj));
+    if (!siteOverlaps(s, x0, z0, x0 + CHUNK, z0 + CHUNK)) continue;
+    for (const pt of sitePlan(s)) if (pt.x >= x0 && pt.x < x0 + CHUNK && pt.z >= z0 && pt.z < z0 + CHUNK) pt.f();
+  }
+}
+
+// ---------------------------------------------------------------- mountain ranges and mines
+// Long ridges of tall mountains wind across the land (roads cut passes through them).
+function rangeLevels(gx, gz) {
+  const r = 1 - Math.abs(vnoise(gx / 70, gz / 70, worldSeed + 40) * 2 - 1), n = r * 0.75 + vnoise(gx / 14, gz / 14, worldSeed + 41) * 0.25;
+  return n > 0.74 ? Math.min(22, Math.floor((n - 0.74) * 90)) : 0;
+}
+// A mine: a tunnel through the side of a mountain, then a ramp down to a deep cavern with treasure.
+const MINE_LEN = 34, mineCache = new Map(), mineChunkCache = new Map();
+function mineInCell(mx, mz) {
+  const k = mx + ',' + mz; if (mineCache.has(k)) return mineCache.get(k);
+  let m = null;
+  if (!emptyWorld && hash2(mx, mz, worldSeed + 80) < 0.6) {
+    const gx = mx * 32 + 6 + Math.floor(hash2(mx, mz, worldSeed + 81) * 20), gz = mz * 32 + 6 + Math.floor(hash2(mx, mz, worldSeed + 82) * 20);
+    if (hillLevels(gx, gz) >= 6) for (let g = gx - 1; g >= gx - 24; g--) if (!hillLevels(g, gz)) { m = { gz, start: g, gx, bx0: gx * 4 + 1, bz0: gz * 4 + 1 }; break; }
+  }
+  mineCache.set(k, m); return m;
+}
+function mineTunnel(gx, gz) {
+  for (const mx of [Math.floor(gx / 32), Math.floor(gx / 32) + 1]) { const m = mineInCell(mx, Math.floor(gz / 32)); if (m && m.gz === gz && gx > m.start && gx <= m.gx) return m; }
+  return null;
+}
+function mineBlocks(m) {
+  if (m.blocks) return m.blocks;
+  const out = [], L = MINE_LEN;
+  for (let i = 0; i < L; i++) { const f = -(i + 1); for (let by = f; by <= Math.min(-1, f + 4); by++) for (const bz of [m.bz0, m.bz0 + 1]) out.push([m.bx0 + i, by, bz]); }
+  for (let bx = m.bx0 + L; bx < m.bx0 + L + 8; bx++) for (let bz = m.bz0 - 3; bz <= m.bz0 + 4; bz++) for (let by = -L; by <= -L + 3; by++) out.push([bx, by, bz]);
+  for (let bz = m.bz0 + 5; bz <= m.bz0 + 22; bz++) for (const bx of [m.bx0 + L + 3, m.bx0 + L + 4]) for (let by = -L; by <= -L + 3; by++) out.push([bx, by, bz]);
+  m.blocks = out; return out;
+}
+function minesNearChunk(cx, cz) {
+  const out = [];
+  for (let mx = Math.floor((cx * CHUNK - 120) / 256); mx <= Math.floor((cx * CHUNK + CHUNK) / 256); mx++)
+    for (let mz = Math.floor((cz * CHUNK - 60) / 256); mz <= Math.floor((cz * CHUNK + CHUNK + 60) / 256); mz++) { const m = mineInCell(mx, mz); if (m) out.push(m); }
+  return out;
+}
+function mineSetChunk(cx, cz) {
+  const k = cx * 8192 + cz; let s = mineChunkCache.get(k);
+  if (!s) {
+    s = new Set(); const bx0 = cx * CHUNK / BLK, bz0 = cz * CHUNK / BLK, NB = CHUNK / BLK;
+    for (const m of minesNearChunk(cx, cz)) for (const [bx, by, bz] of mineBlocks(m)) if (bx >= bx0 && bx < bx0 + NB && bz >= bz0 && bz < bz0 + NB) s.add(bkey(bx, by, bz));
+    mineChunkCache.set(k, s);
+  }
+  return s;
+}
+const mineOpen = (bx, by, bz) => by < 0 && by >= -MINE_LEN && !emptyWorld && mineSetChunk(Math.floor(bx * BLK / CHUNK), Math.floor(bz * BLK / CHUNK)).has(bkey(bx, by, bz));
+function genMineBricks(x0, z0) {
+  const inC = (x, z) => x >= x0 && x < x0 + CHUNK && z >= z0 && z < z0 + CHUNK;
+  for (const m of minesNearChunk(Math.floor(x0 / CHUNK), Math.floor(z0 / CHUNK))) {
+    for (let g = m.start + 1; g <= m.gx; g++) { const x = g * 8 + 3, z = m.gz * 8 + 1; if (inC(x, z) && g % 2 === 0) put('lightcrystal', 'Sky Blue', x, 0, z); }
+    { const x = m.start * 8 + 6, z = m.gz * 8 + 7; if (inC(x, z)) signOn(x, 0, z, 1, 'MINE', 'Brown'); }
+    // each ramp step is a whole earth block (3 plates) tall, so a 1-plate half step lets you walk back up
+    for (let i = 0; i < MINE_LEN; i++) { const x = (m.bx0 + i) * BLK, z = m.bz0 * BLK, y = -(i + 1) * BLKH; if (inC(x, z)) put('plate1x4', 'Dark Grey', x, y, z); }
+    for (let i = 3; i < MINE_LEN; i += 5) { const x = (m.bx0 + i) * BLK + 1, z = m.bz0 * BLK, y = -(i + 1) * BLKH; if (inC(x, z)) put('lightcrystal', i % 2 ? 'Lavender' : 'Sky Blue', x, y, z); }
+    const ry = -MINE_LEN * BLKH, rx = (m.bx0 + MINE_LEN) * BLK, rz = (m.bz0 - 3) * BLK;
+    if (inC(rx + 6, rz + 6)) { put('chest', 'Brown', rx + 6, ry, rz + 6); put('lightcrystal', 'Sky Blue', rx + 1, ry, rz + 1); put('lightcrystal', 'Lavender', rx + 14, ry, rz + 14); put('lightcrystal', 'Sky Blue', rx + 14, ry, rz + 1); put('lightcrystal', 'Lavender', rx + 1, ry, rz + 14); }
+    { const gz2 = (m.bz0 + 22) * BLK, gx2 = (m.bx0 + MINE_LEN + 3) * BLK; if (inC(gx2, gz2)) { put('chest', 'Dark Brown', gx2, ry, gz2 - 2); put('lightcrystal', 'Sky Blue', gx2 + 2, ry, gz2); } }
+  }
+}
+
 function toggleNight() { cycleDayMode(); }
 $('fuelBtn').onclick = toggleFuel;
 $('weatherBtn').onclick = cycleWeatherMode;
@@ -4842,7 +5089,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
