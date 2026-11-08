@@ -1435,6 +1435,7 @@ function buildStarterCar(x0, z0) {
   for (const e of d.b) put(e[0], e[1], x0 + 2 + e[2], e[3], z0 + 4 + e[4], e[5]);   // wheels first so the frame sits on them
 }
 function generateWorld(seed = 1234) {
+  visitedSites.clear(); marks = [];
   clearWorld();
   worldSeed = seed; emptyWorld = false;
   const R = rng(seed);
@@ -2272,6 +2273,7 @@ function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add
 function updateInfo() {
   const pcx = Math.floor(player.x / CHUNK), pcz = Math.floor(player.z / CHUNK), km = Math.hypot(player.x, player.z) * 0.00053;
   const here = siteAt(player.x, player.z), SITE_ICON = { town: '🏙 ', village: '🏘 ', airport: '✈ ', port: '⚓ ' };
+  if (here) visitSite(here);
   const place = (here ? SITE_ICON[here.type] + here.name : BIOME_NAMES[inVillage(pcx, pcz) ? 'village' : biomeAt(pcx, pcz)]) + (km >= 0.1 ? ` · ${km.toFixed(1)} km from home` : '');
   const RES_ICON = RES_ICONS; questTrack(inVillage(pcx, pcz) ? 'village' : biomeAt(pcx, pcz));
   const bag = Object.entries(res).filter(([, v]) => v).map(([k, v]) => `${RES_ICON[k]} ${v}`).join(' · ');
@@ -4008,7 +4010,7 @@ function drawMap() {
     if (Math.abs(x) > WORLD || Math.abs(z) > WORLD) col = '#2a86c9';
     else if (waterAt(Math.floor(x / BLK), Math.floor(z / BLK))) col = '#3d8fd1';
     else if (emptyWorld) col = '#6dbb4f';
-    else if (siteAt(x, z)) col = { town: '#b8ab9b', village: '#c7bb9f', airport: '#a3a8ae', port: '#a99f8f' }[siteAt(x, z).type];
+    else if (siteKnown(siteAt(x, z))) col = { town: '#b8ab9b', village: '#c7bb9f', airport: '#a3a8ae', port: '#a99f8f' }[siteAt(x, z).type];
     else if (hillLevels(Math.floor(x / 8), Math.floor(z / 8)) > 0) { const hl = hillLevels(Math.floor(x / 8), Math.floor(z / 8)); col = hl >= 10 ? '#f4f6f8' : hl >= 5 ? '#8d9096' : biomeAt(Math.floor(x / CHUNK), Math.floor(z / CHUNK)) === 'desert' ? '#d4b062' : '#55894a'; }
     else { const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK); col = inVillage(cx, cz) ? '#9bd27a' : MAP_BIOME[biomeAt(cx, cz)] || '#6dbb4f'; }
     const span = k * cell / 2, road = (v) => Math.floor((v + span + 4) / 1024 - 1e-9) > Math.floor((v - span - 4) / 1024);
@@ -4022,8 +4024,21 @@ function drawMap() {
     g.fillStyle = '#fff'; g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 3; g.strokeText(label, px, py - 18); g.fillText(label, px, py - 18); };
   pin(2, 1, '🏠 Home', '#ffcf33');
   const SI = { town: '🏙', village: '🏘', airport: '✈', port: '⚓' };
-  for (const st of allSites().values()) { const c = st.type === 'port' ? [st.X + st.ax * (st.S - 40) + st.px * 60, st.Z + st.az * (st.S - 40) + st.pz * 60] : st.type === 'airport' ? [st.X + 240, st.Z + 110] : [st.X, st.Z];
-    if (st.type !== 'village' || k <= 16) pin(c[0], c[1], SI[st.type] + ' ' + st.name, st.type === 'village' ? '#9c8a6a' : '#7c5cff'); }
+  for (const st of allSites().values()) {
+    if (!siteKnown(st) || st.type === 'airport' || st.type === 'port') continue;
+    const c = siteSpot(st); if (st.type !== 'village' || k <= 16) pin(c[0], c[1], SI[st.type] + ' ' + st.name, st.type === 'village' ? '#9c8a6a' : '#7c5cff');
+  }
+  for (const st of allSites().values()) {   // the airport and port: a pin, or an arrow at the edge pointing the way
+    if (st.type !== 'airport' && st.type !== 'port') continue;
+    const [x, z] = siteSpot(st), [px, py] = toPx(x, z), label = SI[st.type] + ' ' + st.name, col = st.type === 'airport' ? '#1e90ff' : '#00a3a3';
+    if (px >= 20 && py >= 30 && px <= S - 20 && py <= S - 10) { pin(x, z, label, col); continue; }
+    const ang = Math.atan2(py - half, px - half), m = 30, t = Math.min((half - m) / Math.max(1e-6, Math.abs(Math.cos(ang))), (half - m) / Math.max(1e-6, Math.abs(Math.sin(ang))));
+    const ex = half + Math.cos(ang) * t, ey = half + Math.sin(ang) * t, km = (Math.hypot(x - player.x, z - player.z) * 0.00053).toFixed(1);
+    g.save(); g.translate(ex, ey); g.rotate(ang); g.fillStyle = col; g.strokeStyle = '#fff'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(14, 0); g.lineTo(-8, -10); g.lineTo(-4, 0); g.lineTo(-8, 10); g.closePath(); g.fill(); g.stroke(); g.restore();
+    const tw = g.measureText(`${label} ${km} km`).width / 2 + 6, lx = Math.max(tw, Math.min(S - tw, ex)), ly = Math.max(16, Math.min(S - 18, ey + (ey < half ? 26 : -16)));
+    g.fillStyle = '#fff'; g.strokeStyle = 'rgba(0,0,0,.7)'; g.lineWidth = 3; g.strokeText(`${label} ${km} km`, lx, ly); g.fillText(`${label} ${km} km`, lx, ly);
+  }
   marks.forEach(m => pin(m.x, m.z, m.n, '#ff5a4a'));
   if (mapPick) pin(mapPick.x, mapPick.z, 'Teleport here?', '#4fd8ff');
   // player arrow
@@ -4034,7 +4049,8 @@ function drawMap() {
 }
 function refreshMarks() {
   const SI = { town: '🏙', village: '🏘', airport: '✈', port: '⚓' };
-  const near = [...allSites().values()].filter(st => st.type !== 'village').sort((a, b) => Math.hypot(a.X - player.x, a.Z - player.z) - Math.hypot(b.X - player.x, b.Z - player.z)).slice(0, 6);
+  const dist = (st) => Math.hypot(st.X - player.x, st.Z - player.z), all = [...allSites().values()];
+  const near = [...all.filter(st => st.type === 'airport' || st.type === 'port'), ...all.filter(st => (st.type === 'town' || st.type === 'village') && siteKnown(st)).sort((a, b) => dist(a) - dist(b)).slice(0, 6)];
   $('mapMarks').innerHTML = near.map(st => `<button data-site="${st.i},${st.j}">${SI[st.type]} ${escapeHtml(st.name)}</button>`).join('') +
     (marks.length ? marks.map((m, i) => `<button data-mk="${i}">📍 ${escapeHtml(m.n)}</button>`).join('') : '<span style="font-size:12px;color:var(--muted)">Tap a place to go there. Mark spots with 📍 to find them again.</span>');
 }
@@ -4719,6 +4735,14 @@ function toggleOpen(b) {
 const TOWN_NAMES = ['Brickford', 'Studley', 'Plateham', 'Clickton', 'Bricksby', 'Tilehaven', 'Slopeworth', 'Rivetvale', 'Blockbury', 'Stackport', 'Cornerstone', 'Mortarby',
   'Cobbleton', 'Pebblewick', 'Gableton', 'Archfield', 'Towerby', 'Brickhaven', 'Studfield', 'Platewick', 'Kingsbrick', 'Lowstud', 'Highstack', 'Oakbrick'];
 let siteCache = null, siteSeed = null;
+// Towns and villages only appear on the map once you have been there; the airport and port are always shown.
+let visitedSites = new Set();
+const siteKnown = (st) => st && (st.type === 'airport' || st.type === 'port' || visitedSites.has(st.i + ',' + st.j));
+const siteSpot = (st) => st.type === 'port' ? [st.X + st.ax * (st.S - 40) + st.px * 60, st.Z + st.az * (st.S - 40) + st.pz * 60] : st.type === 'airport' ? [st.X + 240, st.Z + 110] : [st.X, st.Z];
+function visitSite(st) {
+  const k = st.i + ',' + st.j; if (visitedSites.has(k)) return;
+  visitedSites.add(k); if (st.type === 'town' || st.type === 'village') toast(`🗺 You found ${st.name}! It is now on your map`); saveSoon();
+}
 function dryBox(x0, z0, x1, z1, step = 32) {
   for (let x = x0; x <= x1; x += step) for (let z = z0; z <= z1; z += step) if (waterAt(Math.floor(x / BLK), Math.floor(z / BLK))) return false;
   return true;
@@ -4979,7 +5003,7 @@ function serialize() {
   const b = []; for (const x of bricks) if (!x.gen) b.push(...brickData(x));
   if (car) for (const d of (planPark() || car.items.map(it => it.orig))) b.push(...d);   // a car being driven saves as parked
   if (trailer) for (const d of (trailerPlan() || trailer.items.map(it => it.orig))) b.push(...d);
-  return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget, day: dayMode, unlocked: [...unlocked], stats, quest, questIdx, weather: weatherMode, fuel: +fuel.toFixed(1), fuelOn, raceBest, tod: +timeOfDay.toFixed(4), marks,
+  return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget, day: dayMode, unlocked: [...unlocked], stats, quest, questIdx, weather: weatherMode, visited: [...visitedSites], fuel: +fuel.toFixed(1), fuelOn, raceBest, tod: +timeOfDay.toFixed(4), marks,
            texts: [...bricks].filter(x => x.text && !x.gen).map(x => [x.x, x.y, x.z, x.text]),
            seed: worldSeed, empty: emptyWorld ? 1 : 0, removed: [...removedGen], dug: [...dug], res,
            pl: [player.x, player.y, player.z, player.yaw, player.pitch, player.fly ? 1 : 0] };
@@ -5011,6 +5035,7 @@ function load(data) {
   if (weatherMode !== 'auto') setWeather(weatherMode, true);
   fuel = typeof data.fuel === 'number' ? Math.max(0, Math.min(100, data.fuel)) : 100; fuelOn = data.fuelOn !== false; $('fuelBtn').textContent = FUEL_MODES.find(m => m[0] === fuelOn)[1];
   raceBest = data.raceBest && typeof data.raceBest === 'object' ? data.raceBest : {};
+  visitedSites = new Set(Array.isArray(data.visited) ? data.visited.filter(v => typeof v === 'string') : []);
   marks = Array.isArray(data.marks) ? data.marks.filter(m => m && typeof m.x === 'number').slice(0, 50) : [];
   for (const t of (Array.isArray(data.texts) ? data.texts : [])) { const o = occ.get(key(t[0], t[1], t[2])); if (o && o.b.p.text && o.b.x === t[0] && o.b.y === t[1] && o.b.z === t[2]) setSignText(o.b, String(t[3]).slice(0, 60)); }
   if (Array.isArray(data.pl)) { const [x, y, z, yaw, pitch, fly] = data.pl; Object.assign(player, { x, y, z, yaw, pitch, fly: !!fly, vy: 0 }); }
@@ -5037,7 +5062,7 @@ $('newBtn').onclick = () => {
 };
 $('emptyBtn').onclick = () => {
   if (!confirm('Clear everything and start with empty land (no trees or roads)?')) return;
-  clearWorld(); emptyWorld = true; worldSeed = Math.floor(Math.random() * 1e9);
+  clearWorld(); emptyWorld = true; worldSeed = Math.floor(Math.random() * 1e9); visitedSites.clear();
   Object.assign(player, { x: 0.5, y: 0, z: 0.5, vy: 0, fly: false }); updateChunks(25); save(); toast('Empty land');
 };
 addEventListener('beforeunload', save);
@@ -5089,7 +5114,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { get visitedSites() { return visitedSites; }, siteKnown, mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
