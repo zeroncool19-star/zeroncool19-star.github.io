@@ -182,6 +182,22 @@
   #talkUI .card { max-width: 480px; } #talkUI p { font-size: 16px; line-height: 1.45; }
   #raceHud { position: fixed; left: 50%; transform: translateX(-50%); top: 12px; padding: 8px 16px; border-radius: 999px; background: rgba(15,20,30,.85); color: #fff; font-size: 17px; z-index: 5; border: 2px solid var(--accent); }
   body.touch #raceHud { top: calc(56px + env(safe-area-inset-top)); }
+  .menuCard { width: min(560px, 100%); text-align: center; }
+  .menuCard .sect, .menuCard .keys { text-align: left; }
+  .playBig { display: block; width: 100%; margin: 14px 0 12px; font-size: 22px !important; padding: 14px !important; border-radius: 14px !important; }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tiles button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px; font-size: 14px; border-radius: 12px; }
+  .tiles button span { font-size: 26px; line-height: 1; }
+  .sect { margin-top: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 0 14px; background: rgba(255,255,255,.03); }
+  .sect summary { cursor: pointer; padding: 12px 0; font-weight: 700; font-size: 15px; list-style: none; }
+  .sect summary::-webkit-details-marker { display: none; }
+  .sect summary::after { content: '▸'; float: right; color: var(--muted); }
+  .sect[open] summary::after { content: '▾'; }
+  .sect[open] { padding-bottom: 12px; }
+  .setRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+  .setRow span { font-size: 14px; }
+  .setRow button { min-width: 150px; }
+  @media (max-height: 520px) { .menuCard h1 { font-size: 22px; } .menuCard > p { display: none; } .playBig { margin: 8px 0; padding: 10px !important; font-size: 18px !important; } .tiles { grid-template-columns: repeat(6, 1fr); } .tiles button { padding: 8px 2px; font-size: 12px; } .tiles button span { font-size: 22px; } }
   .invHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .invJump { flex-basis: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
   .invJump button { flex: none; padding: 5px 11px; font-size: 13px; border-radius: 999px; }
@@ -218,28 +234,41 @@
 </div>
 
 <div id="menu" class="overlay">
-  <div class="card">
+  <div class="card menuCard">
     <h1>Brick Builder <span>World</span></h1>
-    <p>A huge open world, about 10 × 10 miles of grassland, forests, deserts, snowfields and lakes linked by long roads. Explore on foot or by car, and build anything you like.</p>
-    <p class="touchOnly" style="color:var(--accent)">📱 Touch controls are on. Turn your phone sideways for the best view.</p>
-    <div class="btns">
-      <button id="playBtn" class="primary">▶ Play</button>
-      <button id="dayBtn">🌗 Day & night cycle</button>
-      <button id="mapBtn">🗺 Map</button>
-      <button id="weatherBtn">🌦 Weather: changes</button>
-      <button id="fuelBtn">⛽ Fuel: on (engines burn coal)</button>
-      <button id="photoBtn">📷 Photo mode</button>
-      <button id="tutBtn">🎓 Tutorial</button>
-      <button id="exportBtn">⬇ Export world</button>
-      <button id="importBtn">⬆ Import world</button>
-      <button id="homeBtn">🏠 Return home</button>
-      <button id="newBtn" class="danger">New world</button>
-      <button id="emptyBtn" class="danger">Empty land</button>
-      <button id="touchBtn">📱 Touch controls: Off</button>
-      <button id="charBtn">🧍 Character</button>
-      <button id="garageBtn">🚘 Garage</button>
+    <p>Explore a huge world and build anything you like.</p>
+    <p class="touchOnly" style="color:var(--accent)">📱 Turn your phone sideways for the best view.</p>
+    <button id="playBtn" class="primary playBig">▶ Play</button>
+    <div class="tiles">
+      <button id="charBtn"><span>🧍</span>Character</button>
+      <button id="garageBtn"><span>🚘</span>Garage</button>
+      <button id="mapBtn"><span>🗺</span>Map</button>
+      <button id="homeBtn"><span>🏠</span>Go home</button>
+      <button id="photoBtn"><span>📷</span>Photo</button>
+      <button id="tutBtn"><span>🎓</span>How to play</button>
     </div>
-    <h2>Controls</h2>
+    <details class="sect">
+      <summary>⚙ Settings</summary>
+      <div class="setRow"><span>Time of day</span><button id="dayBtn">🌗 Day & night</button></div>
+      <div class="setRow"><span>Weather</span><button id="weatherBtn">🌦 Changes</button></div>
+      <div class="setRow"><span>Vehicles need fuel (coal)</span><button id="fuelBtn">⛽ On</button></div>
+      <div class="setRow"><span>Touch screen buttons</span><button id="touchBtn">📱 Off</button></div>
+    </details>
+    <details class="sect">
+      <summary>🌍 My world</summary>
+      <p style="font-size:13px">Your world saves by itself in this browser. Save a copy to keep it safe or move it to another device.</p>
+      <div class="btns" style="margin-top:8px">
+        <button id="exportBtn">⬇ Save a copy</button>
+        <button id="importBtn">⬆ Load a copy</button>
+      </div>
+      <p style="font-size:13px;margin-top:12px">Start again (your current world will be replaced):</p>
+      <div class="btns" style="margin-top:8px">
+        <button id="newBtn" class="danger">🌍 New world</button>
+        <button id="emptyBtn" class="danger">⬜ Empty flat land</button>
+      </div>
+    </details>
+    <details class="sect">
+      <summary>🎮 Controls</summary>
     <div class="keys touchOnly">
       <div>🕹 <b>Left joystick</b> – walk (push far to run)</div>
       <div>👆 <b>Drag the screen</b> – look around</div>
@@ -252,7 +281,8 @@
       <div>Tap the hotbar at the top to switch bricks</div>
       <div>👁 Switch first / third person · 🧍 Edit character · 🚘 Garage</div>
       <div>🚗🚤 Walk up to a car or boat and tap <b>Drive</b>. Joystick steers, 🛑 brakes</div>
-      <div>🧱 / ⛏ / 🪓 Tool button: build, dig or chop, then hold the green action button. Slide that finger to turn while you work</div>
+      <div>🧱 Tool button: build, dig, chop, paint or copy, then hold the green action button. Slide that finger to turn while you work</div>
+      <div>🗺 Map · 📷 Photo · 💬 Talk / 🚪 Open appear when you are near a villager or door</div>
       <div>🏊 In water, hold ⬆ to swim up</div>
     </div>
     <div class="keys deskOnly">
@@ -272,7 +302,10 @@
       <div><kbd>C</kbd> / <kbd>V</kbd>Previous / next colour</div>
       <div><kbd>Z</kbd> / <kbd>Y</kbd>Undo / redo</div>
       <div><kbd>T</kbd>Day / night</div>
-      <div><kbd>N</kbd>Tool: 🧱 build · ⛏ dig · 🪓 chop</div>
+      <div><kbd>N</kbd>Tool: 🧱 build · ⛏ dig · 🪓 chop · 🖌 paint · 📋 copy</div>
+      <div><kbd>L</kbd>Map</div>
+      <div><kbd>J</kbd>Talk to villagers · open doors</div>
+      <div><kbd>O</kbd>Photo mode</div>
       <div><kbd>Q</kbd>Get in / out of a car or boat</div>
       <div><kbd>W A S D</kbd> in a car: drive · <kbd>Space</kbd> brake · <kbd>H</kbd> horn</div>
       <div><kbd>P</kbd>First / third person view</div>
@@ -280,7 +313,7 @@
       <div><kbd>M</kbd>Garage: design cars &amp; engines</div>
       <div><kbd>Esc</kbd>Pause</div>
     </div>
-    <p style="margin-top:14px;font-size:12px">Your world saves automatically in this browser.</p>
+    </details>
   </div>
 </div>
 
@@ -2656,7 +2689,7 @@ addEventListener('resize', () => { if (charOpen) ensurePreview(); });
 function resetTouchInput() { joy.x = joy.y = 0; touchJump = touchDown = false; $('knob').style.transform = ''; looks.clear(); }
 function applyTouchMode() {
   document.body.classList.toggle('touch', touchMode);
-  $('touchBtn').textContent = `📱 Touch controls: ${touchMode ? 'On' : 'Off'}`;
+  $('touchBtn').textContent = `📱 ${touchMode ? 'On' : 'Off'}`;
 }
 $('touchBtn').onclick = () => {
   touchMode = !touchMode; try { localStorage.setItem('brick-builder-touch', touchMode ? '1' : '0'); } catch (e) {}
@@ -3937,7 +3970,7 @@ function updateDayCycle(dt) {
   } else { nightTarget = dayMode === 'night' ? 1 : 0; dusk = 0; }
 }
 function clockText() { const hrs = (timeOfDay * 24 + 6) % 24; return `${String(Math.floor(hrs)).padStart(2, '0')}:${String(Math.floor((hrs % 1) * 60)).padStart(2, '0')}`; }
-const DAY_MODES = [['auto', '🌗 Day & night cycle'], ['day', '☀ Always day'], ['night', '☾ Always night']];
+const DAY_MODES = [['auto', '🌗 Day & night'], ['day', '☀ Always day'], ['night', '☾ Always night']];
 function cycleDayMode() {
   const i = DAY_MODES.findIndex(m => m[0] === dayMode); dayMode = DAY_MODES[(i + 1) % 3][0];
   $('dayBtn').textContent = DAY_MODES.find(m => m[0] === dayMode)[1]; toast(DAY_MODES.find(m => m[0] === dayMode)[1]); saveSoon();
@@ -4349,7 +4382,7 @@ $('talkUI').addEventListener('click', (e) => {
 $('talkBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); talk(); });
 
 // ---------------------------------------------------------------- weather
-const WEATHER_MODES = [['auto', '🌦 Weather: changes'], ['clear', '☀ Weather: always clear'], ['rain', '🌧 Weather: rain'], ['storm', '⛈ Weather: storm']];
+const WEATHER_MODES = [['auto', '🌦 Changes'], ['clear', '☀ Always clear'], ['rain', '🌧 Rain'], ['storm', '⛈ Storm']];
 let weatherMode = 'auto', weather = 'clear', weatherT = 120, wet = 0, wetTarget = 0, bolt = 0;
 const RAIN_N = touchMode ? 700 : 1600, RAIN_BOX = 50;
 const rainGeo = new THREE.BufferGeometry(), rainPos = new Float32Array(RAIN_N * 3);
@@ -4385,7 +4418,7 @@ function cycleWeatherMode() {
   const i = WEATHER_MODES.findIndex(m => m[0] === weatherMode); weatherMode = WEATHER_MODES[(i + 1) % WEATHER_MODES.length][0];
   $('weatherBtn').textContent = WEATHER_MODES.find(m => m[0] === weatherMode)[1];
   if (weatherMode !== 'auto') setWeather(weatherMode, true); else weatherT = 60;
-  toast($('weatherBtn').textContent); saveSoon();
+  toast('Weather: ' + $('weatherBtn').textContent); saveSoon();
 }
 function updateWeather(dt) {
   if (weatherMode === 'auto' && (weatherT -= dt) <= 0) {
@@ -4438,8 +4471,8 @@ function burnFuel(dt, thr) {
   if (performance.now() - fuelWarnT > 7000) { fuelWarnT = performance.now(); toast('⛽ Out of fuel! Dig underground for ⚫ coal, or open treasure chests'); }
   return true;
 }
-const FUEL_MODES = [[true, '⛽ Fuel: on (engines burn coal)'], [false, '⛽ Fuel: off']];
-function toggleFuel() { fuelOn = !fuelOn; $('fuelBtn').textContent = FUEL_MODES.find(m => m[0] === fuelOn)[1]; toast($('fuelBtn').textContent); saveSoon(); }
+const FUEL_MODES = [[true, '⛽ On'], [false, '⛽ Off']];
+function toggleFuel() { fuelOn = !fuelOn; $('fuelBtn').textContent = FUEL_MODES.find(m => m[0] === fuelOn)[1]; toast(fuelOn ? '⛽ Fuel on: engines burn coal' : '⛽ Fuel off'); saveSoon(); }
 
 // ---------------------------------------------------------------- flying: planes and helicopters
 function airBlocked(x, z, yaw, y) {
