@@ -91,11 +91,15 @@
   .tb.place small { font-size: 8px; font-weight: 700; letter-spacing: .5px; margin-top: -2px; }
   .tb:active { transform: scale(.94); }
   #ttop .tb { width: 46px; height: 46px; font-size: 19px; }
+  #tbStack, #tbUndo, #tbRot, #tbFly, #tbDown { width: 44px; height: 44px; font-size: 18px; justify-self: center; align-self: center; background: rgba(20,24,32,.38); border-color: rgba(255,255,255,.22); }
+  #tbFly.on, #tbDown.on { background: var(--accent); border-color: var(--accent); }
+  body.touch #bottom #label { transition: opacity .4s; }
+  body.touch #compass { width: 220px !important; height: 24px !important; opacity: .85; }
   #ttop .tb.hidden { display: none; }
   #tbtns { grid-template-columns: repeat(4, 56px); grid-template-areas: "stack undo rot fly" "down remove place jump"; }
   #tbStack { grid-area: stack; } #tbUndo { grid-area: undo; } #tbRot { grid-area: rot; } #tbFly { grid-area: fly; }
   #tbDown { grid-area: down; } #tbRemove { grid-area: remove; } #tbPlace { grid-area: place; } #tbJump { grid-area: jump; }
-  .tb.stack { font-size: 22px; flex-direction: column; } .tb.stack small { font-size: 8px; font-weight: 700; letter-spacing: .5px; margin-top: -2px; }
+  .tb.stack { font-size: 17px; flex-direction: column; } .tb.stack small { font-size: 7px; font-weight: 700; letter-spacing: .5px; margin-top: -2px; }
   @media (orientation: portrait) { #tbtns { grid-template-columns: repeat(3, 56px); grid-template-areas: "stack undo rot" "fly remove down" ". place jump"; } }
   @media (orientation: landscape) { #ttop { right: auto; left: calc(10px + env(safe-area-inset-left)); top: calc(8px + env(safe-area-inset-top)); display: grid; grid-template-columns: repeat(2, 46px); } }
 
@@ -260,6 +264,7 @@
       <div class="setRow"><span>Time of day</span><button id="dayBtn">🌗 Day & night</button></div>
       <div class="setRow"><span>Weather</span><button id="weatherBtn">🌦 Changes</button></div>
       <div class="setRow"><span>Vehicles need fuel (coal)</span><button id="fuelBtn">⛽ On</button></div>
+      <div class="setRow"><span>Camera</span><button id="camBtn">👁 Behind player</button></div>
       <div class="setRow"><span>Touch screen buttons</span><button id="touchBtn">📱 Off</button></div>
     </details>
     <details class="sect">
@@ -328,7 +333,7 @@
 <div id="touchUI">
   <div id="joy"><div id="knob"></div></div>
   <div id="tbtns">
-    <button class="tb stack" id="tbStack" title="Stack direction">⬆<small>STACK UP</small></button>
+    <button class="tb stack" id="tbStack" title="Stack direction">⬆<small>STACK</small></button>
     <button class="tb" id="tbUndo" title="Undo">↶</button>
     <button class="tb" id="tbRot" title="Rotate">↻</button>
     <button class="tb" id="tbFly" title="Fly">🕊</button>
@@ -339,13 +344,13 @@
   </div>
   <div id="ttop">
     <button class="tb" id="tbTool" title="Tool: build / mine / chop / paint / copy">🔨</button>
-    <button class="tb" id="tbPause" title="Pause">⏸</button>
+    <button class="tb" id="tbPause" title="Menu">☰</button>
     <button class="tb" id="tbInv" title="Brick box"><svg viewBox="0 0 48 40" width="30" height="26" aria-hidden="true"><path d="M4 18 L24 26 L44 18 L44 32 L24 40 L4 32 Z" fill="#b8140a"/><path d="M4 18 L24 26 L24 40 L4 32 Z" fill="#d81e10"/><path d="M4 18 L24 10 L44 18 L24 26 Z" fill="#f03a28"/><g transform="translate(17,15)"><ellipse cx="0" cy="3" rx="5" ry="2.6" fill="#b8140a"/><rect x="-5" y="0" width="10" height="3" fill="#c91a09"/><ellipse cx="0" cy="0" rx="5" ry="2.6" fill="#ff5a45"/></g><g transform="translate(31,15)"><ellipse cx="0" cy="3" rx="5" ry="2.6" fill="#b8140a"/><rect x="-5" y="0" width="10" height="3" fill="#c91a09"/><ellipse cx="0" cy="0" rx="5" ry="2.6" fill="#ff5a45"/></g><g transform="translate(17,21)"><ellipse cx="0" cy="3" rx="5" ry="2.6" fill="#b8140a"/><rect x="-5" y="0" width="10" height="3" fill="#c91a09"/><ellipse cx="0" cy="0" rx="5" ry="2.6" fill="#ff5a45"/></g><g transform="translate(31,21)"><ellipse cx="0" cy="3" rx="5" ry="2.6" fill="#b8140a"/><rect x="-5" y="0" width="10" height="3" fill="#c91a09"/><ellipse cx="0" cy="0" rx="5" ry="2.6" fill="#ff5a45"/></g></svg></button>
-    <button class="tb" id="tbView" title="Camera view">👁</button>
-    <button class="tb" id="tbChar" title="Character">🧍</button>
-    <button class="tb" id="tbGarage" title="Garage">🚘</button>
+    <button class="tb hidden" id="tbView" title="Camera view">👁</button>
+    <button class="tb hidden" id="tbChar" title="Character">🧍</button>
+    <button class="tb hidden" id="tbGarage" title="Garage">🚘</button>
     <button class="tb" id="tbMap" title="Map">🗺</button>
-    <button class="tb" id="tbPhoto" title="Photo mode">📷</button>
+    <button class="tb hidden" id="tbPhoto" title="Photo mode">📷</button>
   </div>
 </div>
 
@@ -2219,7 +2224,7 @@ function stopRepeat() { clearTimeout(repeatTimer); repeatTimer = null; }
 function cycleStackDir() {
   stackDir = (stackDir + 1) % STACK_DIRS.length;
   const [, icon, label] = STACK_DIRS[stackDir];
-  $('tbStack').innerHTML = `${icon}<small>STACK ${label}</small>`;
+  $('tbStack').innerHTML = `${icon}<small>STACK</small>`;
   toast(`Hold Place to stack ${label.toLowerCase()}`);
 }
 function removeAction(t = target) {
@@ -2302,7 +2307,7 @@ function setColor(c) { colorIdx = c; hotCols[slot] = c; refreshUI(); showLabel()
 function showLabel() {
   const p = currentPiece(), c = COLORS[colorIdx];
   labelEl.innerHTML = `<span class="sw" style="background:${c.h}"></span>${c.n} · ${p.name}${rot ? ` · ↻${rot * 90}°` : ''}`;
-  labelEl.style.opacity = 1; clearTimeout(labelTimer); labelTimer = setTimeout(() => labelEl.style.opacity = 0.55, 2500);
+  labelEl.style.opacity = 1; clearTimeout(labelTimer); labelTimer = setTimeout(() => labelEl.style.opacity = touchMode ? 0 : 0.55, 2500);
 }
 let toastTimer = 0;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1600); }
@@ -2656,7 +2661,7 @@ function placeCamera() {
   dist = Math.max(0, dist - 0.3);
   camera.position.copy(_eye).addScaledVector(_back, dist); camDist = dist;
 }
-function toggleView() { thirdPerson = !thirdPerson; saveChar(); toast(thirdPerson ? 'Third-person view' : 'First-person view'); }
+function toggleView() { thirdPerson = !thirdPerson; saveChar(); toast(thirdPerson ? 'Third-person view' : 'First-person view'); const cb = document.getElementById('camBtn'); if (cb) cb.textContent = thirdPerson ? '👁 Behind player' : '👀 Through eyes'; }
 
 // Character creator screen
 let charOpen = false, charReturn = false, charFirst = false, prevR = null, prevScene, prevCam, prevFig, prevDrag = null, prevSpin = 0.5;
@@ -5044,6 +5049,9 @@ function updateCompass(dt) {
 function toggleNight() { cycleDayMode(); }
 $('fuelBtn').onclick = toggleFuel;
 $('weatherBtn').onclick = cycleWeatherMode;
+const camText = () => thirdPerson ? '👁 Behind player' : '👀 Through eyes';
+$('camBtn').textContent = camText();
+$('camBtn').onclick = () => { toggleView(); $('camBtn').textContent = camText(); };
 $('dayBtn').onclick = cycleDayMode;
 $('mapBtn').onclick = openMap;
 $('gMine').addEventListener('click', (e) => {
