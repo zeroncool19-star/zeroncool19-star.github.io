@@ -96,11 +96,11 @@
   body.touch #bottom #label { transition: opacity .4s; }
   body.touch #compass { width: 220px !important; height: 24px !important; opacity: .85; }
   #ttop .tb.hidden { display: none; }
-  #tbtns { grid-template-columns: repeat(4, 56px); grid-template-areas: "stack undo rot fly" "down remove place jump"; }
+  #tbtns { grid-template-columns: repeat(4, 56px); grid-template-rows: repeat(3, 56px); grid-template-areas: "stack undo rot jump" ". remove place fly" ". . . down"; }
   #tbStack { grid-area: stack; } #tbUndo { grid-area: undo; } #tbRot { grid-area: rot; } #tbFly { grid-area: fly; }
   #tbDown { grid-area: down; } #tbRemove { grid-area: remove; } #tbPlace { grid-area: place; } #tbJump { grid-area: jump; }
   .tb.stack { font-size: 17px; flex-direction: column; } .tb.stack small { font-size: 7px; font-weight: 700; letter-spacing: .5px; margin-top: -2px; }
-  @media (orientation: portrait) { #tbtns { grid-template-columns: repeat(3, 56px); grid-template-areas: "stack undo rot" "fly remove down" ". place jump"; } }
+  @media (orientation: portrait) { #tbtns { grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); grid-template-areas: "stack rot jump" "undo remove fly" ". place down"; } }
   @media (orientation: landscape) { #ttop { right: auto; left: calc(10px + env(safe-area-inset-left)); top: calc(8px + env(safe-area-inset-top)); display: grid; grid-template-columns: repeat(2, 46px); } }
 
   /* Driving */
@@ -210,6 +210,13 @@
   body.touch #talkBtn { top: calc(200px + env(safe-area-inset-top)); }
   body:not(.touch) #tut, body:not(.touch) #raceHud { top: 52px; }
   body.touch #tut { top: calc(150px + env(safe-area-inset-top)); }
+  /* Turbo flying: only what you need to fly */
+  body.turbo #bottom, body.turbo #ttop, body.turbo #crosshair, body.turbo #info, body.turbo #tbStack, body.turbo #tbUndo, body.turbo #tbRot,
+  body.turbo #tbRemove, body.turbo #tbPlace, body.turbo #talkBtn, body.turbo #carUI, body.touch.playing.turbo #crosshair { display: none !important; }
+  body.turbo #compass { top: 8px !important; width: 240px !important; height: 27px !important; opacity: .9; }
+  #waypoints { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+  .wp { position: absolute; transform: translate(-50%, -100%); padding: 3px 9px; border-radius: 999px; background: rgba(15,20,30,.72); color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; border: 1px solid rgba(255,255,255,.35); }
+  .wp::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -5px; border: 5px solid transparent; border-top-color: rgba(15,20,30,.72); border-bottom: 0; }
   .invHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .invJump { flex-basis: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
   .invJump button { flex: none; padding: 5px 11px; font-size: 13px; border-radius: 999px; }
@@ -325,6 +332,7 @@
       <div><kbd>K</kbd>Edit your character</div>
       <div><kbd>M</kbd>Garage: design cars &amp; engines</div>
       <div><kbd>Esc</kbd>Pause</div>
+      <div><kbd>🎮</kbd>Game controller: left stick move · right stick look · RT place (hold to stack) · LT remove · A jump / fly up · B fly down · X rotate · Y brick box · LB / RB change brick · D-pad: ↑ fly, ↓ tool, ← → colour · Back: map · Start: pause</div>
     </div>
     </details>
   </div>
@@ -488,6 +496,18 @@
 <div id="talkUI" class="overlay hidden">
   <div class="card"><div id="talkBody"></div><div id="talkBtns" class="btns" style="margin:0"></div></div>
 </div>
+<div id="decoUI" class="overlay hidden">
+  <div class="card" style="max-width:560px">
+    <h1 style="font-size:22px;margin-bottom:8px">🎨 Decorate</h1>
+    <canvas id="decoPreview" width="512" height="256" style="width:100%;max-height:26vh;object-fit:contain;border-radius:10px;background:#000;display:block"></canvas>
+    <h2>Pattern</h2><div id="decoPats" class="btns" style="margin-top:0"></div>
+    <h2>Background colour</h2><div id="decoC1" class="colors"></div>
+    <h2>Pattern colour</h2><div id="decoC2" class="colors"></div>
+    <h2>Words (optional)</h2><input id="decoText" maxlength="40" autocomplete="off" style="width:100%;font-size:17px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:#0d121b;color:var(--text)">
+    <div class="btns"><button id="decoOk" class="primary">OK ✓</button><button id="decoCancel">Cancel</button></div>
+  </div>
+</div>
+<div id="waypoints"></div>
 <div id="tut" class="hidden"><div id="tutText"></div><button id="tutSkip">Skip</button></div>
 <div id="photoUI"><button id="photoSnap" title="Take picture">📸</button><button id="photoExit" title="Exit photo mode">✖</button></div>
 <div id="photoFlash" class="hidden"></div>
@@ -763,6 +783,16 @@ def({ id: 'sign', name: 'Sign post', cat: 'Decor', W: 1, D: 1, H: 9,
     { geo: merge([cyl(0.08, 2.6, 10)]), fixed: '#7a4b26' },
     { geo: merge([new RoundedBoxGeometry(1.8, 0.9, 0.12, 1, 0.04).translate(0, 3.0, 0)]) },
   ], text: { w: 1.7, h: 0.8, y: 3.0, z: 0.066 } });
+// Decor wall tiles and billboards: choose a pattern, two colours and your own words (tap and hold / middle-click to change).
+for (const [W, H] of [[2, 9], [4, 9], [4, 18]]) def({ id: `decotile${W}x${H / 3}`, name: `Decor wall tile ${W}×${H / 3}`, cat: 'Decor', W, D: 1, H, flush: true, deco: true,
+  parts: () => [{ geo: merge([new RoundedBoxGeometry(W - 0.04, H * P - 0.04, 0.12, 1, 0.02).translate(0, H * P / 2, -0.43)]) }],
+  text: { w: W - 0.06, h: H * P - 0.06, y: H * P / 2, c: -0.43, z: 0.065 } });
+def({ id: 'billboard8x5', name: 'Billboard', cat: 'Decor', W: 8, D: 1, H: 15, deco: true,
+  parts: () => [
+    { geo: merge([-3.5, 3.5].map(x => new RoundedBoxGeometry(0.5, 2.6, 0.5, 1, 0.06).translate(x, 1.3, 0))), fixed: '#5b5f66' },
+    { geo: merge([new RoundedBoxGeometry(7.96, 3.6, 0.3, 1, 0.05).translate(0, 4.2, 0)]) },
+  ], text: { w: 7.7, h: 3.35, y: 4.2, c: 0, z: 0.16 },
+  cell: (i, j, k) => (k >= 6 || i === 0 || i === 7) ? 1 : 0 });
 def({ id: 'signwall', name: 'Wall sign', cat: 'Decor', W: 2, D: 1, H: 3, flush: true,
   parts: () => [
     { geo: merge([new RoundedBoxGeometry(1.94, 1.1, 0.16, 1, 0.04).translate(0, 0.6, -0.4)]) },
@@ -1960,6 +1990,7 @@ const keys = {}, joy = { x: 0, y: 0 };
 const FLY_LEVELS = [['🕊', 'Flying off', 0], ['🕊', 'Flying', 1], ['⚡', 'Fast flying', 3], ['🚀', 'Turbo flying', 7]];
 function setFly(lv) {
   player.flyLv = lv; player.fly = lv > 0; player.vy = 0;
+  document.body.classList.toggle('turbo', lv === FLY_LEVELS.length - 1);
   const el = $('tbFly'); el.textContent = FLY_LEVELS[lv][0]; el.classList.toggle('on', lv > 0);
   $('tbDown').classList.toggle('hidden', lv === 0);
   toast(FLY_LEVELS[lv][1] + (lv > 1 ? ` (${FLY_LEVELS[lv][2]}× speed)` : ''));
@@ -2369,7 +2400,7 @@ document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   setHud();
   if (locked) { menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; }
-  else { for (const k in keys) keys[k] = false; if (photoMode && !touchMode) setPhoto(false); if (!invOpen && !charOpen && !gOpen && !textOpen && !mapOpen && !talkOpen) { menu.classList.remove('hidden'); save(); } }
+  else { for (const k in keys) keys[k] = false; if (photoMode && !touchMode) setPhoto(false); if (!invOpen && !charOpen && !gOpen && !textOpen && !mapOpen && !talkOpen && !decoOpen) { menu.classList.remove('hidden'); save(); } }
 });
 $('playBtn').onclick = () => { if (!charSaved) openChar(true); else play(); };
 $('invClose').onclick = closeInv;
@@ -2391,7 +2422,7 @@ document.addEventListener('wheel', (e) => {
   selectSlot((slot + (e.deltaY > 0 ? 1 : -1) + hotbar.length) % hotbar.length);
 }, { passive: true });
 document.addEventListener('keydown', (e) => {
-  if (textOpen) return;
+  if (textOpen || decoOpen) return;
   if (talkOpen) { if (e.code === 'Escape' || e.code === 'KeyJ') closeTalk(); return; }
   if (mapOpen) { if (e.code === 'Escape' || e.code === 'KeyL') closeMap(); return; }
   if (charOpen) { if (e.code === 'Escape' || e.code === 'Enter') { e.preventDefault(); closeChar(); } return; }
@@ -3064,7 +3095,7 @@ function enterCar(base) {
           stats: an.st, canSteer: an.canSteer, anims, exhausts, phase: 0, smokeT: 0, boat: an.boat, air: an.air, lift: an.lift, vy: 0 };
   scene.add(group);
   undoStack.length = 0; redoStack.length = 0; stopRepeat();
-  player.fly = false; player.flyLv = 0; $('tbFly').classList.remove('on'); $('tbFly').textContent = '🕊'; $('tbDown').classList.add('hidden');
+  player.fly = false; player.flyLv = 0; $('tbFly').classList.remove('on'); document.body.classList.remove('turbo'); $('tbFly').textContent = '🕊'; $('tbDown').classList.add('hidden');
   player.yaw = car.yaw; player.pitch = -0.25;
   document.body.classList.add('driving'); $('tbJump').textContent = '🛑';
   document.body.classList.toggle('flying', !!car.air);
@@ -3846,21 +3877,24 @@ function setSignText(b, text) {
   if (!text) return;
   const t = b.p.text, cv = document.createElement('canvas'); cv.width = 512; cv.height = Math.round(512 * t.h / t.w);
   const g = cv.getContext('2d'), col = COLORS[b.c].c, lum = 0.3 * col.r + 0.59 * col.g + 0.11 * col.b;
-  g.fillStyle = lum > 0.45 ? '#1e1f22' : '#ffffff';
+  const deco = text.startsWith('DECO:') ? parseDeco(text) : null;
+  if (deco) { drawDeco(g, cv.width, cv.height, deco); text = deco.t || ''; }
+  else g.fillStyle = lum > 0.45 ? '#1e1f22' : '#ffffff';
+  if (deco && text) { const c1 = COLORS[deco.a] ? COLORS[deco.a].c : col; g.fillStyle = 0.3 * c1.r + 0.59 * c1.g + 0.11 * c1.b > 0.5 ? '#1e1f22' : '#ffffff'; g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 6; }
   let size = 120; g.font = `bold ${size}px system-ui, sans-serif`;
   while (g.measureText(text).width > cv.width * 0.9 && size > 20) { size -= 6; g.font = `bold ${size}px system-ui, sans-serif`; }
-  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, cv.width / 2, cv.height / 2);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; if (deco && text) g.strokeText(text, cv.width / 2, cv.height / 2); if (text) g.fillText(text, cv.width / 2, cv.height / 2);
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   const grp = new THREE.Group(), geo = new THREE.PlaneGeometry(t.w, t.h);
   for (const side of [1, -1]) {
-    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+    const m = new THREE.Mesh(geo, deco ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -2 }) : new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
     m.position.set(0, t.y, (t.c || 0) + t.z * side); if (side < 0) m.rotation.y = Math.PI; grp.add(m);
   }
   const [w, d] = dims(b.p, b.r);
   grp.position.set(b.x + w / 2, b.y * P, b.z + d / 2); grp.rotation.y = b.r * Math.PI / 2;
   scene.add(grp); b.textMesh = grp;
 }
-function editSign(b) { askText('What should the sign say?', b.text || '', (v) => { setSignText(b, v); if (v) stats.signs++; saveSoon(); }); }
+function editSign(b) { if (b.p.deco) { openDeco(b); return; } askText('What should the sign say?', b.text || '', (v) => { setSignText(b, v); if (v) stats.signs++; saveSoon(); }); }
 
 // ---------------------------------------------------------------- paint tool
 function repaint(b, c, rec = true) {
@@ -5018,14 +5052,15 @@ const compassCv = $('compass'), compassG = compassCv.getContext('2d');
 let compassPins = [], compassT = 0;
 const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 function updateCompass(dt) {
-  if (!document.body.classList.contains('playing') || photoMode) return;
   if ((compassT -= dt) <= 0) {
     compassT = 1;
     compassPins = [[2, 1, '🏠']];
-    for (const st of allSites().values()) if (siteKnown(st)) { const [x, z] = siteSpot(st); compassPins.push([x, z, { town: '🏙', village: '🏘', airport: '✈', port: '⚓' }[st.type]]); }
-    for (const m of marks) compassPins.push([m.x, m.z, '📍']);
-    if (mapPick) compassPins.push([mapPick.x, mapPick.z, '🔷']);
+    compassPins[0][3] = 'Home';
+    for (const st of allSites().values()) if (siteKnown(st)) { const [x, z] = siteSpot(st); compassPins.push([x, z, { town: '🏙', village: '🏘', airport: '✈', port: '⚓' }[st.type], st.name]); }
+    for (const m of marks) compassPins.push([m.x, m.z, '📍', m.n]);
+    if (mapPick) compassPins.push([mapPick.x, mapPick.z, '🔷', 'Teleport spot']);
   }
+  if (!document.body.classList.contains('playing') || photoMode) return;
   const g = compassG, W = compassCv.width, H = compassCv.height, FOV = Math.PI * 0.9, heading = -player.yaw, half = W / 2 - 14;
   g.clearRect(0, 0, W, H);
   g.fillStyle = 'rgba(15,20,30,.72)'; g.beginPath(); g.roundRect(0, 0, W, H, H / 2); g.fill();
@@ -5045,6 +5080,119 @@ function updateCompass(dt) {
     g.globalAlpha = Math.abs(rel) > FOV / 2 ? 0.45 : 1; g.fillText(icon, px, H / 2 + 2); g.globalAlpha = 1;
   }
   g.fillStyle = '#ffcf33'; g.beginPath(); g.moveTo(W / 2 - 9, 0); g.lineTo(W / 2 + 9, 0); g.lineTo(W / 2, 11); g.closePath(); g.fill();
+}
+// ---------------------------------------------------------------- decor patterns
+const DECO_PATS = [['plain', '⬜ Plain'], ['stripes', '▥ Stripes'], ['hstripes', '▤ Lines'], ['checks', '▦ Checks'], ['bricks', '🧱 Bricks'], ['wood', '🪵 Wood'],
+  ['tiles', '◻️ Tiles'], ['dots', '⚪ Dots'], ['diamonds', '🔷 Diamonds'], ['waves', '🌊 Waves'], ['stars', '⭐ Stars'], ['hearts', '❤ Hearts']];
+function parseDeco(text) { try { const o = JSON.parse(text.slice(5)); return { p: o.p || 'plain', a: o.a | 0, b: o.b | 0, t: String(o.t || '').slice(0, 40) }; } catch (e) { return { p: 'plain', a: 0, b: 1, t: '' }; } }
+function drawDeco(g, W, H, d) {
+  const c1 = (COLORS[d.a] || COLORS[0]).h, c2 = (COLORS[d.b] || COLORS[1]).h, u = H / 8;
+  g.fillStyle = c1; g.fillRect(0, 0, W, H); g.fillStyle = c2; g.strokeStyle = c2;
+  const star = (x, y, r) => { g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.closePath(); g.fill(); };
+  const heart = (x, y, r) => { g.beginPath(); g.moveTo(x, y + r * 0.8); g.bezierCurveTo(x - r * 1.4, y - r * 0.2, x - r * 0.5, y - r * 1.2, x, y - r * 0.4); g.bezierCurveTo(x + r * 0.5, y - r * 1.2, x + r * 1.4, y - r * 0.2, x, y + r * 0.8); g.fill(); };
+  switch (d.p) {
+    case 'stripes': for (let x = 0; x < W; x += u * 2) g.fillRect(x, 0, u, H); break;
+    case 'hstripes': for (let y = 0; y < H; y += u * 2) g.fillRect(0, y, W, u); break;
+    case 'checks': for (let x = 0; x < W; x += u) for (let y = 0; y < H; y += u) if (((x / u | 0) + (y / u | 0)) % 2) g.fillRect(x, y, u, u); break;
+    case 'bricks': g.lineWidth = u * 0.14; for (let r = 0, y = 0; y < H + u; y += u * 0.9, r++) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); for (let x = (r % 2) * u; x < W; x += u * 2) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + u * 0.9); g.stroke(); } } break;
+    case 'wood': g.lineWidth = 3; for (let x = 0; x < W; x += u * 1.4) { g.fillRect(x, 0, 4, H); for (let k = 0; k < 4; k++) { g.globalAlpha = 0.35; g.beginPath(); const gx = x + u * (0.25 + k * 0.28); g.moveTo(gx, 0); g.bezierCurveTo(gx + 8, H * 0.3, gx - 8, H * 0.6, gx + 4, H); g.stroke(); g.globalAlpha = 1; } } break;
+    case 'tiles': g.lineWidth = u * 0.1; for (let x = 0; x <= W; x += u * 1.2) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); } for (let y = 0; y <= H; y += u * 1.2) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); } break;
+    case 'dots': for (let x = u / 2, r = 0; x < W + u; x += u, r++) for (let y = (r % 2) * u / 2; y < H + u; y += u) { g.beginPath(); g.arc(x, y, u * 0.22, 0, Math.PI * 2); g.fill(); } break;
+    case 'diamonds': for (let x = 0; x < W + u; x += u) for (let y = 0; y < H + u; y += u) { g.beginPath(); g.moveTo(x, y - u / 2); g.lineTo(x + u / 2, y); g.lineTo(x, y + u / 2); g.lineTo(x - u / 2, y); g.closePath(); if (((x / u | 0) + (y / u | 0)) % 2) g.fill(); } break;
+    case 'waves': g.lineWidth = u * 0.22; for (let y = u / 2; y < H + u; y += u) { g.beginPath(); for (let x = 0; x <= W; x += 8) g.lineTo(x, y + Math.sin(x / u * Math.PI) * u * 0.25); g.stroke(); } break;
+    case 'stars': for (let x = u, r = 0; x < W + u; x += u * 2, r++) for (let y = u * (r % 2 ? 1.5 : 0.5); y < H + u; y += u * 2) star(x, y, u * 0.55); break;
+    case 'hearts': for (let x = u, r = 0; x < W + u; x += u * 2, r++) for (let y = u * (r % 2 ? 1.6 : 0.6); y < H + u; y += u * 2) heart(x, y, u * 0.5); break;
+  }
+}
+let decoOpen = false, decoB = null, decoSpec = null;
+function openDeco(b) {
+  decoB = b; decoSpec = b.text && b.text.startsWith('DECO:') ? parseDeco(b.text) : { p: b.p.id.startsWith('billboard') ? 'plain' : 'tiles', a: b.c, b: cid('White'), t: '' };
+  decoOpen = true; resetTouchInput(); stopRepeat(); touchPlaying = false; setHud(); if (locked) document.exitPointerLock();
+  const cols = COLORS.map((c, i) => [c, i]).filter(([c]) => !c.t);
+  $('decoPats').innerHTML = DECO_PATS.map(([k, n]) => `<button data-dp="${k}">${n}</button>`).join('');
+  $('decoC1').innerHTML = cols.map(([c, i]) => `<div class="color" data-d1="${i}" title="${c.n}" style="background-color:${c.h}"></div>`).join('');
+  $('decoC2').innerHTML = cols.map(([c, i]) => `<div class="color" data-d2="${i}" title="${c.n}" style="background-color:${c.h}"></div>`).join('');
+  $('decoText').value = decoSpec.t; $('decoUI').classList.remove('hidden'); menu.classList.add('hidden'); drawDecoPreview();
+}
+function drawDecoPreview() {
+  const cv = $('decoPreview'), t = decoB.p.text; cv.height = Math.round(512 * t.h / t.w);
+  const g = cv.getContext('2d'); drawDeco(g, cv.width, cv.height, decoSpec);
+  const txt = decoSpec.t; if (txt) { const c1 = COLORS[decoSpec.a].c; let size = 120; g.font = `bold ${size}px system-ui, sans-serif`; while (g.measureText(txt).width > cv.width * 0.9 && size > 20) { size -= 6; g.font = `bold ${size}px system-ui, sans-serif`; }
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,.35)'; g.fillStyle = 0.3 * c1.r + 0.59 * c1.g + 0.11 * c1.b > 0.5 ? '#1e1f22' : '#fff'; g.strokeText(txt, cv.width / 2, cv.height / 2); g.fillText(txt, cv.width / 2, cv.height / 2); }
+  document.querySelectorAll('#decoPats [data-dp]').forEach(e => e.classList.toggle('primary', e.dataset.dp === decoSpec.p));
+  document.querySelectorAll('[data-d1]').forEach(e => e.classList.toggle('sel', +e.dataset.d1 === decoSpec.a));
+  document.querySelectorAll('[data-d2]').forEach(e => e.classList.toggle('sel', +e.dataset.d2 === decoSpec.b));
+}
+function closeDeco(ok) {
+  if (!decoOpen) return; decoOpen = false; $('decoUI').classList.add('hidden');
+  if (ok && decoB && bricks.has(decoB)) { decoSpec.t = $('decoText').value.trim().slice(0, 40); setSignText(decoB, 'DECO:' + JSON.stringify(decoSpec)); stats.signs++; saveSoon(); }
+  decoB = null; if (!gOpen) play();
+}
+$('decoUI').addEventListener('click', (e) => {
+  const p = e.target.closest('[data-dp]'), a = e.target.closest('[data-d1]'), c = e.target.closest('[data-d2]');
+  if (p) decoSpec.p = p.dataset.dp; else if (a) decoSpec.a = +a.dataset.d1; else if (c) decoSpec.b = +c.dataset.d2; else return;
+  drawDecoPreview();
+});
+$('decoText').addEventListener('input', () => { decoSpec.t = $('decoText').value.slice(0, 40); drawDecoPreview(); });
+$('decoText').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') closeDeco(true); if (e.key === 'Escape') closeDeco(false); });
+$('decoOk').onclick = () => closeDeco(true); $('decoCancel').onclick = () => closeDeco(false);
+
+// ---------------------------------------------------------------- turbo flying: minimal screen with waypoints
+const wpEls = new Map(), _wp = new THREE.Vector3();
+function updateWaypoints() {
+  const on = document.body.classList.contains('turbo') && isActive() && !photoMode;
+  const box = $('waypoints'); box.style.display = on ? 'block' : 'none'; if (!on) return;
+  const seen = new Set();
+  for (const pin of compassPins) {
+    const [x, z, icon, name] = pin, k = icon + (name || '') + x + ',' + z; seen.add(k);
+    let el = wpEls.get(k); if (!el) { el = document.createElement('div'); el.className = 'wp'; box.appendChild(el); wpEls.set(k, el); }
+    const d = Math.hypot(x - player.x, z - player.z);
+    // far places are pulled in along the same line of sight so they stay inside the camera's view distance
+    _wp.set(x, (d < 400 ? Math.max(0, topSolidAt(x, z, 80)) : 0) + 6, z).sub(camera.position); const L = _wp.length(); if (L > 500) _wp.multiplyScalar(500 / L); _wp.add(camera.position).project(camera);
+    if (_wp.z > 1 || Math.abs(_wp.x) > 1.05 || Math.abs(_wp.y) > 1.05 || d < 30) { el.style.display = 'none'; continue; }
+    el.style.display = 'block'; el.style.left = ((_wp.x + 1) / 2 * innerWidth) + 'px'; el.style.top = ((1 - _wp.y) / 2 * innerHeight) + 'px';
+    const label = `${icon}${name ? ' ' + name : ''} · ${(d * 0.00053).toFixed(1)} km`; if (el.textContent !== label) el.textContent = label;
+  }
+  for (const [k, el] of wpEls) if (!seen.has(k)) { el.remove(); wpEls.delete(k); }
+}
+
+// ---------------------------------------------------------------- game controller (Xbox / PlayStation style pads)
+let padIdx = null, padPrev = [], padHint = false;
+addEventListener('gamepadconnected', (e) => { padIdx = e.gamepad.index; toast('🎮 Controller connected! Press START (☰) to play'); });
+addEventListener('gamepaddisconnected', (e) => { if (e.gamepad.index === padIdx) { padIdx = null; joy.x = joy.y = 0; touchJump = touchDown = false; toast('🎮 Controller disconnected'); } });
+function updateGamepad(dt) {
+  if (padIdx === null || !navigator.getGamepads) return;
+  const gp = navigator.getGamepads()[padIdx]; if (!gp) return;
+  const B = gp.buttons.map(b => b.pressed || b.value > 0.5), down = (i) => B[i] && !padPrev[i], up = (i) => !B[i] && padPrev[i];
+  const dz = (v) => Math.abs(v) < 0.15 ? 0 : v;
+  const lx = dz(gp.axes[0] || 0), ly = dz(gp.axes[1] || 0), rx = dz(gp.axes[2] || 0), ry = dz(gp.axes[3] || 0);
+  const overlay = invOpen || charOpen || gOpen || mapOpen || textOpen || talkOpen || decoOpen;
+  // START: play / pause.  Buttons on the standard layout: 0 A, 1 B, 2 X, 3 Y, 4 LB, 5 RB, 6 LT, 7 RT, 8 Back, 9 Start, 12-15 D-pad
+  if (down(9)) { if (isActive()) { if (touchMode) pauseTouch(); else if (locked) document.exitPointerLock(); else { touchPlaying = false; menu.classList.remove('hidden'); setHud(); save(); } } else if (!overlay) { if (!charSaved) openChar(true); else { initAudio(); touchPlaying = true; menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; setHud(); } } }
+  if (overlay) { if (down(1) || down(9)) { if (invOpen) closeInv(); else if (mapOpen) closeMap(); else if (talkOpen) closeTalk(); else if (decoOpen) closeDeco(false); } padPrev = B; return; }
+  if (!isActive()) { if (down(0) && !menu.classList.contains('hidden')) $('playBtn').click(); padPrev = B; return; }
+  if (!padHint) { padHint = true; toast('🎮 Left stick move · Right stick look · RT place · LT remove · A jump/up · B down · X rotate · Y bricks'); }
+  joy.x = lx; joy.y = ly;
+  if (rx || ry) { player.yaw -= rx * dt * 2.6; player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - ry * dt * 2.0)); lastLook = performance.now(); }
+  touchJump = B[0]; touchDown = B[1] && (player.fly || (car && car.air));
+  if (car) {   // driving: RT accelerate, LT brake/reverse, A brake, B get out
+    joy.y = ly || ((gp.buttons[6]?.value || 0) - (gp.buttons[7]?.value || 0)); touchJump = B[0];
+    if (down(1) && !car.air) toggleCar(); if (down(3)) toggleCar(); padPrev = B; return;
+  }
+  if (down(7)) startRepeat(); if (up(7)) stopRepeat();
+  if (down(6)) removeAction();
+  if (down(2)) { rot = (rot + 1) % 4; showLabel(); }
+  if (down(3)) openInv();
+  if (down(4)) selectSlot((slot + hotbar.length - 1) % hotbar.length);
+  if (down(5)) selectSlot((slot + 1) % hotbar.length);
+  if (down(12)) cycleFly();
+  if (down(13)) cycleTool();
+  if (down(14)) setColor((colorIdx - 1 + COLORS.length) % COLORS.length);
+  if (down(15)) setColor((colorIdx + 1) % COLORS.length);
+  if (down(8)) openMap();
+  if (down(10)) { if (nearVillager || useTarget()) talk(); else toggleCar(); }   // left stick click: talk / open / drive
+  if (down(11)) toggleView();
+  padPrev = B;
 }
 function toggleNight() { cycleDayMode(); }
 $('fuelBtn').onclick = toggleFuel;
@@ -5184,7 +5332,7 @@ function frame() {
   updateSnaps(performance.now());
   updateSmoke(dt);
   updateLamps();
-  cullRegions(dt); updateCompass(dt); updateMobs(dt); updateWeather(dt); updateTrailer(); updateRace(dt);
+  updateGamepad(dt); cullRegions(dt); updateCompass(dt); updateWaypoints(); updateMobs(dt); updateWeather(dt); updateTrailer(); updateRace(dt);
   if (car) { if (lastCarXZ) stats.driven += Math.hypot(car.x - lastCarXZ[0], car.z - lastCarXZ[1]) * 0.53; lastCarXZ = [car.x, car.z]; } else lastCarXZ = null;
   updateDayCycle(dt);
   night += (nightTarget - night) * Math.min(1, dt * 2.5); applyLight();
@@ -5200,7 +5348,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { setPiece: (id) => { hotbar[slot] = id; rot = 0; refreshUI(); }, setRot: (r) => { rot = r; }, get visitedSites() { return visitedSites; }, siteKnown, mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { openDeco, closeDeco, get padIdx() { return padIdx; }, setPiece: (id) => { hotbar[slot] = id; rot = 0; refreshUI(); }, setRot: (r) => { rot = r; }, get visitedSites() { return visitedSites; }, siteKnown, mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
