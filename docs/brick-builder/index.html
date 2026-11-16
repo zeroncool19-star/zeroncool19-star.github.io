@@ -217,6 +217,9 @@
   #waypoints { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 2; }
   .wp { position: absolute; transform: translate(-50%, -100%); padding: 3px 9px; border-radius: 999px; background: rgba(15,20,30,.72); color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; border: 1px solid rgba(255,255,255,.35); }
   .wp::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -5px; border: 5px solid transparent; border-top-color: rgba(15,20,30,.72); border-bottom: 0; }
+  .dzWrap { display: grid; grid-template-columns: 1fr 200px; gap: 16px; } @media (max-width: 640px) { .dzWrap { grid-template-columns: 1fr; } }
+  .dzRow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; font-size: 14px; } .dzRow button { padding: 6px 10px; font-size: 13px; }
+  .dzRow input[type=number] { width: 52px; } #dzName { width: 150px; } .dzRow input { font: inherit; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: #0d121b; color: var(--text); }
   .invHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .invJump { flex-basis: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
   .invJump button { flex: none; padding: 5px 11px; font-size: 13px; border-radius: 999px; }
@@ -461,6 +464,8 @@
     <h2 id="cat-Crafting">🔨 Crafting bench: turn what you find into special parts</h2>
     <div id="craftBank"></div>
     <div id="craftList"></div>
+    <h2 id="cat-Mypieces">✨ My pieces: designed at a Crafting Station</h2>
+    <div id="myPieces"></div>
     <h2 id="cat-Blueprints">📐 Blueprints: copied builds you can paste again</h2>
     <div class="btns" style="margin-top:4px"><button id="bpSave">💾 Save copied build</button><button id="bpImport">📥 Paste a share code</button></div>
     <div id="bpList"></div>
@@ -509,6 +514,29 @@
   </div>
 </div>
 <div id="waypoints"></div>
+<div id="designUI" class="overlay hidden">
+  <div class="card" style="max-width:720px">
+    <div class="invHead" style="position:static;margin:0;padding:0;border:0">
+      <h1 style="font-size:22px">🛠 Piece designer</h1>
+      <div class="btns" style="margin:0"><button data-dza="new">＋ New</button><button data-dza="save" class="primary">💾 Save piece</button><button data-dza="close">Close</button></div>
+    </div>
+    <div class="dzWrap">
+      <div>
+        <div class="dzRow"><label>Name <input id="dzName" maxlength="30" autocomplete="off"></label></div>
+        <div class="dzRow"><label>Size <input id="dzW" type="number" min="1" max="8" value="2"> × <input id="dzD" type="number" min="1" max="8" value="2"> studs</label> <label><input id="dzStuds" type="checkbox" checked> Studs on top</label></div>
+        <div class="dzRow"><button data-dza="down">⬇ Layer</button><b id="dzLayer">Layer 1 of 1</b><button data-dza="up">⬆ Layer</button></div>
+        <canvas id="dzGrid" style="touch-action:none;border-radius:8px;display:block;margin:6px 0"></canvas>
+        <div class="dzRow"><button data-dzt="paint" class="primary">🖌 Paint</button><button data-dzt="erase">⌫ Erase</button><button data-dza="fill">Fill layer</button><button data-dza="clear">Clear layer</button><button data-dza="copy">Copy layer below</button><button data-dza="mirror">Mirror ↔</button></div>
+        <p style="font-size:12px">Tap a stud to paint it, tap again to erase. Each layer is one plate tall. The bottom edge is the front.</p>
+      </div>
+      <div>
+        <img id="dzPrev" alt="" style="width:180px;height:180px;background:rgba(255,255,255,.06);border-radius:12px;display:block;margin:0 auto 6px">
+        <div id="dzCount" style="text-align:center;font-size:13px;color:var(--muted)"></div>
+        <h2>Colour</h2><div id="dzColors" class="colors"></div>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="tut" class="hidden"><div id="tutText"></div><button id="tutSkip">Skip</button></div>
 <div id="photoUI"><button id="photoSnap" title="Take picture">📸</button><button id="photoExit" title="Exit photo mode">✖</button></div>
 <div id="photoFlash" class="hidden"></div>
@@ -1131,13 +1159,13 @@ def({ id: 'trailer4x6', name: 'Trailer 4×6', cat: 'Vehicles', W: 4, D: 6, H: 3,
 // ---- Aircraft
 def({ id: 'planebody2x10', name: 'Plane body 2×10', cat: 'Aircraft', W: 2, D: 10, H: 3, car: true, chassis: true, builtinWheels: true, air: 'plane',
   parts: () => [
-    { geo: merge([new RoundedBoxGeometry(1.98, 0.9, 9.6, 3, 0.3).translate(0, 0.75, 0.2), new THREE.ConeGeometry(0.75, 1.2, 16).rotateX(-Math.PI / 2).translate(0, 0.75, -5.0), ...studs(2, 10, 1.2)]) },
+    { geo: merge([new THREE.CapsuleGeometry(0.62, 8.2, 6, 18).rotateX(Math.PI / 2).translate(0, 0.62, 0.3), new THREE.ConeGeometry(0.62, 1.6, 18).rotateX(-Math.PI / 2).translate(0, 0.62, -4.9), ...studs(2, 10, 1.2)]) },
     { geo: merge([[-0.8, -2.5], [0.8, -2.5], [0, 3.6]].map(([x, z]) => new THREE.CylinderGeometry(0.3, 0.3, 0.24, 16).rotateZ(Math.PI / 2).translate(x, 0.3, z))), fixed: '#1e1f22' },
     { geo: merge([[-0.8, -2.5], [0.8, -2.5], [0, 3.6]].map(([x, z]) => new THREE.BoxGeometry(0.08, 0.4, 0.08).translate(x, 0.5, z))), fixed: DARKM },
   ], cell: (i, j, k) => k === 2 ? 1 : 0 });
 def({ id: 'helibody4x6', name: 'Helicopter body 4×6', cat: 'Aircraft', W: 4, D: 6, H: 3, car: true, chassis: true, builtinWheels: true, air: 'heli',
   parts: () => [
-    { geo: merge([new RoundedBoxGeometry(3.6, 0.7, 5.8, 3, 0.25).translate(0, 0.85, 0), ...studs(4, 6, 1.2)]) },
+    { geo: merge([new THREE.CapsuleGeometry(1.0, 3.4, 6, 18).rotateX(Math.PI / 2).scale(1.75, 0.7, 1).translate(0, 0.85, 0), ...studs(4, 6, 1.2)]) },
     { geo: merge([-1.5, 1.5].flatMap(x => [new THREE.BoxGeometry(0.16, 0.14, 6.2).translate(x, 0.07, 0), new THREE.BoxGeometry(0.1, 0.5, 0.1).translate(x, 0.35, -1.6), new THREE.BoxGeometry(0.1, 0.5, 0.1).translate(x, 0.35, 1.6)])), fixed: DARKM },
   ], cell: (i, j, k) => k === 2 ? 1 : 0 });
 def({ id: 'wing8x4', name: 'Wing 8×4', cat: 'Aircraft', W: 8, D: 4, H: 1, wing: true,
@@ -1160,7 +1188,64 @@ def({ id: 'rotor2x2', name: 'Helicopter rotor', cat: 'Aircraft', W: 2, D: 2, H: 
     animPart(merge([new THREE.BoxGeometry(9.0, 0.08, 0.4), new THREE.BoxGeometry(0.4, 0.08, 9.0), new THREE.CylinderGeometry(0.3, 0.3, 0.25, 12)]), [0, 2.05, 0], 'spinY'),
   ] });
 
-const SMOOTH_TOP = /^(wheel|rudder|outboard|tile|roundtile|quarter|wedge|curve|ridge|stairs|dome|fence|railing|door1x2|seat|steering|chair|wheel|flag|sign(?!wall)|lamp|flower|bush|grass|mushroom|tree|rock|cactus|exhaust|piston|gear|crank|lever|turbo|vblock)/;
+
+// ---- Streamlined vehicle parts
+// Curved nose: low at the front (-z), rising to full height at the back. Studs only on the full-height back row.
+for (const W of [2, 4]) {
+  const D = 4, h = 1.2, f = (u) => 0.2 + (h - 0.2) * Math.pow(Math.max(0, Math.min(1, (D - u - 0.5) / (D - 1.5))), 1.7);   // full height across the whole back row
+  const pts = [[0, 0], [D, 0], [D, 0.2]]; for (let n = 15; n >= 0; n--) pts.push([D * n / 16, f(D * n / 16)]);
+  profileDef({ id: `nose${W}x4`, name: `Streamlined nose ${W}×4`, cat: 'Vehicles', W, D, H: 3, pts, studRow: (j) => j === D - 1, top: f });
+}
+// Side skirt: a smooth quarter-round along the side of a car.
+def({ id: 'skirt1x4', name: 'Side skirt 1×4', cat: 'Vehicles', W: 1, D: 4, H: 3,
+  parts: () => [{ geo: merge([new THREE.CylinderGeometry(0.98, 0.98, 3.96, 16, 1, false, 0, Math.PI / 2).rotateX(Math.PI / 2).rotateY(-Math.PI / 2).translate(0.5, 0, 0).scale(1, 1.2, 1), new THREE.BoxGeometry(0.98, 0.3, 3.96).translate(0, 0.15, 0)]) }] });
+// Rear spoiler: a swept wing on two struts.
+def({ id: 'spoiler4x1', name: 'Rear spoiler 4×1', cat: 'Vehicles', W: 4, D: 1, H: 4,
+  parts: () => [
+    { geo: merge([-1.4, 1.4].map(x => new THREE.BoxGeometry(0.18, 1.0, 0.6).translate(x, 0.5, 0.1))), fixed: DARKM },
+    { geo: merge([new RoundedBoxGeometry(3.96, 0.14, 0.95, 1, 0.05).rotateX(-0.28).translate(0, 1.3, 0)]) },
+  ] });
+// Cockpit canopy: a curved glass bubble (use a glass colour).
+for (const [W, D] of [[2, 4], [4, 4]]) {
+  const h = 2.4, f = (u) => u > D - 2.2 ? 0.25 + (h - 0.25) * Math.sin(Math.min(1, (D - u) / 2.2) * Math.PI / 2) : h - 0.35 * (1 - u / (D - 2.2));
+  def({ id: `canopy${W}x${D}`, name: `Cockpit canopy ${W}×${D}`, cat: 'Vehicles', W, D, H: 6,
+    parts: () => { const pts = [[0, 0], [D, 0]]; for (let n = 24; n >= 0; n--) pts.push([D * n / 24, f(D * n / 24)]);
+      const g = new THREE.ExtrudeGeometry(poly(pts), { depth: W, bevelEnabled: false }).rotateY(Math.PI / 2).translate(-W / 2, 0, D / 2).scale((W - 0.06) / W, 1, (D - 0.06) / D);
+      return [{ geo: merge([g]) }]; },
+    cell: (i, j, k) => (k + 0.5) * P < f(D - (j + 0.5)) ? 1 : 0 });
+}
+// Swept wings (a left and a right), tapering toward the tip.
+for (const side of ['L', 'R']) def({ id: `sweptwing${side}`, name: `Swept wing (${side === 'L' ? 'left' : 'right'}) 8×4`, cat: 'Aircraft', W: 8, D: 4, H: 1, wing: true,
+  parts: () => { const s = new THREE.Shape(), m = side === 'L' ? -1 : 1;   // root along the fuselage edge, tip swept back (+z)
+    const px = (x) => m * x; s.moveTo(px(-4), -2); s.lineTo(px(4), 0.6); s.lineTo(px(4), 2); s.lineTo(px(-4), 2); s.closePath();
+    const g = new THREE.ExtrudeGeometry(s, { depth: P - 0.02, bevelEnabled: false }).rotateX(Math.PI / 2).translate(0, P - 0.01, 0);
+    return [{ geo: merge([g, ...studs(8, 4, P, (i, j) => { const x = (side === 'L' ? 7 - i : i) + 0.5 - 4, zmin = -2 + (x + 4) / 8 * 2.6; return j + 0.5 - 2 > zmin; })]) }]; },
+  cell: (i, j) => { const x = (side === 'L' ? 7 - i : i) + 0.5 - 4, zmin = -2 + (x + 4) / 8 * 2.6; return j + 0.5 - 2 > zmin ? 1 : 0; } });
+// Swept tail fin, nose cone and tail cone for sleek aircraft.
+def({ id: 'sweptfin1x3', name: 'Swept tail fin', cat: 'Aircraft', W: 1, D: 3, H: 6,
+  parts: () => [{ geo: merge([extrude(poly([[0, 0], [3, 0], [2.6, 0.5], [1.4, 2.4], [0.3, 2.4]]), 3, 2.4, 0.18).rotateY(Math.PI / 2)]) }] });
+def({ id: 'nosecone2x3', name: 'Nose cone 2×3', cat: 'Aircraft', W: 2, D: 3, H: 5,
+  parts: () => [{ geo: merge([new THREE.ConeGeometry(0.95, 2.96, 20).rotateX(-Math.PI / 2).translate(0, 1.0, 0), new THREE.SphereGeometry(0.95, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2).translate(0, 1.0, 1.48).scale(1, 1, 0.05)]) }],
+  cell: (i, j, k) => (k + 0.5) * P < 2.0 ? 1 : 0 });
+def({ id: 'tailcone2x3', name: 'Tail cone 2×3', cat: 'Aircraft', W: 2, D: 3, H: 5,
+  parts: () => [{ geo: merge([new THREE.ConeGeometry(0.95, 2.96, 20).rotateX(Math.PI / 2).translate(0, 1.0, 0)]) }],
+  cell: (i, j, k) => (k + 0.5) * P < 2.0 ? 1 : 0 });
+def({ id: 'fuselage2x4', name: 'Fuselage 2×4', cat: 'Aircraft', W: 2, D: 4, H: 5,
+  parts: () => [{ geo: merge([new THREE.CylinderGeometry(0.95, 0.95, 3.96, 20).rotateX(Math.PI / 2).translate(0, 1.0, 0), ...studs(2, 4, 2.0)]) }],
+  cell: (i, j, k) => (k + 0.5) * P < 2.0 ? 1 : 0 });
+// Sleek hull bows: longer and more pointed.
+hullSecDef('hullbow4x6', 'Sleek bow 4×6', 'bow', 4, 6);
+hullSecDef('hullbow6x6', 'Sleek bow 6×6', 'bow', 6, 6);
+
+def({ id: 'craftstation', name: 'Crafting Station', cat: 'Crafted', W: 2, D: 2, H: 7, locked: true, use: 'designer',
+  parts: () => [
+    { geo: merge([body(2, 2, 0.3), new THREE.BoxGeometry(0.3, 1.5, 0.3).translate(-0.7, 1.05, -0.7), new THREE.BoxGeometry(0.3, 1.5, 0.3).translate(0.7, 1.05, -0.7), new THREE.BoxGeometry(0.3, 1.5, 0.3).translate(-0.7, 1.05, 0.7), new THREE.BoxGeometry(0.3, 1.5, 0.3).translate(0.7, 1.05, 0.7)]), fixed: '#7a4b26' },
+    { geo: merge([new RoundedBoxGeometry(1.96, 0.24, 1.96, 1, 0.05).translate(0, 1.9, 0)]), fixed: '#b07a45' },
+    { geo: merge([new THREE.BoxGeometry(0.7, 0.35, 0.5).translate(-0.4, 2.2, 0.2), new THREE.CylinderGeometry(0.12, 0.12, 0.6, 10).rotateZ(Math.PI / 2).translate(0.4, 2.2, -0.3)]), fixed: '#5b5f66' },
+    { geo: merge([new THREE.BoxGeometry(0.5, 0.5, 0.5).translate(0.45, 2.27, 0.35)]), fixed: '#c91a09' },
+    { geo: merge([new THREE.BoxGeometry(0.3, 0.3, 0.3).translate(-0.55, 2.52, -0.45)]), fixed: '#1e5aa8' },
+  ] });
+const SMOOTH_TOP = /^(wheel|rudder|outboard|tile|canopy|spoiler|skirt|nosecone|tailcone|sweptfin|craftstation|roundtile|quarter|wedge|curve|ridge|stairs|dome|fence|railing|door1x2|seat|steering|chair|wheel|flag|sign(?!wall)|lamp|flower|bush|grass|mushroom|tree|rock|cactus|exhaust|piston|gear|crank|lever|turbo|vblock)/;
 for (const p of PIECES) {
   if (SMOOTH_TOP.test(p.id)) p.smooth = true;
   if (/^slope/.test(p.id)) p.studTop = (i, j) => j === 0;
@@ -2129,7 +2214,7 @@ function refreshPickables() {
   pickDirty = false;
 }
 function computeTarget(ndc = CENTER) {
-  refreshPickables();
+  refreshPickables(); camera.updateMatrixWorld();
   raycaster.far = REACH + camDist;
   raycaster.setFromCamera(ndc, camera);
   const hit = raycaster.intersectObjects(pickables, false).find(h => h.object.userData.isGround || h.instanceId !== undefined);
@@ -2419,9 +2504,9 @@ function buildInventory() {
     `<div class="slot${i === slot ? ' sel' : ''}" data-slot="${i}"><span class="k">${(i + 1) % 10}</span><img src="${thumbFor(id, hotCols[i])}" alt=""></div>`).join('');
   $('invColors').innerHTML = COLORS.map((c, i) =>
     `<div class="color${c.t ? ' glass' : ''}${i === colorIdx ? ' sel' : ''}" data-color="${i}" title="${c.n}" style="background-color:${c.h}"></div>`).join('');
-  const cats = [...new Set(PIECES.filter(pieceAvail).map(p => p.cat))];
-  const CAT_ICON = { Bricks: '🧱', Plates: '▭', Tiles: '◻️', Slopes: '📐', Round: '⚪', Special: '🚪', Nature: '🌳', Decor: '🪑', Vehicles: '🚗', Engine: '🔧', Chassis: '🛞', Boats: '🚤' };
-  $('invJump').innerHTML = `<button data-jump="top">🎨 Colours</button><button data-jump="Crafting">🔨 Crafting</button><button data-jump="Blueprints">📐 Blueprints</button>` + cats.map(c => `<button data-jump="${c}">${CAT_ICON[c] || ''} ${c}</button>`).join('');
+  const cats = [...new Set(PIECES.filter(pieceAvail).map(p => p.cat))].filter(c => c !== 'My pieces').concat(PIECES.some(p => p.cat === 'My pieces' && pieceAvail(p)) ? ['My pieces'] : []);
+  const CAT_ICON = { 'My pieces': '✨', Crafted: '🔨', Race: '🏁', Aircraft: '✈', Bricks: '🧱', Plates: '▭', Tiles: '◻️', Slopes: '📐', Round: '⚪', Special: '🚪', Nature: '🌳', Decor: '🪑', Vehicles: '🚗', Engine: '🔧', Chassis: '🛞', Boats: '🚤' };
+  $('invJump').innerHTML = `<button data-jump="top">🎨 Colours</button><button data-jump="Crafting">🔨 Crafting</button><button data-jump="Mypieces">✨ My pieces</button><button data-jump="Blueprints">📐 Blueprints</button>` + cats.map(c => `<button data-jump="${c}">${CAT_ICON[c] || ''} ${c}</button>`).join('');
   $('invPieces').innerHTML = cats.map(cat => `<h2 id="cat-${cat}">${cat}</h2><div class="grid">` +
     PIECES.filter(p => p.cat === cat && pieceAvail(p)).map(p => `<div class="piece${p.id === hotbar[slot] ? ' sel' : ''}" data-piece="${p.id}"><img src="${thumbs[p.id]}" alt="">${p.name}</div>`).join('') + '</div>').join('');
 }
@@ -2453,13 +2538,13 @@ function startTouch() {
   if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
 }
 function pauseTouch() { touchPlaying = false; resetTouchInput(); menu.classList.remove('hidden'); setHud(); save(); }
-function openInv() { refreshBlueprints(); setTimeout(refreshCraft, 0); invOpen = true; touchPlaying = false; resetTouchInput(); setHud(); buildInventory(); inv.classList.remove('hidden'); menu.classList.add('hidden'); if (locked) document.exitPointerLock(); }
+function openInv() { refreshBlueprints(); setTimeout(refreshCraft, 0); setTimeout(refreshMyPieces, 0); invOpen = true; touchPlaying = false; resetTouchInput(); setHud(); buildInventory(); inv.classList.remove('hidden'); menu.classList.add('hidden'); if (locked) document.exitPointerLock(); }
 function closeInv() { invOpen = false; inv.classList.add('hidden'); play(); }
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   setHud();
   if (locked) { menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; }
-  else { for (const k in keys) keys[k] = false; if (photoMode && !touchMode) setPhoto(false); if (!invOpen && !charOpen && !gOpen && !textOpen && !mapOpen && !talkOpen && !decoOpen) { menu.classList.remove('hidden'); save(); } }
+  else { for (const k in keys) keys[k] = false; if (photoMode && !touchMode) setPhoto(false); if (!invOpen && !charOpen && !gOpen && !textOpen && !mapOpen && !talkOpen && !decoOpen && !designOpen) { menu.classList.remove('hidden'); save(); } }
 });
 $('playBtn').onclick = () => { if (!charSaved) openChar(true); else play(); };
 $('invClose').onclick = closeInv;
@@ -2482,6 +2567,7 @@ document.addEventListener('wheel', (e) => {
 }, { passive: true });
 document.addEventListener('keydown', (e) => {
   if (textOpen || decoOpen) return;
+  if (designOpen) { if (e.code === 'Escape') closeDesigner(); return; }
   if (talkOpen) { if (e.code === 'Escape' || e.code === 'KeyJ') closeTalk(); return; }
   if (mapOpen) { if (e.code === 'Escape' || e.code === 'KeyL') closeMap(); return; }
   if (charOpen) { if (e.code === 'Escape' || e.code === 'Enter') { e.preventDefault(); closeChar(); } return; }
@@ -3391,13 +3477,15 @@ const GARAGE_KEY = 'brick-builder-cars-v1';
 const STARTERS = [
   { name: 'Red Racer', base: 'frame4x10', b: [
     ['frame4x10', 'Dark Grey', -2, 3, -5, 0], ['axle4x2', 'Dark Grey', -2, 2, -4, 0], ['axle4x2', 'Dark Grey', -2, 2, 2, 0],
-    ['wheelM', 'White', -3, 0, -4, 0], ['wheelM', 'White', 2, 0, -4, 0], ['wheelM', 'White', -3, 0, 2, 0], ['wheelM', 'White', 2, 0, 2, 0],
-    ['motor2x2', 'Dark Grey', -1, 4, -4, 0], ['brick1x2', 'Red', -2, 4, -4, 0], ['brick1x2', 'Red', 1, 4, -4, 0],
-    ['steering', 'Black', -1, 4, -2, 0], ['seat', 'Black', -1, 4, -1, 0],
-    ['brick1x4', 'Red', -2, 4, -5, 1], ['light1x1', 'Yellow', -2, 7, -5, 0], ['light1x1', 'Yellow', 1, 7, -5, 0],
-    ['brick1x4', 'Red', -2, 4, -2, 0], ['brick1x4', 'Red', 1, 4, -2, 0], ['brick1x4', 'Clear Glass', -2, 7, -3, 1],
-    ['brick1x2', 'Red', -1, 4, 1, 1], ['brick1x4', 'Red', -2, 4, 2, 1], ['brick1x4', 'Red', -2, 4, 3, 1], ['brick1x4', 'Black', -2, 4, 4, 1],
-    ['exhaust1x1', 'Light Grey', -1, 7, 2, 0], ['exhaust1x1', 'Light Grey', 0, 7, 2, 0], ['plate1x4', 'Black', -2, 7, 4, 1]] },
+    ['wheelM', 'Black', -3, 0, -4, 0], ['wheelM', 'Black', 2, 0, -4, 0], ['wheelM', 'Black', -3, 0, 2, 0], ['wheelM', 'Black', 2, 0, 2, 0],
+    ['motor2x2', 'Dark Grey', -1, 4, 2, 0],
+    ['nose2x4', 'Red', -2, 4, -5, 0], ['nose2x4', 'Red', 0, 4, -5, 0],
+    ['steering', 'Black', -1, 4, -1, 0], ['seat', 'Black', -1, 4, 0, 0],
+    ['skirt1x4', 'Red', -2, 4, -1, 0], ['skirt1x4', 'Red', 1, 4, -1, 0],
+    ['canopy2x4', 'Clear Glass', -1, 7, -1, 0],
+    ['light1x1', 'Yellow', -2, 7, -2, 0], ['light1x1', 'Yellow', 1, 7, -2, 0],
+    ['brick1x4', 'Red', -2, 4, 4, 1], ['exhaust1x1', 'Light Grey', -2, 7, 4, 0], ['exhaust1x1', 'Light Grey', 1, 7, 4, 0],
+    ['spoiler4x1', 'Red', -2, 7, 3, 0]] },
   { name: 'Beach Buggy', base: 'frame4x8', b: [
     ['frame4x8', 'Black', -2, 5, -4, 0], ['tallaxle4x2', 'Dark Grey', -2, 2, -4, 0], ['tallaxle4x2', 'Dark Grey', -2, 2, 1, 0],
     ['wheelOff', 'Orange', -4, 0, -4, 0], ['wheelOff', 'Orange', 2, 0, -4, 0], ['wheelOff', 'Orange', -4, 0, 1, 0], ['wheelOff', 'Orange', 2, 0, 1, 0],
@@ -3419,11 +3507,12 @@ const STARTERS = [
     ['plate2x6', 'White', -3, 10, -3, 1], ['plate2x6', 'White', -3, 10, -1, 1], ['tile1x6', 'White', -3, 10, 1, 1],
     ['brick1x4', 'Blue', -3, 4, 2, 0], ['brick1x4', 'Blue', 2, 4, 2, 0], ['brick1x4', 'Blue', -2, 4, 5, 1],
     ['light1x1', 'Red', -3, 7, 5, 0], ['light1x1', 'Red', 2, 7, 5, 0]] },
-  { name: 'Speedboat', base: 'hullbow4x4', b: [
-    ['hullbow4x4', 'Red', -2, 0, -6, 0], ['hullmid4x4', 'Red', -2, 0, -2, 0], ['hullstern4x2', 'Red', -2, 0, 2, 0],
-    ['plate4x4', 'White', -2, 3, -4, 0], ['plate4x4', 'White', -2, 3, 0, 0],
-    ['outboard1x2', 'Dark Grey', -1, 4, 3, 0], ['steering', 'Black', -1, 4, -2, 0], ['seat', 'White', -1, 4, -1, 0],
-    ['brick1x4', 'Clear Glass', -2, 4, -3, 1], ['brick1x2', 'White', -2, 4, -1, 0], ['brick1x2', 'White', 1, 4, -1, 0]] },
+  { name: 'Speedboat', base: 'hullbow4x6', b: [
+    ['hullbow4x6', 'Red', -2, 0, -8, 0], ['hullmid4x4', 'Red', -2, 0, -2, 0], ['hullstern4x2', 'Red', -2, 0, 2, 0],
+    ['plate2x4', 'White', -1, 3, -6, 0], ['plate4x4', 'White', -2, 3, -2, 0], ['plate2x4', 'White', -2, 3, 2, 1],
+    ['outboard1x2', 'Dark Grey', -1, 4, 3, 0], ['steering', 'Black', -1, 4, -3, 0], ['seat', 'White', -1, 4, -2, 0],
+    ['nose2x4', 'White', -1, 4, -7, 0], ['skirt1x4', 'White', -2, 4, -2, 0], ['skirt1x4', 'White', 1, 4, -2, 0],
+    ['canopy2x4', 'Clear Glass', -1, 7, -3, 0]] },
   { name: 'Fishing Boat', base: 'hullbow6x4', b: [
     ['hullbow6x4', 'Blue', -3, 0, -8, 0], ['hullmid6x4', 'Blue', -3, 0, -4, 0], ['hullmid6x4', 'Blue', -3, 0, 0, 0], ['hullstern6x2', 'Blue', -3, 0, 4, 0],
     ['plate2x4', 'White', -2, 3, -6, 1], ['plate6x8', 'White', -3, 3, -4, 0], ['plate2x6', 'White', -3, 3, 4, 1],
@@ -3434,11 +3523,11 @@ const STARTERS = [
     ['brick1x4', 'Clear Glass', -2, 8, -3, 1], ['plate2x6', 'Red', -3, 11, -3, 1], ['plate2x6', 'Red', -3, 11, -1, 1],
     ['brick2x2', 'Brown', -2, 5, 1, 0], ['brick2x2', 'Brown', 0, 5, 1, 0], ['flag', 'Red', 2, 5, 4, 0], ['light1x1', 'Yellow', 0, 5, -6, 0]] },
   { name: 'Sky Plane', base: 'planebody2x10', b: [
-    ['planebody2x10', 'White', -1, 0, -5, 0], ['wing8x4', 'Red', -8, 3, -2, 0], ['wing8x4', 'Red', 0, 3, -2, 0],
-    ['seat', 'Blue', -1, 3, -4, 0], ['propeller2x1', 'Red', -1, 3, -5, 0], ['tailfin1x3', 'Red', 0, 3, 2, 0]] },
+    ['planebody2x10', 'White', -1, 0, -5, 0], ['sweptwingL', 'Red', -8, 3, -1, 0], ['sweptwingR', 'Red', 0, 3, -1, 0],
+    ['seat', 'Blue', -1, 3, -3, 0], ['propeller2x1', 'Red', -1, 3, -5, 0], ['canopy2x4', 'Clear Glass', -1, 6, -4, 0], ['sweptfin1x3', 'Red', 0, 3, 3, 0]] },
   { name: 'Chopper', base: 'helibody4x6', b: [
-    ['helibody4x6', 'Yellow', -2, 0, -3, 0], ['brick1x4', 'Clear Glass', -2, 3, -3, 1], ['seat', 'Black', -1, 3, -2, 0],
-    ['rotor2x2', 'Dark Grey', -1, 3, 0, 0], ['brick1x6', 'Yellow', 0, 3, 2, 0], ['tailfin1x3', 'Yellow', 0, 6, 5, 0]] },
+    ['helibody4x6', 'Yellow', -2, 0, -3, 0], ['canopy4x4', 'Clear Glass', -2, 3, -3, 0], ['seat', 'Black', -2, 3, 1, 0],
+    ['rotor2x2', 'Dark Grey', -1, 6, 1, 0], ['brick1x6', 'Yellow', 0, 3, 2, 0], ['sweptfin1x3', 'Yellow', 0, 6, 5, 0]] },
 ];
 function starterDesign(st) { return { name: st.name, base: st.base, b: st.b.map(e => [...e]) }; }
 function loadMyCars() { try { const v = JSON.parse(localStorage.getItem(GARAGE_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
@@ -4328,6 +4417,7 @@ const RECIPES = [
   ['lightcrystal', { crystal: 2, copper: 1 }, 'Glows in the dark and lights up caves'],
   ['lightlantern', { wood: 3, stone: 2, coal: 2 }, 'A lantern that lights up at night'],
   ['pipe1x4', { copper: 3 }, 'Copper pipes, lying down and standing upright'],
+  ['craftstation', { wood: 8, stone: 6, copper: 2 }, 'Place it, then use it to design your own pieces'],
 ];
 const canAfford = (cost) => Object.entries(cost).every(([k, v]) => res[k] >= v);
 function craft(id) {
@@ -4516,10 +4606,10 @@ let talkOpen = false, talkWho = null;
 function updateTalkPrompt() {
   const door = useTarget(), show = (!!nearVillager || !!door) && isActive() && !talkOpen && !photoMode;
   $('talkBtn').classList.toggle('hidden', !show);
-  if (show) { const t = door ? `🚪 ${PIECE_BY_ID[door.p.toggleTo].hidden ? 'Open' : 'Close'}${touchMode ? '' : ' (J)'}` : `💬 Talk to ${nearVillager.name}${touchMode ? '' : ' (J)'}`; if ($('talkBtn').textContent !== t) $('talkBtn').textContent = t; }
+  if (show) { const t = door ? (door.p.use ? `🛠 Design pieces${touchMode ? '' : ' (J)'}` : `🚪 ${PIECE_BY_ID[door.p.toggleTo].hidden ? 'Open' : 'Close'}${touchMode ? '' : ' (J)'}`) : `💬 Talk to ${nearVillager.name}${touchMode ? '' : ' (J)'}`; if ($('talkBtn').textContent !== t) $('talkBtn').textContent = t; }
 }
 function talk() {
-  const door = useTarget(); if (door) { toggleOpen(door); return; }
+  const door = useTarget(); if (door) { if (door.p.use === 'designer') openDesigner(null); else toggleOpen(door); return; }
   if (!nearVillager) return;
   talkWho = nearVillager; talkOpen = true; resetTouchInput(); stopRepeat(); touchPlaying = false; setHud();
   if (locked) document.exitPointerLock();
@@ -4855,7 +4945,7 @@ function raceTrackItems() {
 
 // ---------------------------------------------------------------- opening doors
 function useTarget() {
-  if (!isActive() || car || !target || !target.brick || !target.brick.p.toggleTo) return null;
+  if (!isActive() || car || !target || !target.brick || !(target.brick.p.toggleTo || target.brick.p.use)) return null;
   const b = target.brick, [w, d] = dims(b.p, b.r);
   return Math.hypot(b.x + w / 2 - player.x, b.z + d / 2 - player.z) < 7 ? b : null;
 }
@@ -5232,10 +5322,10 @@ function updateGamepad(dt) {
   const B = gp.buttons.map(b => b.pressed || b.value > 0.5), down = (i) => B[i] && !padPrev[i], up = (i) => !B[i] && padPrev[i];
   const dz = (v) => Math.abs(v) < 0.15 ? 0 : v;
   const lx = dz(gp.axes[0] || 0), ly = dz(gp.axes[1] || 0), rx = dz(gp.axes[2] || 0), ry = dz(gp.axes[3] || 0);
-  const overlay = invOpen || charOpen || gOpen || mapOpen || textOpen || talkOpen || decoOpen;
+  const overlay = invOpen || charOpen || gOpen || mapOpen || textOpen || talkOpen || decoOpen || designOpen;
   // START: play / pause.  Buttons on the standard layout: 0 A, 1 B, 2 X, 3 Y, 4 LB, 5 RB, 6 LT, 7 RT, 8 Back, 9 Start, 12-15 D-pad
   if (down(9)) { if (isActive()) { if (touchMode) pauseTouch(); else if (locked) document.exitPointerLock(); else { touchPlaying = false; menu.classList.remove('hidden'); setHud(); save(); } } else if (!overlay) { if (!charSaved) openChar(true); else { initAudio(); touchPlaying = true; menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; setHud(); } } }
-  if (overlay) { if (down(1) || down(9)) { if (invOpen) closeInv(); else if (mapOpen) closeMap(); else if (talkOpen) closeTalk(); else if (decoOpen) closeDeco(false); } padPrev = B; return; }
+  if (overlay) { if (down(1) || down(9)) { if (invOpen) closeInv(); else if (mapOpen) closeMap(); else if (talkOpen) closeTalk(); else if (decoOpen) closeDeco(false); else if (designOpen) closeDesigner(); } padPrev = B; return; }
   if (!isActive()) { if (down(0) && !menu.classList.contains('hidden')) $('playBtn').click(); padPrev = B; return; }
   if (!padHint) { padHint = true; toast('🎮 Left stick move · Right stick look · RT place · LT remove · A jump/up · B down · X rotate · Y bricks'); }
   joy.x = lx; joy.y = ly;
@@ -5260,6 +5350,143 @@ function updateGamepad(dt) {
   if (down(11)) toggleView();
   padPrev = B;
 }
+
+// ================================================================ crafting station: design your own pieces
+// A custom piece is a stack of layers, one plate tall each, painted a stud at a time in any colours.
+// Pieces are saved in this browser and inside world saves, so shared worlds carry the pieces they use.
+const CUSTOM_KEY = 'brick-builder-pieces-v1';
+let customPieces = [];
+function loadCustomList() { try { const v = JSON.parse(localStorage.getItem(CUSTOM_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function saveCustomList() { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(customPieces)); } catch (e) { toast('Could not save (storage full?)'); } }
+function customParts(cp) {
+  const byCol = new Map(), has = new Set(cp.cells.map(c => c[0] + ',' + c[1] + ',' + c[2]));
+  for (const [i, j, k, c] of cp.cells) {
+    const hex = (COLORS[c] || COLORS[0]).h, x = i + 0.5 - cp.W / 2, z = j + 0.5 - cp.D / 2, y = k * P;
+    if (!byCol.has(hex)) byCol.set(hex, []);
+    const list = byCol.get(hex);
+    list.push(new THREE.BoxGeometry(0.985, P - 0.012, 0.985).translate(x, y + P / 2, z));
+    if (cp.studs !== false && !has.has(i + ',' + j + ',' + (k + 1))) list.push(STUD.clone().translate(x, y + P + 0.09, z));
+  }
+  return [...byCol].map(([hex, geos]) => ({ geo: merge(geos), fixed: hex }));
+}
+function registerCustom(cp, quiet) {
+  if (PIECE_BY_ID[cp.id]) { const p = PIECE_BY_ID[cp.id]; p.hidden = false; return p; }
+  const set = new Set(cp.cells.map(c => c[0] + ',' + c[1] + ',' + c[2]));
+  const H = Math.max(1, ...cp.cells.map(c => c[2] + 1));
+  const p = { id: cp.id, name: cp.name, cat: 'My pieces', W: cp.W, D: cp.D, H, custom: true,
+    parts: () => customParts(cp), cell: (i, j, k) => set.has(i + ',' + j + ',' + k) ? 1 : 0,
+    studTop: (i, j) => cp.studs !== false && set.has(i + ',' + j + ',' + (H - 1)) };
+  def(p); p.built = p.parts(); thumbColor = -1;
+  if (!quiet) toast(`✨ New piece: ${cp.name}`);
+  return p;
+}
+customPieces = loadCustomList(); for (const cp of customPieces) try { registerCustom(cp, true); } catch (e) { console.warn('bad piece', e); }
+
+// ---- the designer screen
+let designOpen = false, dz = null;
+const DEF_DESIGN = () => ({ id: 'cp_' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), name: 'My piece', W: 2, D: 2, studs: true, cells: [] });
+function openDesigner(cp) {
+  dz = { cp: cp ? JSON.parse(JSON.stringify(cp)) : DEF_DESIGN(), layer: 0, color: colorIdx, tool: 'paint', editing: !!cp };
+  if (!cp) for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 3; k++) dz.cp.cells.push([i, j, k, colorIdx]);
+  designOpen = true; resetTouchInput(); stopRepeat(); touchPlaying = false; setHud(); if (locked) document.exitPointerLock();
+  $('designUI').classList.remove('hidden'); menu.classList.add('hidden');
+  $('dzName').value = dz.cp.name; $('dzW').value = dz.cp.W; $('dzD').value = dz.cp.D; $('dzStuds').checked = dz.cp.studs !== false;
+  $('dzColors').innerHTML = COLORS.map((c, i) => `<div class="color${c.t ? ' glass' : ''}" data-dzc="${i}" title="${c.n}" style="background-color:${c.h}"></div>`).join('');
+  dzRefresh();
+}
+function closeDesigner() { if (!designOpen) return; designOpen = false; $('designUI').classList.add('hidden'); dz = null; play(); }
+const dzKey = (i, j, k) => i + ',' + j + ',' + k;
+function dzCellMap() { const m = new Map(); for (const c of dz.cp.cells) m.set(dzKey(c[0], c[1], c[2]), c); return m; }
+function dzRefresh() {
+  const cp = dz.cp, H = Math.max(1, ...cp.cells.map(c => c[2] + 1), dz.layer + 1);
+  $('dzLayer').textContent = `Layer ${dz.layer + 1} of ${H}`;
+  $('dzCount').textContent = `${cp.cells.length} studs`;
+  document.querySelectorAll('[data-dzc]').forEach(e => e.classList.toggle('sel', +e.dataset.dzc === dz.color));
+  document.querySelectorAll('[data-dzt]').forEach(e => e.classList.toggle('primary', e.dataset.dzt === dz.tool));
+  // grid
+  const cv = $('dzGrid'), cell = Math.max(26, Math.min(52, Math.floor(300 / Math.max(cp.W, cp.D)))), S = cell;
+  cv.width = cp.W * S + 2; cv.height = cp.D * S + 2; cv.style.width = cv.width + 'px';
+  const g = cv.getContext('2d'), m = dzCellMap();
+  g.fillStyle = '#0d121b'; g.fillRect(0, 0, cv.width, cv.height);
+  for (let i = 0; i < cp.W; i++) for (let j = 0; j < cp.D; j++) {
+    const c = m.get(dzKey(i, j, dz.layer)), below = m.get(dzKey(i, j, dz.layer - 1));
+    g.fillStyle = c ? COLORS[c[3]].h : below ? 'rgba(255,255,255,.12)' : 'rgba(255,255,255,.04)';
+    g.fillRect(i * S + 2, j * S + 2, S - 2, S - 2);
+    if (c) { g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(i * S + 1 + S / 2, j * S + 1 + S / 2, S * 0.22, 0, Math.PI * 2); g.fill(); }
+    else if (below) { g.strokeStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(i * S + 1 + S / 2, j * S + 1 + S / 2, S * 0.18, 0, Math.PI * 2); g.stroke(); }
+  }
+  g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 2; g.strokeRect(1, 1, cv.width - 2, cv.height - 2);
+  g.fillStyle = '#ffcf33'; g.font = 'bold 11px system-ui'; g.fillText('FRONT', 4, cv.height - 5);
+  // 3D preview
+  dzPreview();
+}
+let dzPrevT = 0;
+function dzPreview() {
+  clearTimeout(dzPrevT);
+  dzPrevT = setTimeout(() => {
+    const cp = dz && dz.cp; if (!cp || !cp.cells.length) { $('dzPrev').src = ''; return; }
+    const H = Math.max(1, ...cp.cells.map(c => c[2] + 1));
+    const tmp = { id: '_tmp', W: cp.W, D: cp.D, H, built: customParts(cp) };
+    const out = renderThumbs(dz.color, [tmp]); $('dzPrev').src = out._tmp; tmp.built.forEach(b => b.geo.dispose());
+  }, 60);
+}
+function dzPaint(i, j, erase) {
+  const cp = dz.cp; if (i < 0 || j < 0 || i >= cp.W || j >= cp.D) return;
+  const idx = cp.cells.findIndex(c => c[0] === i && c[1] === j && c[2] === dz.layer);
+  if (erase) { if (idx >= 0) cp.cells.splice(idx, 1); }
+  else if (idx >= 0) cp.cells[idx][3] = dz.color; else cp.cells.push([i, j, dz.layer, dz.color]);
+}
+function dzResize() {
+  const cp = dz.cp; cp.W = Math.max(1, Math.min(8, +$('dzW').value || 1)); cp.D = Math.max(1, Math.min(8, +$('dzD').value || 1));
+  cp.cells = cp.cells.filter(c => c[0] < cp.W && c[1] < cp.D); dzRefresh();
+}
+{
+  const cv = $('dzGrid'); let drag = null;
+  const at = (e) => { const r = cv.getBoundingClientRect(), cp = dz.cp, S = (cv.width - 2) / cp.W; return [Math.floor((e.clientX - r.left - 1) / S), Math.floor((e.clientY - r.top - 1) / S)]; };
+  cv.addEventListener('pointerdown', (e) => { e.preventDefault(); cv.setPointerCapture(e.pointerId); const [i, j] = at(e); const m = dzCellMap(), hasC = m.has(dzKey(i, j, dz.layer));
+    drag = { erase: dz.tool === 'erase' || (dz.tool === 'paint' && hasC && m.get(dzKey(i, j, dz.layer))[3] === dz.color) }; dzPaint(i, j, drag.erase); dzRefresh(); });
+  cv.addEventListener('pointermove', (e) => { if (!drag) return; const [i, j] = at(e); dzPaint(i, j, drag.erase); dzRefresh(); });
+  const up = () => { drag = null; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+}
+$('designUI').addEventListener('click', (e) => {
+  const c = e.target.closest('[data-dzc]'), t = e.target.closest('[data-dzt]'), a = e.target.closest('[data-dza]');
+  if (c) { dz.color = +c.dataset.dzc; dzRefresh(); return; }
+  if (t) { dz.tool = t.dataset.dzt; dzRefresh(); return; }
+  if (!a) return;
+  const cp = dz.cp, L = dz.layer, H = Math.max(1, ...cp.cells.map(x => x[2] + 1));
+  switch (a.dataset.dza) {
+    case 'up': dz.layer = Math.min(11, L + 1); break;
+    case 'down': dz.layer = Math.max(0, L - 1); break;
+    case 'fill': for (let i = 0; i < cp.W; i++) for (let j = 0; j < cp.D; j++) dzPaint(i, j, false); break;
+    case 'clear': cp.cells = cp.cells.filter(x => x[2] !== L); break;
+    case 'copy': if (L > 0) { cp.cells = cp.cells.filter(x => x[2] !== L); for (const x of cp.cells.filter(x => x[2] === L - 1)) cp.cells.push([x[0], x[1], L, x[3]]); } break;
+    case 'mirror': { const left = cp.cells.filter(x => x[2] === L && x[0] < cp.W / 2); cp.cells = cp.cells.filter(x => !(x[2] === L && x[0] >= cp.W / 2)); for (const x of left) if (cp.W - 1 - x[0] !== x[0]) cp.cells.push([cp.W - 1 - x[0], x[1], L, x[3]]); break; }
+    case 'save': {
+      if (!cp.cells.length) { toast('Paint at least one stud'); sfx('bad'); return; }
+      cp.name = ($('dzName').value || 'My piece').trim().slice(0, 30); cp.studs = $('dzStuds').checked;
+      const i = customPieces.findIndex(x => x.id === cp.id); if (i >= 0) customPieces[i] = cp; else customPieces.push(cp);
+      saveCustomList();
+      if (PIECE_BY_ID[cp.id]) { const p = PIECE_BY_ID[cp.id]; p.name = cp.name; const set = new Set(cp.cells.map(c => dzKey(c[0], c[1], c[2]))); p.W = cp.W; p.D = cp.D; p.H = H; p.cell = (ii, jj, kk) => set.has(dzKey(ii, jj, kk)) ? 1 : 0; p.studTop = (ii, jj) => cp.studs !== false && set.has(dzKey(ii, jj, H - 1)); p.built.forEach(b => b.geo.dispose()); p.built = customParts(cp); for (const [k, bt] of batches) if (k.startsWith(cp.id + '|')) { scene.remove(bt.mesh); bt.mesh.dispose(); batches.delete(k); } thumbColor = -1; pickDirty = true; toast(`✨ ${cp.name} updated (already placed copies keep their old shape until reloaded)`); }
+      else registerCustom(cp);
+      hotbar[slot] = cp.id; refreshUI(); showLabel(); stats.crafted++; saveSoon(); closeDesigner(); return;
+    }
+    case 'new': openDesigner(null); return;
+    case 'close': closeDesigner(); return;
+  }
+  dzRefresh();
+});
+$('dzW').onchange = dzResize; $('dzD').onchange = dzResize;
+$('dzName').addEventListener('keydown', (e) => e.stopPropagation());
+function refreshMyPieces() {
+  $('myPieces').innerHTML = customPieces.length ? customPieces.map((cp, i) => `<div class="gRow"><img src="${thumbFor(cp.id, colorIdx) || ''}" alt="" style="width:40px;height:40px"><span>✨ ${escapeHtml(cp.name)} <small>${cp.W}×${cp.D}, ${cp.cells.length} studs</small></span><button data-cpedit="${i}">✏ Edit</button><button data-cpdel="${i}" class="danger">🗑</button></div>`).join('')
+    : '<p style="font-size:13px">No pieces yet. Craft a Crafting Station, place it, and use it to design your own.</p>';
+}
+$('inv').addEventListener('click', (e) => {
+  const ed = e.target.closest('[data-cpedit]'), dl = e.target.closest('[data-cpdel]');
+  if (ed) { const cp = customPieces[+ed.dataset.cpedit]; if (cp) { closeInv(); openDesigner(cp); } }
+  else if (dl) { const cp = customPieces[+dl.dataset.cpdel]; if (cp && confirm(`Delete "${cp.name}"? Copies already placed stay in the world.`)) { customPieces.splice(+dl.dataset.cpdel, 1); saveCustomList(); if (PIECE_BY_ID[cp.id]) PIECE_BY_ID[cp.id].hidden = true; if (hotbar.includes(cp.id)) { hotbar = hotbar.map(id => id === cp.id ? 'brick2x4' : id); refreshUI(); } refreshMyPieces(); buildInventory(); } }
+});
+
 function toggleNight() { cycleDayMode(); }
 $('fuelBtn').onclick = toggleFuel;
 $('weatherBtn').onclick = cycleWeatherMode;
@@ -5307,7 +5534,7 @@ function serialize() {
   const b = []; for (const x of bricks) if (!x.gen) b.push(...brickData(x));
   if (car) for (const d of (planPark() || car.items.map(it => it.orig))) b.push(...d);   // a car being driven saves as parked
   if (trailer) for (const d of (trailerPlan() || trailer.items.map(it => it.orig))) b.push(...d);
-  return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget, day: dayMode, unlocked: [...unlocked], stats, quest, questIdx, weather: weatherMode, visited: [...visitedSites], fuel: +fuel.toFixed(1), fuelOn, raceBest, tod: +timeOfDay.toFixed(4), marks,
+  return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget, day: dayMode, unlocked: [...unlocked], stats, quest, questIdx, weather: weatherMode, visited: [...visitedSites], pieces: customPieces.filter(cp => [...bricks].some(b => b.p.id === cp.id) || hotbar.includes(cp.id)), fuel: +fuel.toFixed(1), fuelOn, raceBest, tod: +timeOfDay.toFixed(4), marks,
            texts: [...bricks].filter(x => x.text && !x.gen).map(x => [x.x, x.y, x.z, x.text]),
            seed: worldSeed, empty: emptyWorld ? 1 : 0, removed: [...removedGen], dug: [...dug], res,
            pl: [player.x, player.y, player.z, player.yaw, player.pitch, player.fly ? 1 : 0] };
@@ -5317,6 +5544,8 @@ function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 1200
 function load(data) {
   if (!data || data.v !== 1 || !Array.isArray(data.b)) throw new Error('Not a Brick Builder World save');
   clearWorld();
+  for (const cp of (Array.isArray(data.pieces) ? data.pieces : [])) if (cp && cp.id && Array.isArray(cp.cells) && !PIECE_BY_ID[cp.id]) { try { registerCustom(cp, true); customPieces.push(cp); } catch (e) {} }
+  if (Array.isArray(data.pieces) && data.pieces.length) saveCustomList();
   const ids = data.ids || [], cols = data.colors || [];
   for (let i = 0; i + 5 < data.b.length; i += 6) {
     const p = PIECE_BY_ID[ids[data.b[i]]]; if (!p) continue;
@@ -5421,7 +5650,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { openDeco, closeDeco, get padIdx() { return padIdx; }, setPiece: (id) => { hotbar[slot] = id; rot = 0; refreshUI(); }, setRot: (r) => { rot = r; }, get visitedSites() { return visitedSites; }, siteKnown, mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { camera, raycaster, get pickables() { refreshPickables(); return pickables; }, scene, openDesigner, closeDesigner, registerCustom, get customPieces() { return customPieces; }, get dz() { return dz; }, dzRefresh, openDeco, closeDeco, get padIdx() { return padIdx; }, setPiece: (id) => { hotbar[slot] = id; rot = 0; refreshUI(); }, setRot: (r) => { rot = r; }, get visitedSites() { return visitedSites; }, siteKnown, mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
