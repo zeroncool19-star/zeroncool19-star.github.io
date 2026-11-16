@@ -272,6 +272,7 @@
       <div class="setRow"><span>Weather</span><button id="weatherBtn">🌦 Changes</button></div>
       <div class="setRow"><span>Vehicles need fuel (coal)</span><button id="fuelBtn">⛽ On</button></div>
       <div class="setRow"><span>Camera</span><button id="camBtn">👁 Behind player</button></div>
+      <div class="setRow"><span>Look sensitivity</span><button id="sensBtn">🖱 1×</button></div>
       <div class="setRow"><span>Touch screen buttons</span><button id="touchBtn">📱 Off</button></div>
     </details>
     <details class="sect">
@@ -525,7 +526,7 @@ const WORLD = 15232;      // the land spans -WORLD..WORLD studs (about 10 x 10 m
 const MAXY = 450;         // max build height in plates
 const SAVE_KEY = 'brick-builder-world-v1';
 let touchMode = (() => { const q = new URLSearchParams(location.search).get('touch'); if (q === '1' || q === '0') return q === '1'; try { const v = localStorage.getItem('brick-builder-touch'); if (v !== null) return v === '1'; } catch (e) {} return matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches; })();
-const PR = 0.6, PH = 3.4, EYE = 3.0, STEP = 0.85, GRAV = 32, JUMPV = 10.2, REACH = 22;
+const PR = 0.6, PH = 3.4, EYE = 3.0, STEP = 0.85, GRAV = 32, JUMPV = 11.2, REACH = 22;
 
 const COLORS = [
   ['White', '#f2f2f2'], ['Light Grey', '#a3a7ab'], ['Dark Grey', '#5b5f63'], ['Black', '#1e1f22'],
@@ -1173,23 +1174,50 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, touchMode ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 900);
 camera.rotation.order = 'YXZ';
 scene.fog = new THREE.Fog(0xbfe3ff, 110, 330);
 
-const skyU = { top: { value: new THREE.Color('#4d9be6') }, bottom: { value: new THREE.Color('#d8efff') } };
-const sky = new THREE.Mesh(new THREE.SphereGeometry(600, 24, 12), new THREE.ShaderMaterial({
+const skyU = { top: { value: new THREE.Color('#4d9be6') }, bottom: { value: new THREE.Color('#d8efff') }, sunDir: { value: new THREE.Vector3(0.5, 0.7, 0.3) }, sunCol: { value: new THREE.Color('#fff4e0') }, night: { value: 0 }, dusk: { value: 0 } };
+const sky = new THREE.Mesh(new THREE.SphereGeometry(600, 32, 16), new THREE.ShaderMaterial({
   uniforms: skyU, side: THREE.BackSide, depthWrite: false, fog: false,
   vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-  fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying vec3 vP; void main(){ float h = clamp(normalize(vP).y*1.6+0.1,0.0,1.0); gl_FragColor = vec4(mix(bottom, top, h),1.0); }',
+  fragmentShader: `uniform vec3 top; uniform vec3 bottom; uniform vec3 sunDir; uniform vec3 sunCol; uniform float night; uniform float dusk; varying vec3 vP;
+    float hash(vec3 p){ p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3)); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    void main(){
+      vec3 d = normalize(vP); float h = clamp(d.y * 1.6 + 0.1, 0.0, 1.0);
+      vec3 col = mix(bottom, top, pow(h, 0.8));
+      float horizon = exp(-abs(d.y) * 9.0); col = mix(col, bottom * 1.08, horizon * 0.5);   // bright haze along the horizon
+      float sd = max(dot(d, sunDir), 0.0);
+      col += sunCol * (pow(sd, 900.0) * 1.6 + pow(sd, 48.0) * 0.28 + pow(sd, 6.0) * 0.07 * (1.0 + dusk * 2.0)) * (1.0 - night * 0.85);
+      vec3 g = floor(d * 420.0); float st = hash(g); float tw = 0.6 + 0.4 * sin(hash(g + 1.0) * 40.0 + d.x * 90.0);
+      vec3 cc = fract(d * 420.0) - 0.5; float dot_ = smoothstep(0.26, 0.08, length(cc));
+      col += vec3(1.0) * step(0.9975, st) * dot_ * tw * night * smoothstep(0.02, 0.2, d.y);   // stars
+      gl_FragColor = vec4(col, 1.0);
+    }`,
 }));
 sky.renderOrder = -1;
 scene.add(sky);
 
 const hemi = new THREE.HemisphereLight(0xdff1ff, 0x5a7a3a, 1.1);
 scene.add(hemi);
+// Reflections: the plastic bricks reflect a baked sky-and-ground environment (day and night versions).
+const envMaps = (() => {
+  const pm = new THREE.PMREMGenerator(renderer), make = (top, bot, ground, sunI) => {
+    const sc = new THREE.Scene();
+    sc.add(new THREE.Mesh(new THREE.SphereGeometry(50, 24, 12), new THREE.ShaderMaterial({ side: THREE.BackSide, uniforms: { top: { value: new THREE.Color(top) }, bottom: { value: new THREE.Color(bot) }, ground: { value: new THREE.Color(ground) } },
+      vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: 'uniform vec3 top; uniform vec3 bottom; uniform vec3 ground; varying vec3 vP; void main(){ vec3 d = normalize(vP); vec3 c = d.y < 0.0 ? ground : mix(bottom, top, clamp(d.y * 1.6, 0.0, 1.0)); gl_FragColor = vec4(c, 1.0); }' })));
+    const sunB = new THREE.Mesh(new THREE.SphereGeometry(4, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff6d8').multiplyScalar(sunI) })); sunB.position.set(20, 25, 12); sc.add(sunB);
+    const t = pm.fromScene(sc, 0.04).texture; sc.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); return t;
+  };
+  const day = make('#4d9be6', '#d8efff', '#4f7a3a', 6), nightT = make('#050a1c', '#1c2a4a', '#0c1410', 0.4); pm.dispose();
+  return { day, night: nightT };
+})();
+scene.environment = envMaps.day;
 // Lamps and light bricks really light their surroundings: a fixed pool of point lights is moved to the
 // nearest light sources each frame (a constant light count keeps shaders from recompiling).
 const LAMP_N = touchMode ? 4 : 8, lampPool = [];
@@ -1242,9 +1270,18 @@ const BIOME_NAMES = { grass: '🌿 Grassland', forest: '🌲 Forest', desert: '�
 const groundTex = studTexture('#d9d9d9', '#f2f2f2', '#b8b8b8'); groundTex.repeat.set(CHUNK, CHUNK);
 const groundGeo = new THREE.PlaneGeometry(CHUNK, CHUNK).rotateX(-Math.PI / 2);
 const groundMats = {};
-for (const [k, c] of Object.entries(BIOMES)) groundMats[k] = new THREE.MeshStandardMaterial({ map: groundTex, color: c, roughness: k === 'lake' ? 0.25 : 0.75, metalness: k === 'lake' ? 0.1 : 0 });
-const sea = new THREE.Mesh(new THREE.PlaneGeometry(2400, 2400).rotateX(-Math.PI / 2).translate(0, -1.2, 0),
-  new THREE.MeshStandardMaterial({ color: '#2a86c9', roughness: 0.15, metalness: 0.1 }));
+for (const [k, c] of Object.entries(BIOMES)) groundMats[k] = new THREE.MeshStandardMaterial({ map: groundTex, color: c, roughness: k === 'lake' ? 0.25 : 0.8, metalness: 0, envMapIntensity: 0.25 });
+// Water: a scrolling procedural ripple normal map, glossy and reflective.
+const rippleTex = (() => {
+  const N = 128, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'), img = g.createImageData(N, N);
+  const h = (x, y) => Math.sin(x * 0.19 + y * 0.07) * 0.5 + Math.sin(x * 0.05 - y * 0.23) * 0.35 + Math.sin((x + y) * 0.12) * 0.25;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const dx = h(x + 1, y) - h(x - 1, y), dy = h(x, y + 1) - h(x, y - 1), i = (y * N + x) * 4;
+    img.data[i] = 128 - dx * 70; img.data[i + 1] = 128 - dy * 70; img.data[i + 2] = 255; img.data[i + 3] = 255; }
+  g.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+})();
+const seaMat = new THREE.MeshStandardMaterial({ color: '#2a86c9', roughness: 0.12, metalness: 0, envMapIntensity: 0.9, normalMap: rippleTex, normalScale: new THREE.Vector2(0.35, 0.35) });
+seaMat.normalMap.repeat.set(160, 160);
+const sea = new THREE.Mesh(new THREE.PlaneGeometry(2400, 2400).rotateX(-Math.PI / 2).translate(0, -1.2, 0), seaMat);
 scene.add(sea);
 
 // Brick clouds
@@ -1263,13 +1300,18 @@ const clouds = new THREE.InstancedMesh(new RoundedBoxGeometry(1, 1, 1, 2, 0.08),
 scene.add(clouds);
 
 // ---------------------------------------------------------------- materials & instanced batches
+// Brick plastic: glossy with a clear coat on computers, a cheaper shiny standard material on phones.
+const ENV_I = { day: 0.55, night: 0.25 };
+const plastic = (o = {}) => touchMode ? new THREE.MeshStandardMaterial({ roughness: 0.28, metalness: 0, envMapIntensity: ENV_I.day, ...o })
+  : new THREE.MeshPhysicalMaterial({ roughness: 0.32, metalness: 0, clearcoat: 0.55, clearcoatRoughness: 0.2, envMapIntensity: ENV_I.day, ...o });
 const MATS = {
-  o: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0 }),
-  t: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.5, depthWrite: false }),
-  e: new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffd27a, emissiveIntensity: 0.9, roughness: 0.4 }),
+  o: plastic({ color: 0xffffff }),
+  t: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.45, depthWrite: false, envMapIntensity: 1.0, clearcoat: 1 }),
+  e: new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffd27a, emissiveIntensity: 0.9, roughness: 0.4, envMapIntensity: 0.3 }),
   b: new THREE.MeshBasicMaterial({ color: 0xffffff }),
 };
-MATS.g = new THREE.MeshStandardMaterial({ map: studTexture('#ffffff', '#ffffff', '#bdbdbd'), roughness: 0.45 });
+MATS.g = plastic({ map: studTexture('#ffffff', '#ffffff', '#bdbdbd'), roughness: 0.4 });
+const ENV_MATS = [MATS.o, MATS.t, MATS.g];
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3(1, 1, 1), _c = new THREE.Color();
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 let pickables = [], pickDirty = true;
@@ -1785,7 +1827,8 @@ const terrainTex = (() => {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 })();
 const terrainMat = new THREE.MeshStandardMaterial({ map: terrainTex, vertexColors: true, roughness: 0.92 });
-const waterMat = new THREE.MeshStandardMaterial({ color: '#2f8fd8', transparent: true, opacity: 0.62, roughness: 0.08, metalness: 0.1, depthWrite: false });
+const waterNormal = rippleTex.clone(); waterNormal.needsUpdate = true; waterNormal.repeat.set(6, 6);
+const waterMat = new THREE.MeshStandardMaterial({ color: '#2f8fd8', transparent: true, opacity: 0.6, roughness: 0.08, metalness: 0, depthWrite: false, envMapIntensity: 1.0, normalMap: waterNormal, normalScale: new THREE.Vector2(0.45, 0.45) });
 const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 // Rebuild a chunk's ground surface (with holes), cave walls and water surface.
 function buildChunkTerrain(ch) {
@@ -1986,6 +2029,12 @@ function tryHorizontal(nx, nz) {
   }
 }
 const keys = {}, joy = { x: 0, y: 0 };
+// Look sensitivity (mouse, touch drag and controller), 0.5x to 2x, saved in this browser.
+let lookSens = 1; try { lookSens = Math.max(0.5, Math.min(2, +localStorage.getItem('brick-builder-sens') || 1)); } catch (e) {}
+const SENS_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+function setSens(v) { lookSens = v; try { localStorage.setItem('brick-builder-sens', String(v)); } catch (e) {} const b = document.getElementById('sensBtn'); if (b) b.textContent = `🖱 ${v}×`; }
+// Movement feel: speed eases in and out, jumps are forgiving (coyote time + jump buffer), and the camera eases.
+const move = { vx: 0, vz: 0, coyote: 0, jumpBuf: 0, upHeld: false, bob: 0 };
 // Flying speeds for exploring the big map: tap fly (or F) to step through them.
 const FLY_LEVELS = [['🕊', 'Flying off', 0], ['🕊', 'Flying', 1], ['⚡', 'Fast flying', 3], ['🚀', 'Turbo flying', 7]];
 function setFly(lv) {
@@ -2008,21 +2057,30 @@ function updatePlayer(dt) {
   const flyK = FLY_LEVELS[player.flyLv || 1][2];
   const speed = player.fly ? 16 * flyK : swim ? 4.2 : (sprint ? 12 : 7);
   vx = vx / len * speed; vz = vz / len * speed;
+  if (!fwd && !str) { vx = 0; vz = 0; }
+  // ease toward the wanted speed: quick on the ground, floatier in the air and in water
+  const accel = player.fly ? 14 : player.ground ? 22 : swim ? 6 : 9, k = Math.min(1, accel * dt);
+  move.vx += (vx - move.vx) * k; move.vz += (vz - move.vz) * k;
+  if (Math.abs(move.vx) < 0.02) move.vx = 0; if (Math.abs(move.vz) < 0.02) move.vz = 0;
+  vx = move.vx; vz = move.vz;
   let vy;
   const up = keys.Space || touchJump, down = keys.ShiftLeft || keys.ShiftRight || touchDown;
-  if (player.fly) { vy = ((up ? 1 : 0) - (down ? 1 : 0)) * 12 * Math.sqrt(flyK); if (!fwd && !str) { vx = 0; vz = 0; } }
+  move.coyote = player.ground ? 0.12 : Math.max(0, move.coyote - dt);
+  move.jumpBuf = up && !move.upHeld ? 0.14 : Math.max(0, move.jumpBuf - dt); move.upHeld = !!up;
+  if (player.fly) { const want = ((up ? 1 : 0) - (down ? 1 : 0)) * 12 * Math.sqrt(flyK); player.vy += (want - player.vy) * Math.min(1, dt * 8); vy = player.vy; }
   else if (swim) {   // float with the head out of the water; hold jump to swim up, sprint/down to dive
     player.vy += ((up ? 16 : 0) - (down ? 10 : 0) + (player.y < -1.5 ? 5 : -2)) * dt - player.vy * 2 * dt;
     player.vy = Math.max(-3, Math.min(3.5, player.vy)); vy = player.vy;
     if (!fwd && !str) { vx = 0; vz = 0; }
   }
   else {
-    if (up && player.ground) { player.vy = JUMPV; player.ground = false; }
+    if (move.jumpBuf > 0 && (player.ground || move.coyote > 0)) { player.vy = JUMPV; player.ground = false; move.coyote = 0; move.jumpBuf = 0; }
+    if (!up && player.vy > 3) player.vy -= GRAV * 0.5 * dt;   // let go early for a shorter hop (a tap still clears one brick)
     player.vy = Math.max(player.vy - GRAV * dt, -50); vy = player.vy;
-    if (!fwd && !str) { vx = 0; vz = 0; }
   }
+  move.bob += dt * Math.hypot(vx, vz) * (player.ground && !player.fly ? 1.6 : 0);
   const steps = Math.max(1, Math.ceil(Math.max(Math.abs(vx), Math.abs(vy), Math.abs(vz)) * dt / 0.15));
-  const h = dt / steps;
+  const h = dt / steps, px0 = player.x, pz0 = player.z;
   for (let s = 0; s < steps; s++) {
     if (vx) tryHorizontal(player.x + vx * h, player.z);
     if (vz) tryHorizontal(player.x, player.z + vz * h);
@@ -2038,6 +2096,7 @@ function updatePlayer(dt) {
     }
   }
   player.ground = collides(player.x, player.y - 0.02, player.z);
+  if (vx && player.x === px0 && vz === 0) move.vx = 0; if (vz && player.z === pz0 && vx === 0) move.vz = 0;   // bumped a wall: drop the speed
   player.x = Math.min(WORLD - PR, Math.max(-WORLD + PR, player.x));
   player.z = Math.min(WORLD - PR, Math.max(-WORLD + PR, player.z));
   player.y = Math.min(MAXY * P + 20, player.y);
@@ -2408,8 +2467,8 @@ canvas.addEventListener('click', () => { if (!touchMode && !locked && !invOpen &
 document.addEventListener('mousemove', (e) => {
   if (!locked) return;
   lastLook = performance.now();
-  player.yaw -= e.movementX * 0.0022;
-  player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - e.movementY * 0.0022));
+  player.yaw -= e.movementX * 0.0022 * lookSens;
+  player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - e.movementY * 0.0022 * lookSens));
 });
 document.addEventListener('mousedown', (e) => {
   if (!locked || car) return;
@@ -2676,9 +2735,13 @@ function updateFigure(dt) {
   $('tbView').classList.toggle('on', thirdPerson);
 }
 const _eye = new THREE.Vector3(), _back = new THREE.Vector3(), _right = new THREE.Vector3();
+let camSmooth = -1, fovNow = 70;
 function placeCamera() {
   camera.rotation.set(player.pitch, player.yaw, 0);
-  if (!thirdPerson) { camera.position.set(player.x, player.y + EYE, player.z); camDist = 0; return; }
+  // field of view stretches a little with speed (sprint, fast flying, fast cars)
+  const sp = car ? Math.abs(car.speed) : Math.hypot(move.vx, move.vz), wantFov = 70 + Math.min(16, Math.max(0, sp - 7) * 0.9);
+  fovNow += (wantFov - fovNow) * 0.08; if (Math.abs(camera.fov - fovNow) > 0.05) { camera.fov = fovNow; camera.updateProjectionMatrix(); }
+  if (!thirdPerson) { const bob = car ? 0 : Math.sin(move.bob) * 0.035; camera.position.set(player.x, player.y + EYE + bob, player.z); camDist = 0; camSmooth = -1; return; }
   const want = car ? car.camDist : 7;
   _right.set(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
   _eye.set(player.x, player.y + EYE + (car ? 1.6 : 0.55), player.z).addScaledVector(_right, car ? 0 : 0.9);
@@ -2690,7 +2753,8 @@ function placeCamera() {
     dist = dd;
   }
   dist = Math.max(0, dist - 0.3);
-  camera.position.copy(_eye).addScaledVector(_back, dist); camDist = dist;
+  if (camSmooth < 0 || dist < camSmooth) camSmooth = dist; else camSmooth += (dist - camSmooth) * 0.12;   // pull in at once, ease back out
+  camera.position.copy(_eye).addScaledVector(_back, camSmooth); camDist = camSmooth;
 }
 function toggleView() { thirdPerson = !thirdPerson; saveChar(); toast(thirdPerson ? 'Third-person view' : 'First-person view'); const cb = document.getElementById('camBtn'); if (cb) cb.textContent = thirdPerson ? '👁 Behind player' : '👀 Through eyes'; }
 
@@ -2785,7 +2849,8 @@ $('touchBtn').onclick = () => {
     const r = el.getBoundingClientRect(), R = r.width / 2;
     let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R); const d = Math.hypot(dx, dy), m = R * 0.75;
     if (d > m) { dx *= m / d; dy *= m / d; }
-    joy.x = dx / m; joy.y = dy / m; knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    const nd = Math.min(1, d / m), dz = 0.12, f = nd < dz ? 0 : Math.pow((nd - dz) / (1 - dz), 1.4) / Math.max(nd, 1e-6);
+    joy.x = dx / m * f; joy.y = dy / m * f; knob.style.transform = `translate(${dx}px, ${dy}px)`;
   };
   el.addEventListener('pointerdown', (e) => { e.preventDefault(); id = e.pointerId; el.setPointerCapture(id); move(e); });
   el.addEventListener('pointermove', (e) => { if (e.pointerId === id) move(e); });
@@ -2812,7 +2877,7 @@ function flash(id) { const el = $(id); el.classList.add('on'); setTimeout(() => 
   // While held, sliding the same finger turns the view, so you can keep digging/chopping/building as you aim around.
   el.addEventListener('pointermove', (e) => {
     if (!aim || e.pointerId !== aim.id) return;
-    player.yaw -= (e.clientX - aim.x) * 0.0065;
+    player.yaw -= (e.clientX - aim.x) * 0.0065 * lookSens;
     player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - (e.clientY - aim.y) * 0.0065));
     aim.x = e.clientX; aim.y = e.clientY; lastLook = performance.now();
   });
@@ -2849,8 +2914,8 @@ canvas.addEventListener('pointermove', (e) => {
   if (!t.drag && Math.hypot(e.clientX - t.sx, e.clientY - t.sy) > 12) { t.drag = true; clearTimeout(t.hold); }
   if (t.drag) {
     lastLook = performance.now();
-    player.yaw -= (e.clientX - t.x) * 0.0055;
-    player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - (e.clientY - t.y) * 0.0055));
+    player.yaw -= (e.clientX - t.x) * 0.0055 * lookSens;
+    player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - (e.clientY - t.y) * 0.0055 * lookSens));
   }
   t.x = e.clientX; t.y = e.clientY;
 });
@@ -2989,10 +3054,11 @@ const carMatCache = new Map();
 function carMat(hex, mode) {
   const k = hex + mode; let m = carMatCache.get(k);
   if (!m) {
-    m = mode === 't' ? new THREE.MeshStandardMaterial({ color: hex, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.5, depthWrite: false })
+    m = mode === 't' ? new THREE.MeshPhysicalMaterial({ color: hex, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.45, depthWrite: false, clearcoat: 1, envMapIntensity: 1 })
       : mode === 'e' ? new THREE.MeshStandardMaterial({ color: hex, emissive: 0xffd27a, emissiveIntensity: 1, roughness: 0.4 })
       : mode === 'b' ? new THREE.MeshBasicMaterial({ color: hex })
-      : new THREE.MeshStandardMaterial({ color: hex, roughness: 0.3 });
+      : plastic({ color: hex });
+    if (mode === 't' || mode === 'o') ENV_MATS.push(m);
     carMatCache.set(k, m);
   }
   return m;
@@ -5173,7 +5239,7 @@ function updateGamepad(dt) {
   if (!isActive()) { if (down(0) && !menu.classList.contains('hidden')) $('playBtn').click(); padPrev = B; return; }
   if (!padHint) { padHint = true; toast('🎮 Left stick move · Right stick look · RT place · LT remove · A jump/up · B down · X rotate · Y bricks'); }
   joy.x = lx; joy.y = ly;
-  if (rx || ry) { player.yaw -= rx * dt * 2.6; player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - ry * dt * 2.0)); lastLook = performance.now(); }
+  if (rx || ry) { const cv = (v) => v * Math.abs(v); player.yaw -= cv(rx) * dt * 3.0 * lookSens; player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - cv(ry) * dt * 2.2 * lookSens)); lastLook = performance.now(); }
   touchJump = B[0]; touchDown = B[1] && (player.fly || (car && car.air));
   if (car) {   // driving: RT accelerate, LT brake/reverse, A brake, B get out
     joy.y = ly || ((gp.buttons[6]?.value || 0) - (gp.buttons[7]?.value || 0)); touchJump = B[0];
@@ -5197,6 +5263,7 @@ function updateGamepad(dt) {
 function toggleNight() { cycleDayMode(); }
 $('fuelBtn').onclick = toggleFuel;
 $('weatherBtn').onclick = cycleWeatherMode;
+setSens(lookSens); $('sensBtn').onclick = () => { const i = SENS_STEPS.indexOf(lookSens); setSens(SENS_STEPS[(i + 1) % SENS_STEPS.length]); toast(`Look sensitivity ${lookSens}×`); };
 const camText = () => thirdPerson ? '👁 Behind player' : '👀 Through eyes';
 $('camBtn').textContent = camText();
 $('camBtn').onclick = () => { toggleView(); $('camBtn').textContent = camText(); };
@@ -5217,9 +5284,13 @@ function applyLight() {
   skyU.top.value.copy(DAY.top).lerp(NIGHT.top, night);
   skyU.bottom.value.copy(DAY.bot).lerp(NIGHT.bot, night);
   scene.fog.color.copy(DAY.fog).lerp(NIGHT.fog, night);
-  hemi.intensity = 1.1 - 0.7 * night;
-  sun.intensity = 2.2 - 1.85 * night;
+  hemi.intensity = 1.25 - 0.85 * night;
+  sun.intensity = 2.6 - 2.2 * night;
   sun.color.set(night > 0.5 ? '#9fb4ff' : '#fff4e0');
+  skyU.night.value = night; skyU.dusk.value = dusk; skyU.sunCol.value.copy(sun.color);
+  const envI = ENV_I.day + (ENV_I.night - ENV_I.day) * night, envT = night > 0.5 ? envMaps.night : envMaps.day;
+  if (scene.environment !== envT) scene.environment = envT;
+  for (const m of ENV_MATS) m.envMapIntensity = envI;
   MATS.e.emissiveIntensity = 0.6 + 1.6 * night;
   clouds.material.opacity = 0.92 - 0.6 * night;
   clouds.material.emissiveIntensity = 0.55 - 0.45 * night;
@@ -5341,7 +5412,9 @@ function frame() {
   sky.position.copy(camera.position);
   sun.target.position.set(player.x, 0, player.z);
   { const a = timeOfDay * Math.PI * 2, up = Math.sin(a);
-    if (dayMode === 'auto' && up > 0.02) sun.position.set(player.x + Math.cos(a) * 120, 12 + up * 110, player.z + 35); else sun.position.set(player.x + 60, 110, player.z + 35); }
+    if (dayMode === 'auto' && up > 0.02) sun.position.set(player.x + Math.cos(a) * 120, 12 + up * 110, player.z + 35); else sun.position.set(player.x + 60, 110, player.z + 35);
+    skyU.sunDir.value.set(sun.position.x - player.x, sun.position.y, sun.position.z - player.z).normalize();
+    const wt = performance.now() / 1000; waterNormal.offset.set(wt * 0.02, wt * 0.013); seaMat.normalMap.offset.set(wt * 0.004, wt * 0.003); }
   clouds.position.set(Math.round(player.x / 520) * 520 + ((performance.now() / 1000) * 1.2) % 200 - 100, 0, Math.round(player.z / 520) * 520);
   if ((infoT += dt) > 0.2) { infoT = 0; updateInfo(); updateTutorial(); }
   renderer.render(scene, camera);
