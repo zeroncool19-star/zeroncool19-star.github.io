@@ -77,7 +77,7 @@ def _friendly(e, ns, code_line):
         if 'unmatched' in m or 'does not match' in m:
             return "There's a closing bracket without a matching opening one, or the brackets are mixed up."
         if "expected ':'" in m:
-            return "Lines that start with <b>if</b>, <b>elif</b>, <b>else</b>, <b>for</b>, <b>while</b>, <b>def</b> or <b>class</b> must end with a colon <b>:</b>"
+            return "Lines that start with <b>if</b>, <b>elif</b>, <b>else</b>, <b>for</b>, <b>while</b>, <b>def</b>, <b>class</b>, <b>try</b>, <b>except</b> or <b>with</b> must end with a colon <b>:</b>"
         if 'forgot a comma' in m:
             return "Python found two things side by side with nothing joining them. Did you forget a comma <b>,</b> or a <b>+</b> between them?"
         if 'maybe you meant' in m and '==' in m:
@@ -762,6 +762,7 @@ def lp_check_json(code, tests_json, inputs_json=None):
   route();
 
   /* Developer self-test: checks every example solution passes its challenge. Run __selfTest() in the console. */
+  window.__check = (id, code) => { const ch = byId[id].challenge; return checkCode(code, ch.tests, ch.inputs); };
   window.__selfTest = async function () {
     const fails = [];
     for (const l of ALL) {
