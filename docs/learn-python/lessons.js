@@ -205,7 +205,9 @@ print(city)`,
         ['age is a whole number', c`assert isinstance(age, int) and not isinstance(age, bool), 'age should be a number without quotes, like 15.'`],
         ['city is text', c`assert isinstance(city, str) and city.strip(), 'city should hold some text in quotes.'`],
         ['All three are printed', c`assert name in output and str(age) in output and city in output, 'Print each variable, e.g. print(name).'`],
-        ['Uses the variables in print', c`assert 'print(name' in source.replace(' ', '') or ',name' in source.replace(' ', ''), 'Use print(name) instead of typing the value again.'`],
+        ['Uses the variables in print', c`
+import re
+assert all(re.search(r'print\(.*\b%s\b' % v, source) for v in ['name', 'age', 'city']), 'Print each variable by name, e.g. print(name), instead of typing the value again.'`],
       ],
     },
   },
@@ -219,10 +221,10 @@ print(city)`,
 print(7 - 3)    # subtract  -> 4
 print(7 * 3)    # multiply  -> 21
 print(7 / 2)    # divide    -> 3.5
-print(7 // 2)   # whole-number divide -> 3
+print(7 // 2)   # floor division: divide, then round DOWN -> 3
 print(7 % 2)    # remainder (modulo)  -> 1
 print(2 ** 3)   # power: 2 x 2 x 2   -> 8`],
-      ['p', `<code>//</code> and <code>%</code> look strange but they're really useful. <code>17 // 5</code> asks "how many whole 5s fit in 17?" (3), and <code>17 % 5</code> asks "what's left over?" (2).`],
+      ['p', `<code>//</code> and <code>%</code> look strange but they're really useful. (<code>//</code> always rounds <i>down</i>, which matters for negative numbers: <code>-7 // 2</code> is <code>-4</code>.) <code>17 // 5</code> asks "how many whole 5s fit in 17?" (3), and <code>17 % 5</code> asks "what's left over?" (2).`],
       ['tip', `<code>%</code> is great for checking if a number is even: if <code>number % 2</code> is <code>0</code>, there's no remainder when you divide by 2, so it's even.`],
       ['h', 'Order of operations'],
       ['p', `Python follows the same rules as maths class (BIDMAS/BODMAS): brackets first, then powers, then <code>* /</code>, then <code>+ -</code>.`],
@@ -238,8 +240,13 @@ seconds = 200
 minutes = seconds // 60
 leftover = seconds % 60
 print(seconds, "seconds is", minutes, "minutes and", leftover, "seconds")`],
+      ['h', 'Decimals are approximate'],
+      ['p', `Computers store decimals in binary, so some of them can't be stored exactly. This surprises everyone the first time:`],
+      ['code', c`print(0.1 + 0.2)
+print(round(0.1 + 0.2, 2))`],
+      ['p', `The tiny error isn't a bug in your code. It happens in almost every programming language. Use <code>round(number, places)</code> or f-string formatting (coming soon) when you display decimals.`],
       ['p', `There's also a handy shortcut for updating a variable: <code>score += 5</code> means the same as <code>score = score + 5</code>. You can use <code>-=</code>, <code>*=</code> and <code>/=</code> too.`],
-      ['key', [`<code>+ - * /</code> work like normal maths. <code>/</code> always gives a float.`, `<code>//</code> = whole-number division, <code>%</code> = remainder, <code>**</code> = power.`, `Brackets control the order of operations.`, `<code>x += 1</code> is short for <code>x = x + 1</code>.`]],
+      ['key', [`<code>+ - * /</code> work like normal maths. <code>/</code> always gives a float.`, `<code>//</code> = division rounded down, <code>%</code> = remainder, <code>**</code> = power.`, `Decimals (floats) can be very slightly inaccurate, so round them for display.`, `Brackets control the order of operations.`, `<code>x += 1</code> is short for <code>x = x + 1</code>.`]],
     ],
     quiz: [
       { q: 'What is <code>10 % 3</code>?', options: ['3', '1', '3.33', '0'], answer: 1, explain: '3 goes into 10 three times (9), with <b>1</b> left over.' },
@@ -392,7 +399,7 @@ print("In 10 years you will be " + str(future_age))`,
       ['code', c`name = input("What is your name? ")
 print("Hello,", name)
 print("Nice to meet you!")`],
-      ['tip', `When you run this, a box pops up asking for your answer. Type something and press OK. In a real Python program, the user types directly underneath the question.`],
+      ['tip', `When you run this, a box pops up asking for your answer. Type something and press OK. In a normal Python program (not in a web browser) there's no pop-up: the user types their answer straight after the question, on the same line.`],
       ['p', `The text inside the brackets is the <b>prompt</b>, the question shown to the user. Leave a space at the end of the prompt so their answer doesn't get squashed against the question.`],
       ['h', 'Storing several answers'],
       ['code', c`animal = input("Favourite animal? ")
@@ -590,14 +597,15 @@ print(5 != 3)    # NOT equal to`],
       ['code', c`password = "dragon"
 print(password == "dragon")
 print(password == "Dragon")   # capitals matter!
-print("a" < "b")             # alphabetical order`],
+print("apple" < "banana")    # compares in alphabetical order`],
+      ['p', `Watch out: Python compares letters by their character code, and <b>all capital letters come before all lowercase letters</b>. So <code>"Zebra" &lt; "apple"</code> is <code>True</code>! Use <code>.lower()</code> on both sides if you want a fair alphabetical comparison.`],
       ['h', 'Storing the result'],
       ['p', `Because <code>True</code> and <code>False</code> are values, you can store them in variables:`],
       ['code', c`age = 16
-is_teenager = age >= 13 and age <= 19
 can_drive = age >= 17
-print("Teenager?", is_teenager)
-print("Can drive?", can_drive)`],
+is_adult = age >= 18
+print("Can drive?", can_drive)
+print("Adult?", is_adult)`],
       ['key', [`A boolean is <code>True</code> or <code>False</code> (capital first letter, no quotes).`, `Compare with <code>== != &lt; &gt; &lt;= &gt;=</code>.`, `<code>=</code> stores, <code>==</code> compares.`]],
     ],
     quiz: [
@@ -758,7 +766,7 @@ if day == "Saturday" or day == "Sunday":
 raining = False
 if not raining:
     print("Let's go outside.")`],
-      ['warn', `A common mistake: <code>if day == "Saturday" or "Sunday":</code> doesn't work how you'd expect. You must write the full comparison on both sides: <code>day == "Saturday" or day == "Sunday"</code>.`],
+      ['warn', `A common mistake: <code>if day == "Saturday" or "Sunday":</code> doesn't work how you'd expect. Python reads it as <code>(day == "Saturday") or ("Sunday")</code>, and any non-empty string counts as True, so the condition is <b>always</b> True, even on a Monday! Write the full comparison on both sides: <code>day == "Saturday" or day == "Sunday"</code>. (Or use <code>day in ["Saturday", "Sunday"]</code>.)`],
       ['h', 'Checking a range'],
       ['code', c`temp = 22
 if temp >= 18 and temp <= 25:
@@ -1093,12 +1101,13 @@ print(shopping)`],
       ['code', c`numbers = [42, 7, 19, 3, 88]
 numbers.sort()               # sorts the list itself
 print(numbers)
-numbers.sort(reverse=True)   # biggest first
+numbers.sort(reverse=True)   # biggest first (reverse=True is a named option)
 print(numbers)
 
 names = ["Zara", "adam", "Mo"]
 print(sorted(names))         # sorted() gives a NEW sorted list
 print(names)                 # original unchanged`],
+      ['p', `Notice <code>"adam"</code> came <b>last</b>. When sorting text, capital letters come before lowercase ones. To ignore capitals, use <code>sorted(names, key=str.lower)</code>.`],
       ['tip', `<code>append</code> is the one you'll use most. A great pattern is starting with an empty list and appending inside a loop.`],
       ['code', c`squares = []
 for n in range(1, 6):
@@ -1336,7 +1345,14 @@ introduce("Lily", 16, "drawing")`],
 
 order("burger", "lemonade")
 order("salad")          # drink uses the default`],
-      ['key', [`Parameters are variables in the <code>def</code> line: <code>def f(a, b):</code>`, `Arguments are the values you pass in: <code>f(1, 2)</code>.`, `They match up in order.`, `<code>param=value</code> gives a default.`]],
+      ['h', 'Naming your arguments'],
+      ['p', `You can also pass arguments by <b>name</b>. Then the order doesn't matter, and the call is easier to read. These are called <b>keyword arguments</b>:`],
+      ['code', c`def order(food, drink="water"):
+    print(f"One {food} with {drink}, coming up!")
+
+order(drink="tea", food="toast")`],
+      ['p', `You've already seen keyword arguments in built-in functions: <code>enumerate(items, start=1)</code> and <code>numbers.sort(reverse=True)</code>.`],
+      ['key', [`Parameters are variables in the <code>def</code> line: <code>def f(a, b):</code>`, `Arguments are the values you pass in: <code>f(1, 2)</code>.`, `They match up in order.`, `<code>param=value</code> in the <code>def</code> line gives a default.`, `<code>f(name=value)</code> in a call passes a keyword argument.`]],
     ],
     quiz: [
       { q: 'What does this print?', code: c`def double(n):
@@ -1574,7 +1590,7 @@ print(student["name"])`,
     assert k in student, 'Missing the key "%s".' % k
 assert isinstance(student['subjects'], list) and len(student['subjects']) >= 2, 'subjects should be a list with at least 2 items.'`],
         ['year is 10', c`assert student.get('year') == 10, 'Add student["year"] = 10.'`],
-        ['Prints the name', c`assert str(student['name']) in output and 'student["name"]' in source.replace("'", '"'), 'Print it with print(student["name"]).'`],
+        ['Prints the name', c`assert str(student['name']) in output and 'student[' in source.replace('student["year"]', '').replace("student['year']", ''), 'Print it from the dictionary with print(student["name"]).'`],
       ],
     },
   },
@@ -1602,6 +1618,8 @@ for v in votes:
         counts[v] = 1
 print(counts)
 
+# Find the key with the biggest count: key=counts.get tells max()
+# to compare the counts, not the names themselves
 winner = max(counts, key=counts.get)
 print("Winner:", winner)`],
       ['tip', `A shorter way to count: <code>counts[v] = counts.get(v, 0) + 1</code>. If the key doesn't exist yet, <code>.get</code> gives 0.`],
@@ -1659,7 +1677,7 @@ print(low, high)`],
       ['p', `A <b>set</b> is an unordered collection where every item is unique. It's perfect for removing duplicates:`],
       ['code', c`names = ["Ali", "Bo", "Ali", "Cat", "Bo", "Ali"]
 unique = set(names)
-print(unique)
+print(unique)                  # sets have no fixed order, so this may print in any order
 print(len(unique), "different names")
 print(sorted(unique))
 
@@ -1834,7 +1852,7 @@ print(average([10, 20]))`,
 
 print(random.randint(1, 6))            # a random whole number from 1 to 6
 print(random.choice(["rock", "paper", "scissors"]))
-print(random.random())                 # random decimal between 0 and 1
+print(random.random())                 # random decimal from 0 up to (not including) 1
 
 cards = ["A", "K", "Q", "J", "10"]
 random.shuffle(cards)
@@ -1981,7 +1999,7 @@ print(rex.name, rex.age)
 rex.bark()
 bella.bark()`],
       ['h', 'Breaking it down'],
-      ['list', [`<code>class Dog:</code> starts the blueprint. Class names use CapitalLetters.`, `<code>__init__</code> is a special method that runs when you create a new object. It sets up the object's data.`, `<code>self</code> means "this particular object". <code>self.name = name</code> stores the name <i>on the object</i>.`, `<code>bark</code> is a <b>method</b>, a function that belongs to the class. Methods always take <code>self</code> first.`, `<code>Dog("Rex", 3)</code> creates an object; <code>rex.bark()</code> calls a method on it.`]],
+      ['list', [`<code>class Dog:</code> starts the blueprint. By convention class names start with a capital letter and join words together, e.g. <code>BankAccount</code>.`, `<code>__init__</code> is a special method that runs when you create a new object. It sets up the object's data.`, `<code>self</code> means "this particular object". <code>self.name = name</code> stores the name <i>on the object</i>.`, `<code>bark</code> is a <b>method</b>, a function that belongs to the class. Methods always take <code>self</code> first.`, `<code>Dog("Rex", 3)</code> creates an object; <code>rex.bark()</code> calls a method on it.`]],
       ['p', `Things stored on <code>self</code> (like <code>self.name</code>) are called <b>attributes</b>. Methods can use and return them:`],
       ['code', c`class Rectangle:
     def __init__(self, width, height):
@@ -2076,7 +2094,9 @@ print(p.status())`],
 
 a = Counter()
 b = Counter()
-a.click(); a.click(); a.click()
+a.click()
+a.click()
+a.click()
 b.click()
 print(a.count, b.count)   # each object has its own count`],
       ['tip', `There's a special method <code>__str__</code> that controls what <code>print(object)</code> shows. Try adding <code>def __str__(self): return self.status()</code> to the Player class.`],
@@ -2417,16 +2437,20 @@ else:
 
 ==  !=  <  >  <=  >=
 and   or   not`],
-  ['Loops', c`for i in range(5):        # 0,1,2,3,4
-for i in range(1, 11):    # 1..10
-for i in range(0, 10, 2): # 0,2,4,6,8
-for letter in "hello":
+  ['Loops', c`for i in range(5):          # 0,1,2,3,4
+    print(i)
+# range(1, 11)  -> 1..10
+# range(0, 10, 2) -> 0,2,4,6,8
 
+for letter in "hello":
+    print(letter)
+
+count = 0
 while count < 10:
     count += 1
 
-break       # leave the loop
-continue    # skip to next turn`],
+break       # leave the loop now
+continue    # skip to the next turn`],
   ['Lists', c`nums = [3, 1, 2]
 nums[0]          nums[-1]
 nums.append(4)   nums.insert(0, 9)
@@ -2506,7 +2530,7 @@ const GLOSSARY = [
   ['Index', 'The position of an item in a string or list. Starts at 0.'],
   ['Indentation', 'Spaces at the start of a line. Python uses it to group code into blocks.'],
   ['Integer (int)', 'A whole number, e.g. <code>42</code>.'],
-  ['Iteration', 'Repeating code, one turn of a loop.'],
+  ['Iteration', 'Repeating code with a loop. Each single repeat is also called an iteration.'],
   ['List', 'An ordered, changeable collection, e.g. <code>[1, 2, 3]</code>.'],
   ['Loop', 'Code that repeats: <code>for</code> or <code>while</code>.'],
   ['Method', 'A function that belongs to an object, called with a dot: <code>text.upper()</code>.'],
