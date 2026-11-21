@@ -92,7 +92,9 @@ def _friendly(e, ns, code_line):
             return "In Python 3, <b>print</b> needs brackets: <b>print(\"hello\")</b>"
         return "Python couldn't understand how this line is written. Check for missing brackets, quotes, colons or commas, and look at the line just above too."
     if isinstance(e, UnboundLocalError):
-        return "You used a variable inside a function before giving it a value there. If you want to change an outside variable, pass it in as a parameter and <b>return</b> the new value instead."
+        return ("You changed a variable inside a function, but that variable was created outside the function. "
+                "In a game, add a line like <b>global score</b> at the top of the function so Python knows you mean the outside variable. "
+                "(Or pass the value in as a parameter and <b>return</b> the new value.)")
     if isinstance(e, NameError):
         name = getattr(e, 'name', None) or (msg.split("'")[1] if "'" in msg else '')
         hint = "Python doesn't know anything called <b>%s</b>. " % name
@@ -101,6 +103,10 @@ def _friendly(e, ns, code_line):
             hint += "Did you mean <b>%s</b>? " % close
         hint += "Check the spelling (capital letters matter!), make sure you created the variable <i>before</i> this line, and if you meant it as text put it in quotes: <b>\"%s\"</b>." % name
         return hint
+    if isinstance(e, TypeError) and msg.startswith('drawing needs a number'):
+        return "Drawing commands need <b>numbers</b> for positions and sizes. Check you didn't put a number in quotes, and that your variables hold numbers."
+    if isinstance(e, TypeError) and msg.startswith('a colour must be'):
+        return "Colours can be a name in quotes like <b>\"red\"</b> or <b>\"skyblue\"</b>, or three numbers (red, green, blue) from 0 to 255 like <b>(255, 120, 0)</b>."
     if isinstance(e, TypeError):
         if 'can only concatenate str' in msg or 'must be str, not' in msg:
             return "You tried to join text and a number with <b>+</b>. Turn the number into text with <b>str()</b>, or use an f-string: <b>f\"Age: {age}\"</b>."
@@ -175,7 +181,7 @@ def _explain(e, code, ns):
 
 def _run(code, inputs=None, interactive=False, timeout=5.0):
     out = _Out()
-    ns = {'__name__': '__main__'}
+    ns = _fresh_ns()
     queue = list(inputs) if inputs is not None else []
     old = (sys.stdout, sys.stderr, builtins.input, sys.gettrace())
     sys.stdout = sys.stderr = out
@@ -218,6 +224,200 @@ def _norm(s):
 def _approx(a, b, tol=0.01):
     return abs(a - b) <= tol
 
+# ---------------- game engine (Pygame Zero style) ----------------
+import inspect as _inspect, random as _random
+
+def _num(v, what):
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise TypeError("drawing needs a number for %s, but got %r" % (what, v))
+    return v
+
+def _col(c):
+    if isinstance(c, (tuple, list)) and len(c) >= 3:
+        return 'rgb(%d,%d,%d)' % tuple(max(0, min(255, int(v))) for v in c[:3])
+    if isinstance(c, str):
+        return c
+    raise TypeError("a colour must be a name like \"red\" or an (r, g, b) tuple, but got %r" % (c,))
+
+class Screen:
+    """The game screen. Draw on it inside your draw() function."""
+    def __init__(self):
+        self.calls = []
+    def clear(self):
+        self.calls.append(['fill', 'black'])
+    def fill(self, color):
+        self.calls.append(['fill', _col(color)])
+    def rect(self, x, y, width, height, color='white', outline=0):
+        self.calls.append(['rect', _num(x, 'x'), _num(y, 'y'), _num(width, 'width'), _num(height, 'height'), _col(color), _num(outline, 'outline')])
+    def circle(self, x, y, radius, color='white', outline=0):
+        self.calls.append(['circle', _num(x, 'x'), _num(y, 'y'), _num(radius, 'radius'), _col(color), _num(outline, 'outline')])
+    def line(self, x1, y1, x2, y2, color='white', width=2):
+        self.calls.append(['line', _num(x1, 'x1'), _num(y1, 'y1'), _num(x2, 'x2'), _num(y2, 'y2'), _col(color), _num(width, 'width')])
+    def polygon(self, points, color='white', outline=0):
+        pts = [[_num(p[0], 'x'), _num(p[1], 'y')] for p in points]
+        self.calls.append(['poly', pts, _col(color), _num(outline, 'outline')])
+    def text(self, text, x, y, size=24, color='white', center=False):
+        self.calls.append(['text', str(text), _num(x, 'x'), _num(y, 'y'), _num(size, 'size'), _col(color), bool(center)])
+    def emoji(self, symbol, x, y, size=40):
+        self.calls.append(['emoji', str(symbol), _num(x, 'x'), _num(y, 'y'), _num(size, 'size')])
+
+class Keyboard:
+    """keyboard.left is True while the left arrow is held down."""
+    def __init__(self):
+        self._down = set()
+    def __getattr__(self, name):
+        if name.startswith('_'):
+            raise AttributeError(name)
+        return name.lower() in self._down
+    def __getitem__(self, key):
+        return str(key).lower() in self._down
+
+class Mouse:
+    def __init__(self):
+        self.x = 0
+        self.y = 0
+        self.down = False
+
+def _fresh_ns():
+    return {'__name__': '__main__', 'screen': Screen(), 'keyboard': Keyboard(), 'mouse': Mouse(),
+            'WIDTH': 600, 'HEIGHT': 400}
+
+def _call(fn, *args):
+    try:
+        n = len(_inspect.signature(fn).parameters)
+    except (TypeError, ValueError):
+        n = len(args)
+    return fn(*args[:n])
+
+def _size(ns):
+    try:
+        return max(100, min(1200, int(ns.get('WIDTH', 600)))), max(100, min(900, int(ns.get('HEIGHT', 400))))
+    except Exception:
+        return 600, 400
+
+_game = {}
+
+def lp_game_start(code, inputs_json=None):
+    inputs = json.loads(inputs_json) if inputs_json else None
+    ns, output, err = _run(code, inputs, interactive=inputs is None)
+    has = (not err) and (callable(ns.get('draw')) or callable(ns.get('update')))
+    w, h = _size(ns)
+    _game.clear()
+    _game.update(ns=ns, code=code)
+    return json.dumps({'output': output, 'error': err, 'game': bool(has), 'width': w, 'height': h})
+
+def _frame(ns, held=(), pressed=(), clicks=(), mx=0, my=0, mdown=False):
+    kb, ms, scr = ns.get('keyboard'), ns.get('mouse'), ns.get('screen')
+    if isinstance(kb, Keyboard):
+        kb._down = set(held)
+    if isinstance(ms, Mouse):
+        ms.x, ms.y, ms.down = mx, my, mdown
+    f = ns.get('on_key_down')
+    if callable(f):
+        for k in pressed:
+            _call(f, k)
+    f = ns.get('on_mouse_down')
+    if callable(f):
+        for x, y in clicks:
+            _call(f, x, y)
+    f = ns.get('update')
+    if callable(f):
+        f()
+    if isinstance(scr, Screen):
+        scr.calls = []
+    f = ns.get('draw')
+    if callable(f):
+        f()
+    return scr.calls if isinstance(scr, Screen) else []
+
+def lp_game_frame(ev_json):
+    ev = json.loads(ev_json)
+    ns = _game.get('ns')
+    if ns is None:
+        return json.dumps({'calls': [], 'out': '', 'error': None})
+    out = _Out()
+    old = (sys.stdout, sys.stderr, sys.gettrace())
+    sys.stdout = sys.stderr = out
+    _deadline[0] = time.time() + 1.5
+    err, calls, stop = None, [], False
+    try:
+        sys.settrace(_tracer)
+        try:
+            calls = _frame(ns, ev['held'], ev['pressed'], ev['clicks'], ev['mx'], ev['my'], ev['mdown'])
+        finally:
+            sys.settrace(old[2])
+    except SystemExit:
+        stop = True
+    except BaseException as e:
+        err = _explain(e, _game['code'], ns)
+    finally:
+        sys.stdout, sys.stderr = old[0], old[1]
+    return json.dumps({'calls': calls, 'out': out.getvalue(), 'error': err, 'stop': stop})
+
+_KEYS = ['left', 'right', 'up', 'down', 'space', 'enter', 'w', 'a', 's', 'd']
+
+def _simulate(ns, n=300, seed=1):
+    rnd = _random.Random(seed)
+    w, h = _size(ns)
+    held = set()
+    for i in range(n):
+        if i % 10 == 0:
+            held = set(rnd.sample(_KEYS, rnd.randint(0, 2)))
+        pressed = [rnd.choice(_KEYS)] if i % 15 == 0 else []
+        clicks = [(rnd.randint(0, w), rnd.randint(0, h))] if i % 20 == 0 else []
+        _frame(ns, held, pressed, clicks, rnd.randint(0, w), rnd.randint(0, h), False)
+    return True
+
+def _game_helpers(ns):
+    def drawn():
+        scr = ns['screen']
+        scr.calls = []
+        ns['draw']()
+        return list(scr.calls)
+    def shapes(kind):
+        kind = {'polygon': 'poly'}.get(kind, kind)
+        return [c for c in drawn() if c[0] == kind]
+    def texts():
+        return ' '.join(c[1] for c in drawn() if c[0] == 'text')
+    def hold(*keys):
+        ns['keyboard']._down = set(k.lower() for k in keys)
+    def frames(n=1):
+        for _ in range(n):
+            ns['update']()
+    def press(key):
+        _call(ns['on_key_down'], key)
+    def click(x, y):
+        _call(ns['on_mouse_down'], x, y)
+    def simulate(n=300):
+        return _simulate(ns, n)
+    def draws_of(fn, *args):
+        scr = ns['screen']
+        scr.calls = []
+        fn(*args)
+        return list(scr.calls)
+    return {'g': ns, 'drawn': drawn, 'shapes': shapes, 'texts': texts, 'hold': hold,
+            'frames': frames, 'press': press, 'click': click, 'simulate': simulate, 'draws_of': draws_of}
+
+def lp_smoke_json(code, inputs_json):
+    ns, output, err = _run(code, json.loads(inputs_json), interactive=False)
+    if not err and (callable(ns.get('draw')) or callable(ns.get('update'))):
+        old = (sys.stdout, sys.gettrace())
+        sys.stdout = _Out()
+        _deadline[0] = time.time() + 10
+        try:
+            sys.settrace(_tracer)
+            try:
+                _simulate(ns, 240)
+            finally:
+                sys.settrace(old[1])
+        except SystemExit:
+            pass
+        except BaseException as e:
+            err = _explain(e, code, ns)
+        finally:
+            sys.stdout = old[0]
+    return json.dumps({'error': err})
+
 def lp_check_json(code, tests_json, inputs_json=None):
     tests = json.loads(tests_json)
     inputs = json.loads(inputs_json) if inputs_json else []
@@ -230,6 +430,7 @@ def lp_check_json(code, tests_json, inputs_json=None):
         'run_with': lambda inp=None: _run(code, list(inp or []), interactive=False)[1],
         'capture': _capture, 'norm': _norm, 'approx': _approx,
     })
+    tns.update(_game_helpers(ns))
     results = []
     for desc, tcode in tests:
         old = (sys.stdout, builtins.input, sys.gettrace())
@@ -368,42 +569,167 @@ def lp_check_json(code, tests_json, inputs_json=None):
     return cm;
   }
 
-  function renderOutput(el, res, label = 'Output') {
+  function renderOutput(el, res, label = 'Output', emptyMsg) {
     el.innerHTML = '';
     el.classList.add('show');
     el.append(h('span', { class: 'lbl' }, label));
     if (res.output) el.append(document.createTextNode(res.output));
-    else if (!res.error) el.append(h('span', { class: 'empty' }, '(Your program ran but printed nothing. Use print() to show something.)'));
-    if (res.error) {
-      const e = res.error;
-      el.append(h('div', { class: 'err-box' },
-        h('div', { class: 'et' }, '🐞 ' + (e.line ? `Problem on line ${e.line}: ` : '') + e.type),
-        e.code ? h('div', { class: 'el' }, e.code.trim()) : null,
-        h('div', { class: 'muted', style: 'color:#d8a8a2;font-size:13px' }, 'Python says: ' + e.message),
-        h('div', { class: 'ef', html: '💡 ' + e.friendly }),
-      ));
+    else if (!res.error) el.append(h('span', { class: 'empty' }, emptyMsg || '(Your program ran but printed nothing. Use print() to show something.)'));
+    if (res.error) el.append(errBox(res.error));
+    el.scrollTop = el.scrollHeight;
+  }
+  /* ============================================================
+   * Game runtime: draws what the learner's draw() produces onto a
+   * canvas ~60 times a second and feeds in keyboard/mouse events.
+   * ============================================================ */
+  let activeGame = null;
+  function stopGame() { if (activeGame) { const g = activeGame; activeGame = null; g.stop(); } }
+  const KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', ' ': 'space', Spacebar: 'space', Enter: 'enter', Escape: 'escape', Shift: 'shift', Control: 'ctrl', Backspace: 'backspace' };
+  const keyName = e => KEYMAP[e.key] || (e.key && e.key.length === 1 ? e.key.toLowerCase() : null);
+
+  function appendOut(el, text) {
+    el.classList.add('show');
+    const empty = el.querySelector('.empty'); if (empty) empty.remove();
+    el.append(document.createTextNode(text));
+    if (el.textContent.length > 20000) {
+      const lbl = el.querySelector('.lbl');
+      el.textContent = el.textContent.slice(-12000);
+      if (lbl) el.prepend(lbl);
     }
     el.scrollTop = el.scrollHeight;
   }
+  function errBox(e) {
+    return h('div', { class: 'err-box' },
+      h('div', { class: 'et' }, '🐞 ' + (e.line ? `Problem on line ${e.line}: ` : '') + e.type),
+      e.code ? h('div', { class: 'el' }, e.code.trim()) : null,
+      h('div', { class: 'muted', style: 'color:#d8a8a2;font-size:13px' }, 'Python says: ' + e.message),
+      h('div', { class: 'ef', html: '💡 ' + e.friendly }));
+  }
 
-  function runner(code, { title = 'Try it', onRun } = {}) {
+  function paint(ctx, calls, cv) {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
+    for (const c of calls) {
+      switch (c[0]) {
+        case 'fill': ctx.fillStyle = c[1]; ctx.fillRect(0, 0, cv.width, cv.height); break;
+        case 'rect':
+          if (c[6] > 0) { ctx.strokeStyle = c[5]; ctx.lineWidth = c[6]; ctx.strokeRect(c[1], c[2], c[3], c[4]); }
+          else { ctx.fillStyle = c[5]; ctx.fillRect(c[1], c[2], c[3], c[4]); }
+          break;
+        case 'circle':
+          ctx.beginPath(); ctx.arc(c[1], c[2], Math.max(0, c[3]), 0, Math.PI * 2);
+          if (c[5] > 0) { ctx.strokeStyle = c[4]; ctx.lineWidth = c[5]; ctx.stroke(); } else { ctx.fillStyle = c[4]; ctx.fill(); }
+          break;
+        case 'line':
+          ctx.strokeStyle = c[5]; ctx.lineWidth = c[6]; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(c[1], c[2]); ctx.lineTo(c[3], c[4]); ctx.stroke(); break;
+        case 'poly':
+          if (!c[1].length) break;
+          ctx.beginPath(); ctx.moveTo(c[1][0][0], c[1][0][1]);
+          for (const p of c[1].slice(1)) ctx.lineTo(p[0], p[1]);
+          ctx.closePath();
+          if (c[3] > 0) { ctx.strokeStyle = c[2]; ctx.lineWidth = c[3]; ctx.stroke(); } else { ctx.fillStyle = c[2]; ctx.fill(); }
+          break;
+        case 'text':
+          ctx.font = `600 ${c[4]}px Inter, system-ui, sans-serif`; ctx.fillStyle = c[5];
+          ctx.textAlign = c[6] ? 'center' : 'left'; ctx.textBaseline = c[6] ? 'middle' : 'top';
+          ctx.fillText(c[1], c[2], c[3]); break;
+        case 'emoji':
+          ctx.font = `${c[4]}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+          ctx.fillText(c[1], c[2], c[3]); break;
+      }
+    }
+  }
+
+  function startGame(res, ui) {
+    stopGame();
+    const stage = ui.stage;
+    stage.innerHTML = ''; stage.classList.add('show');
+    const canvas = h('canvas', { width: res.width, height: res.height, tabindex: '0', class: 'game-canvas', 'aria-label': 'Game screen' });
+    const ctx = canvas.getContext('2d');
+    const held = new Set(), pressed = [], clicks = [];
+    let mx = 0, my = 0, mdown = false, running = true, raf = 0, last = 0;
+    const status = h('span', { class: 'stage-status' }, matchMedia('(pointer: coarse)').matches ? '🎮 Tap the game or use the buttons below' : '🎮 Click the game, then use the keyboard');
+    const stopBtn = h('button', { class: 'btn', onclick: () => stopGame() }, '⏹ Stop');
+    const pad = h('div', { class: 'touchpad' });
+    [['left', '◀'], ['up', '▲'], ['down', '▼'], ['right', '▶'], ['space', 'Space']].forEach(([k, label]) => {
+      const b = h('button', { class: 'btn pad-' + k, 'aria-label': k }, label);
+      b.addEventListener('pointerdown', e => { e.preventDefault(); held.add(k); pressed.push(k); });
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => b.addEventListener(t, () => held.delete(k)));
+      pad.append(b);
+    });
+    stage.append(canvas, h('div', { class: 'stage-bar' }, status, stopBtn), pad);
+    canvas.addEventListener('keydown', e => {
+      const k = keyName(e); if (!k) return;
+      if (['left', 'right', 'up', 'down', 'space'].includes(k)) e.preventDefault();
+      if (!e.repeat) pressed.push(k);
+      held.add(k);
+    });
+    canvas.addEventListener('keyup', e => { const k = keyName(e); if (k) held.delete(k); });
+    canvas.addEventListener('blur', () => held.clear());
+    const pos = e => { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left) * canvas.width / r.width, (e.clientY - r.top) * canvas.height / r.height]; };
+    canvas.addEventListener('pointerdown', e => { canvas.focus({ preventScroll: true }); [mx, my] = pos(e); clicks.push([Math.round(mx), Math.round(my)]); mdown = true; });
+    canvas.addEventListener('pointermove', e => { [mx, my] = pos(e); });
+    const up = () => { mdown = false; };
+    window.addEventListener('pointerup', up);
+    const frameFn = py.globals.get('lp_game_frame');
+    const stop = () => {
+      running = false; cancelAnimationFrame(raf); window.removeEventListener('pointerup', up);
+      try { frameFn.destroy(); } catch (e) { /* already gone */ }
+      status.textContent = '⏹ Game stopped. Press ▶ Run to play again.'; stopBtn.disabled = true;
+      if (activeGame && activeGame.stop === stop) activeGame = null;
+    };
+    const loop = t => {
+      if (!running) return;
+      raf = requestAnimationFrame(loop);
+      if (t - last < 15) return;
+      last = t;
+      let r;
+      try {
+        r = JSON.parse(frameFn(JSON.stringify({ held: [...held], pressed: pressed.splice(0), clicks: clicks.splice(0), mx: Math.round(mx), my: Math.round(my), mdown })));
+      } catch (e) { console.error(e); stopGame(); return; }
+      paint(ctx, r.calls, canvas);
+      if (r.out) appendOut(ui.out, r.out);
+      if (r.error) { ui.out.classList.add('show'); ui.out.append(errBox(r.error)); ui.out.scrollTop = ui.out.scrollHeight; stopGame(); }
+      else if (r.stop) stopGame();
+    };
+    activeGame = { stop };
+    canvas.focus({ preventScroll: true });
+    raf = requestAnimationFrame(loop);
+  }
+
+  // Runs a program. If it defines draw()/update(), it becomes a game on the stage.
+  async function execute(code, ui) {
+    stopGame();
+    const res = await pyCall('lp_game_start', code).catch(() => ({ output: '', error: null, game: false }));
+    if (res.game) {
+      renderOutput(ui.out, res, 'Output', '🎮 Your game is running. Anything you print() appears here.');
+      startGame(res, ui);
+    } else {
+      ui.stage.classList.remove('show'); ui.stage.innerHTML = '';
+      renderOutput(ui.out, res);
+    }
+    return res;
+  }
+
+  function runner(code, { title = 'Try it', onRun, noReset, extra } = {}) {
     const box = h('div', { class: 'runner' });
     const out = h('pre', { class: 'output' });
+    const stage = h('div', { class: 'stage' });
     let cm;
     const run = async () => {
       runBtn.disabled = true; runBtn.textContent = py ? 'Running…' : 'Loading Python…';
-      const res = await runCode(cm.getValue()).catch(() => ({ output: '', error: null }));
+      const res = await execute(cm.getValue(), { out, stage });
       runBtn.disabled = false; runBtn.textContent = '▶ Run';
-      renderOutput(out, res);
       onRun && onRun(res);
     };
     const runBtn = h('button', { class: 'btn primary', onclick: run, title: 'Run (Ctrl+Enter)' }, '▶ Run');
     const bar = h('div', { class: 'runner-bar' },
-      h('span', { class: 'title' }, '🐍 ' + title),
-      h('button', { class: 'btn', onclick: () => { cm.setValue(code); out.classList.remove('show'); }, title: 'Put the original code back' }, '↺ Reset'),
+      h('span', { class: 'title' }, '🐍 ' + title), extra || null,
+      noReset ? null : h('button', { class: 'btn', onclick: () => { stopGame(); cm.setValue(code); out.classList.remove('show'); stage.classList.remove('show'); }, title: 'Put the original code back' }, '↺ Reset'),
       runBtn);
     box.append(bar);
-    const ed = h('div'); box.append(ed, out);
+    const ed = h('div'); box.append(ed, stage, out);
     cm = makeEditor(ed, code, { onRun: run });
     box._cm = cm; box._run = run;
     return box;
@@ -422,7 +748,8 @@ def lp_check_json(code, tests_json, inputs_json=None):
       h('div', { class: 'bar' }, h('span', { style: `width:${pct}%` })),
       h('div', { class: 'row', style: 'margin-top:12px' },
         h('a', { class: 'btn', href: '#/playground' }, '🧪 Playground'),
-        h('a', { class: 'btn', href: '#/reference' }, '📖 Cheat Sheet'))));
+        h('a', { class: 'btn', href: '#/reference' }, '📖 Cheat Sheet'),
+        h('a', { class: 'btn', href: '#/studio' }, '🎮 Game Studio'))));
     const cur = currentId && byId[currentId];
     if (cur) openMods.add(cur.module.id);
     COURSE.forEach(m => {
@@ -571,6 +898,7 @@ def lp_check_json(code, tests_json, inputs_json=None):
     const saved = S.code[lesson.id];
     const box = h('div', { class: 'runner' });
     const out = h('pre', { class: 'output' });
+    const stage = h('div', { class: 'stage' });
     const results = h('div', { class: 'results' });
     let cm, hintsShown = 0, fails = 0;
     const hintsEl = h('div', { class: 'hints' });
@@ -578,15 +906,15 @@ def lp_check_json(code, tests_json, inputs_json=None):
 
     const doRun = async () => {
       runBtn.disabled = true; runBtn.textContent = py ? 'Running…' : 'Loading Python…';
-      const res = await runCode(cm.getValue()).catch(() => ({ output: '', error: null }));
+      await execute(cm.getValue(), { out, stage });
       runBtn.disabled = false; runBtn.textContent = '▶ Run';
-      renderOutput(out, res);
     };
     const doCheck = async () => {
       checkBtn.disabled = true; checkBtn.textContent = py ? 'Checking…' : 'Loading Python…';
       const res = await checkCode(cm.getValue(), ch.tests, ch.inputs).catch(() => null);
       checkBtn.disabled = false; checkBtn.textContent = '✓ Check my code';
       if (!res) return;
+      stopGame(); stage.classList.remove('show');
       renderOutput(out, res, ch.inputs && ch.inputs.length ? `Output (test run, typing: ${ch.inputs.slice(0, 6).join(', ')}${ch.inputs.length > 6 ? '…' : ''})` : 'Output');
       results.innerHTML = ''; results.classList.add('show');
       if (res.error) {
@@ -621,7 +949,7 @@ def lp_check_json(code, tests_json, inputs_json=None):
       h('span', { class: 'title' }, '✏️ Your code'),
       h('button', { class: 'btn', onclick: () => { if (confirm('Start again with the original code?')) cm.setValue(ch.starter); } }, '↺ Reset'),
       runBtn, checkBtn));
-    const ed = h('div'); box.append(ed, out);
+    const ed = h('div'); box.append(ed, stage, out);
     cm = makeEditor(ed, saved != null ? saved : ch.starter, {
       onRun: doRun, onChange: v => { S.code[lesson.id] = v; save(); },
     });
@@ -730,8 +1058,63 @@ def lp_check_json(code, tests_json, inputs_json=None):
       h('h1', {}, 'Python Path'),
       h('p', {}, 'This certifies that'),
       nameEl,
-      h('p', {}, `has completed all ${COURSE.length} modules and ${ALL.length} lessons of the Python Path beginner course, covering variables, decisions, loops, lists, functions, dictionaries, error handling, modules, files, classes and real projects. ${S.xp} XP earned.`),
+      h('p', {}, `has completed all ${COURSE.length} modules and ${ALL.length} lessons of the Python Path course: from a first print() through variables, decisions, loops, lists, functions, dictionaries, classes and error handling, to animation, controls, collisions and game mechanics, finishing by designing and building their own game. ${S.xp} XP earned.`),
       h('p', { style: 'margin-top:24px' }, new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }))));
+    return c;
+  }
+
+
+  /* ---------- Game Studio: save, run and download your own games ---------- */
+  function pageStudio() {
+    const T = window.GAME_TEMPLATES || {};
+    if (!S.studio || !S.studio.projects || !Object.keys(S.studio.projects).length) {
+      S.studio = { cur: 'My game', projects: { 'My game': T['Blank game'] || '' } }; save();
+    }
+    const st = S.studio;
+    if (!st.projects[st.cur]) st.cur = Object.keys(st.projects)[0];
+    const c = h('div', { class: 'container pg', style: 'max-width:1100px' });
+    c.append(h('h1', { class: 'lesson-title' }, '🎮 Game Studio'));
+    c.append(h('p', { class: 'muted' }, 'Build your own games here. Each project is saved in this browser automatically. Start from a template, or from scratch, and use ⬇ Download to keep a copy of your code.'));
+    const sel = h('select', { class: 'select', 'aria-label': 'Choose a project' });
+    const fillSel = () => { sel.innerHTML = ''; Object.keys(st.projects).forEach(n => sel.append(h('option', { value: n, selected: n === st.cur ? 'selected' : false }, n))); };
+    fillSel();
+    sel.onchange = () => { st.cur = sel.value; save(); route(); };
+    const tpl = h('select', { class: 'select', 'aria-label': 'New project from a template' }, h('option', { value: '' }, '➕ New from template…'), ...Object.keys(T).map(n => h('option', { value: n }, n)));
+    const uniq = base => { let n = base, i = 2; while (st.projects[n]) n = `${base} ${i++}`; return n; };
+    tpl.onchange = () => {
+      if (!tpl.value) return;
+      const name = uniq(tpl.value);
+      st.projects[name] = T[tpl.value]; st.cur = name; save(); route();
+    };
+    const box = runner(st.projects[st.cur], { title: st.cur + '.py', noReset: true });
+    box._cm.on('change', () => { st.projects[st.cur] = box._cm.getValue(); save(); });
+    const rename = () => {
+      const n = (prompt('New name for this project:', st.cur) || '').trim();
+      if (!n || n === st.cur) return;
+      if (st.projects[n]) { toast('A project with that name already exists.'); return; }
+      st.projects[n] = st.projects[st.cur]; delete st.projects[st.cur]; st.cur = n; save(); route();
+    };
+    const del = () => {
+      if (!confirm(`Delete "${st.cur}"? This can't be undone.`)) return;
+      delete st.projects[st.cur];
+      if (!Object.keys(st.projects).length) st.projects['My game'] = T['Blank game'] || '';
+      st.cur = Object.keys(st.projects)[0]; save(); route();
+    };
+    const download = () => {
+      const a = h('a', { href: URL.createObjectURL(new Blob([box._cm.getValue()], { type: 'text/x-python' })), download: st.cur.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') + '.py' });
+      document.body.append(a); a.click(); a.remove();
+    };
+    c.append(h('div', { class: 'pg-examples' }, sel,
+      h('button', { class: 'btn', onclick: () => { const n = uniq('My game'); st.projects[n] = T['Blank game'] || ''; st.cur = n; save(); route(); } }, '➕ New'),
+      tpl,
+      h('button', { class: 'btn', onclick: rename }, '✏️ Rename'),
+      h('button', { class: 'btn', onclick: download }, '⬇ Download .py'),
+      h('button', { class: 'btn ghost', onclick: del }, '🗑 Delete')));
+    c.append(box);
+    c.append(h('div', { class: 'callout tip' }, h('span', { class: 'ci' }, '💡'), h('div', { html:
+      'Your game needs a <code>draw()</code> function (and usually <code>update()</code>). Press <b>▶ Run</b>, click the game, then play. ' +
+      'Forgotten how something works? The <a href="#/reference">Cheat Sheet</a> has a Games section, and the Games modules in the course explain everything step by step.' })));
+    setTimeout(() => box._cm.refresh(), 0);
     return c;
   }
 
@@ -739,6 +1122,7 @@ def lp_check_json(code, tests_json, inputs_json=None):
    * Router
    * ============================================================ */
   function route() {
+    stopGame();
     const hash = location.hash.replace(/^#\/?/, '');
     const [page, arg] = hash.split('/');
     let view, nav = page || 'home';
@@ -746,6 +1130,7 @@ def lp_check_json(code, tests_json, inputs_json=None):
     else if (page === 'playground') view = pagePlayground();
     else if (page === 'reference') view = pageReference();
     else if (page === 'certificate') view = pageCertificate();
+    else if (page === 'studio') view = pageStudio();
     else { view = pageHome(); nav = 'home'; }
     main.innerHTML = '';
     main.append(view);
@@ -773,8 +1158,12 @@ def lp_check_json(code, tests_json, inputs_json=None):
       if (!s.error && s.results.every(x => x.ok)) fails.push({ id: l.id, kind: 'starter passes' });
       for (const b of l.blocks) {
         if (b[0] !== 'code' || (b[2] && b[2].error)) continue;
-        const e = await runCode(b[1], (b[2] && b[2].inputs) || ['5', '3', '7', '2', '9']);
+        const e = await pyCall('lp_smoke_json', b[1], JSON.stringify((b[2] && b[2].inputs) || ['5', '3', '7', '2', '9']));
         if (e.error) fails.push({ id: l.id, kind: 'example error', code: b[1].slice(0, 60), err: e.error });
+      }
+      if (ch.game) {
+        const e = await pyCall('lp_smoke_json', ch.solution, '[]');
+        if (e.error) fails.push({ id: l.id, kind: 'solution game error', err: e.error });
       }
     }
     return { lessons: ALL.length, fails };
