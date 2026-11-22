@@ -127,6 +127,8 @@ def _friendly(e, ns, code_line):
         if "object does not support item assignment" in msg:
             return "You can't change part of this value. Strings and tuples can't be changed once made; build a new one instead."
         return "A value of the wrong type was used here. Check what kind of value each variable holds (text, number, list...). <b>type(x)</b> can tell you."
+    if isinstance(e, ValueError) and msg.startswith("there's no sound called"):
+        return "That sound doesn't exist. The sounds you can use are: <b>coin, jump, hit, laser, explosion, powerup, click, win, lose, bounce</b>."
     if isinstance(e, ValueError):
         if 'invalid literal for int' in msg:
             return "<b>int()</b> was given text that isn't a whole number. If the user typed a decimal like 2.5 use <b>float()</b>; to handle any typing mistakes use <b>try/except</b>."
@@ -151,6 +153,8 @@ def _friendly(e, ns, code_line):
         return "The program asked for more input than was available."
     if isinstance(e, FileNotFoundError):
         return "That file doesn't exist yet. Check the file name, or create it first by opening it with mode <b>\"w\"</b>."
+    if isinstance(e, ImportError) and 'switched off' in msg:
+        return "This module is switched off on this website to keep everyone safe. Modules like <b>random</b>, <b>math</b>, <b>time</b> and <b>datetime</b> are fine to use."
     if isinstance(e, ModuleNotFoundError):
         return "Python can't find a module with that name. Check the spelling. Only built-in modules like <b>random</b>, <b>math</b> and <b>datetime</b> are available here."
     if isinstance(e, AssertionError):
@@ -190,11 +194,13 @@ def _run(code, inputs=None, interactive=False, timeout=5.0):
     err = None
     try:
         compiled = compile(code, '<user>', 'exec')
+        _guard[0] = True
         sys.settrace(_tracer)
         try:
             exec(compiled, ns)
         finally:
             sys.settrace(old[3])
+            _guard[0] = False
     except SystemExit:
         pass
     except BaseException as e:
@@ -278,9 +284,113 @@ class Mouse:
         self.y = 0
         self.down = False
 
+# ---------------- sounds, import guard, step-through tracer ----------------
+import types as _types
+
+SOUNDS = ['coin', 'jump', 'hit', 'laser', 'explosion', 'powerup', 'click', 'win', 'lose', 'bounce']
+_sound_queue = []
+
+def _play_sound(name):
+    name = str(name).lower()
+    if name not in SOUNDS:
+        raise ValueError("there's no sound called %r. Try one of: %s" % (name, ', '.join(SOUNDS)))
+    if len(_sound_queue) < 8:
+        _sound_queue.append(name)
+
+# Learner code can't reach the browser or the interpreter's internals.
+# (This is a safety net for shared links, not a perfect sandbox.)
+_BLOCKED = {'js', 'pyodide', 'pyodide_js', '_pyodide', 'micropip', 'ctypes', 'importlib', 'sys',
+            'subprocess', 'gc', 'inspect', 'builtins', 'threading', 'multiprocessing', 'socket'}
+_guard = [False]
+_real_import = builtins.__import__
+
+def _guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+    if _guard[0] and level == 0 and (globals is None or globals.get('__name__') == '__main__') \
+            and name.split('.')[0] in _BLOCKED:
+        raise ImportError("The %s module is switched off in Python Path." % name.split('.')[0])
+    return _real_import(name, globals, locals, fromlist, level)
+
+builtins.__import__ = _guarded_import
+
+class StepLimit(BaseException):
+    pass
+
+def _short(v):
+    try:
+        if isinstance(v, _types.FunctionType):
+            return 'function %s()' % v.__name__
+        if isinstance(v, type):
+            return 'class %s' % v.__name__
+        r = repr(v)
+    except Exception:
+        r = '?'
+    return r if len(r) <= 90 else r[:87] + '...'
+
+def _vars(d, hidden):
+    out = []
+    for k, v in list(d.items()):
+        if k.startswith('__') or (k in hidden and hidden[k] is v):
+            continue
+        if isinstance(v, _types.ModuleType):
+            continue
+        kind = 'function' if isinstance(v, _types.FunctionType) else 'class' if isinstance(v, type) else type(v).__name__
+        out.append([k, kind, _short(v)])
+    return out
+
+def lp_trace_json(code, inputs_json=None, max_steps=800):
+    inputs = json.loads(inputs_json) if inputs_json else None
+    out = _Out()
+    ns = _fresh_ns()
+    hidden = dict(ns)
+    steps = []
+    old = (sys.stdout, sys.stderr, builtins.input, sys.gettrace())
+    sys.stdout = sys.stderr = out
+    builtins.input = _make_input(list(inputs or []), out, inputs is None)
+    _deadline[0] = time.time() + 6
+    err, truncated = None, False
+
+    def tracer(frame, event, arg):
+        if frame.f_code.co_filename != '<user>':
+            return None
+        if event in ('line', 'return'):
+            fn = frame.f_code.co_name
+            if event == 'return' and fn == '<module>':
+                return tracer
+            if len(steps) >= max_steps:
+                raise StepLimit()
+            if time.time() > _deadline[0]:
+                raise TimeLimit()
+            steps.append({'line': frame.f_lineno, 'event': event, 'func': fn,
+                          'globals': _vars(frame.f_globals, hidden),
+                          'locals': None if fn == '<module>' else _vars(frame.f_locals, {}),
+                          'out': len(out.getvalue()),
+                          'ret': _short(arg) if event == 'return' else None})
+        return tracer
+
+    try:
+        compiled = compile(code, '<user>', 'exec')
+        _guard[0] = True
+        sys.settrace(tracer)
+        try:
+            exec(compiled, ns)
+        finally:
+            sys.settrace(old[3])
+            _guard[0] = False
+    except StepLimit:
+        truncated = True
+    except SystemExit:
+        pass
+    except BaseException as e:
+        err = _explain(e, code, ns)
+    finally:
+        sys.stdout, sys.stderr, builtins.input = old[0], old[1], old[2]
+    steps.append({'line': None, 'event': 'end', 'func': '<module>', 'globals': _vars(ns, hidden),
+                  'locals': None, 'out': len(out.getvalue()), 'ret': None})
+    return json.dumps({'steps': steps, 'output': out.getvalue(), 'error': err, 'truncated': truncated})
+
 def _fresh_ns():
     return {'__name__': '__main__', 'screen': Screen(), 'keyboard': Keyboard(), 'mouse': Mouse(),
-            'WIDTH': 600, 'HEIGHT': 400}
+            'WIDTH': 600, 'HEIGHT': 400, 'play_sound': _play_sound}
 
 def _call(fn, *args):
     try:
@@ -340,19 +450,24 @@ def lp_game_frame(ev_json):
     sys.stdout = sys.stderr = out
     _deadline[0] = time.time() + 1.5
     err, calls, stop = None, [], False
+    del _sound_queue[:]
     try:
+        _guard[0] = True
         sys.settrace(_tracer)
         try:
             calls = _frame(ns, ev['held'], ev['pressed'], ev['clicks'], ev['mx'], ev['my'], ev['mdown'])
         finally:
             sys.settrace(old[2])
+            _guard[0] = False
     except SystemExit:
         stop = True
     except BaseException as e:
         err = _explain(e, _game['code'], ns)
     finally:
         sys.stdout, sys.stderr = old[0], old[1]
-    return json.dumps({'calls': calls, 'out': out.getvalue(), 'error': err, 'stop': stop})
+    sounds = list(_sound_queue)
+    del _sound_queue[:]
+    return json.dumps({'calls': calls, 'out': out.getvalue(), 'error': err, 'stop': stop, 'sounds': sounds})
 
 _KEYS = ['left', 'right', 'up', 'down', 'space', 'enter', 'w', 'a', 's', 'd']
 
@@ -462,7 +577,7 @@ def lp_check_json(code, tests_json, inputs_json=None):
    * State (progress saved in this browser)
    * ============================================================ */
   const KEY = 'pp-progress-v1';
-  const blank = () => ({ done: {}, quiz: {}, code: {}, xp: 0, last: null, streak: { day: null, count: 0 }, name: '' });
+  const blank = () => ({ done: {}, quiz: {}, code: {}, prac: {}, cards: {}, mute: false, xp: 0, last: null, streak: { day: null, count: 0 }, name: '' });
   let S;
   try { S = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = blank(); }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } };
@@ -530,7 +645,12 @@ def lp_check_json(code, tests_json, inputs_json=None):
   };
   const pyReady = (async () => {
     try {
-      py = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/npm/pyodide@0.26.4/' });
+      try {
+        py = await loadPyodide({ indexURL: new URL('vendor/pyodide/', location.href).href });   // hosted with the site
+      } catch (err) {
+        console.warn('Local Python failed, trying the CDN', err);
+        py = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/npm/pyodide@0.26.4/' });
+      }
       py.runPython(HARNESS);
       setStatus('ready', 'Python ready');
     } catch (e) {
@@ -658,7 +778,9 @@ def lp_check_json(code, tests_json, inputs_json=None):
       ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => b.addEventListener(t, () => held.delete(k)));
       pad.append(b);
     });
-    stage.append(canvas, h('div', { class: 'stage-bar' }, status, stopBtn), pad);
+    const muteBtn = h('button', { class: 'btn', title: 'Sound on/off', onclick: () => { S.mute = !S.mute; save(); muteBtn.textContent = S.mute ? '🔇' : '🔊'; } }, S.mute ? '🔇' : '🔊');
+    audio();
+    stage.append(canvas, h('div', { class: 'stage-bar' }, status, h('span', { class: 'row' }, muteBtn, stopBtn)), pad);
     canvas.addEventListener('keydown', e => {
       const k = keyName(e); if (!k) return;
       if (['left', 'right', 'up', 'down', 'space'].includes(k)) e.preventDefault();
@@ -689,6 +811,7 @@ def lp_check_json(code, tests_json, inputs_json=None):
         r = JSON.parse(frameFn(JSON.stringify({ held: [...held], pressed: pressed.splice(0), clicks: clicks.splice(0), mx: Math.round(mx), my: Math.round(my), mdown })));
       } catch (e) { console.error(e); stopGame(); return; }
       paint(ctx, r.calls, canvas);
+      if (r.sounds && r.sounds.length) r.sounds.forEach(playSound);
       if (r.out) appendOut(ui.out, r.out);
       if (r.error) { ui.out.classList.add('show'); ui.out.append(errBox(r.error)); ui.out.scrollTop = ui.out.scrollHeight; stopGame(); }
       else if (r.stop) stopGame();
@@ -724,12 +847,14 @@ def lp_check_json(code, tests_json, inputs_json=None):
       onRun && onRun(res);
     };
     const runBtn = h('button', { class: 'btn primary', onclick: run, title: 'Run (Ctrl+Enter)' }, '▶ Run');
+    const stepPanel = h('div', { class: 'stepper' });
     const bar = h('div', { class: 'runner-bar' },
       h('span', { class: 'title' }, '🐍 ' + title), extra || null,
       noReset ? null : h('button', { class: 'btn', onclick: () => { stopGame(); cm.setValue(code); out.classList.remove('show'); stage.classList.remove('show'); }, title: 'Put the original code back' }, '↺ Reset'),
+      h('button', { class: 'btn', onclick: () => openStepper(cm, stepPanel, out, stage), title: 'Run one line at a time and watch the variables' }, '👣 Step'),
       runBtn);
     box.append(bar);
-    const ed = h('div'); box.append(ed, stage, out);
+    const ed = h('div'); box.append(ed, stepPanel, stage, out);
     cm = makeEditor(ed, code, { onRun: run });
     box._cm = cm; box._run = run;
     return box;
@@ -749,7 +874,8 @@ def lp_check_json(code, tests_json, inputs_json=None):
       h('div', { class: 'row', style: 'margin-top:12px' },
         h('a', { class: 'btn', href: '#/playground' }, '🧪 Playground'),
         h('a', { class: 'btn', href: '#/reference' }, '📖 Cheat Sheet'),
-        h('a', { class: 'btn', href: '#/studio' }, '🎮 Game Studio'))));
+        h('a', { class: 'btn', href: '#/studio' }, '🎮 Game Studio'),
+        h('a', { class: 'btn', href: '#/review' }, '🔁 Review' + (dueKeys().length ? ` (${dueKeys().length})` : '')))));
     const cur = currentId && byId[currentId];
     if (cur) openMods.add(cur.module.id);
     COURSE.forEach(m => {
@@ -815,6 +941,15 @@ def lp_check_json(code, tests_json, inputs_json=None):
           .map(([n, t, d]) => h('div', { class: 'card' }, h('div', { class: 'num' }, n), h('h3', {}, t), h('p', {}, d)))));
     }
 
+    const due = dueKeys().length;
+    if (due || doneCount()) {
+      c.append(h('a', { class: 'card review-card', href: '#/review' },
+        h('div', { style: 'font-size:34px' }, '🔁'),
+        h('div', {}, h('h3', { style: 'margin:0' }, due ? `${due} question${due === 1 ? '' : 's'} ready for review` : 'Review'),
+          h('p', { class: 'muted', style: 'margin:2px 0 0' }, due ? 'A few minutes of review a day helps you remember what you\'ve learned.' : 'Nothing due right now, but you can always do a quick practice round.')),
+        h('span', { class: 'btn primary', style: 'margin-left:auto' }, 'Start →')));
+    }
+
     c.append(h('h2', { class: 'section-title' }, 'Your learning path'));
     const grid = h('div', { class: 'mod-grid' });
     COURSE.forEach((m, i) => {
@@ -828,11 +963,15 @@ def lp_check_json(code, tests_json, inputs_json=None):
         h('div', { class: 'meta' }, h('span', {}, `${m.lessons.length} lessons`), h('span', {}, done === m.lessons.length ? '✓ Complete' : `${done} done`))));
     });
     c.append(grid);
-    c.append(h('p', { class: 'muted', style: 'margin-top:40px;font-size:14px;text-align:center' },
-      'Progress is saved in this browser on this device. ',
-      h('button', { class: 'btn ghost', style: 'font-size:13px;padding:4px 10px', onclick: () => {
-        if (confirm('Reset ALL progress, XP and saved code? This cannot be undone.')) { const n = S.name; S = blank(); S.name = n; save(); updateXP(); route(); }
-      } }, 'Reset progress')));
+    c.append(h('div', { class: 'card progress-tools' },
+      h('h3', { style: 'margin:0 0 4px' }, '💾 Your progress'),
+      h('p', { class: 'muted', style: 'margin:0 0 12px;font-size:14.5px' }, 'Progress, code and Game Studio projects are saved in this browser on this device. To carry on somewhere else (like another computer), save your progress to a file and load it there.'),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn', onclick: exportProgress }, '💾 Save progress to a file'),
+        h('button', { class: 'btn', onclick: importProgress }, '📂 Load progress from a file'),
+        h('button', { class: 'btn ghost', onclick: () => {
+          if (confirm('Reset ALL progress, XP, saved code and Game Studio projects? This cannot be undone.')) { const n = S.name; S = blank(); S.name = n; save(); updateXP(); route(); }
+        } }, 'Reset progress'))));
     return c;
   }
 
@@ -874,9 +1013,11 @@ def lp_check_json(code, tests_json, inputs_json=None):
         if (!ok) ex.append(h('div', { style: 'margin-top:8px' }, h('button', { class: 'btn', onclick: reset }, '↺ Try again')));
       };
       const reset = () => { opts.innerHTML = ''; ex.className = 'explain'; build(); };
+      let firstTry = true;
       const build = () => q.options.forEach((o, i) => opts.append(h('button', {
         class: 'opt', onclick: () => {
           const ok = i === q.answer;
+          if (firstTry) { schedule(`${lesson.id}|q|${qi}`, ok); firstTry = false; }
           if (ok && !S.quiz[key]) { S.quiz[key] = true; addXP(10, 'Quiz question'); touchStreak(); }
           reveal(i);
         },
@@ -948,8 +1089,10 @@ def lp_check_json(code, tests_json, inputs_json=None):
     box.append(h('div', { class: 'runner-bar' },
       h('span', { class: 'title' }, '✏️ Your code'),
       h('button', { class: 'btn', onclick: () => { if (confirm('Start again with the original code?')) cm.setValue(ch.starter); } }, '↺ Reset'),
+      h('button', { class: 'btn', onclick: () => openStepper(cm, stepPanel, out, stage), title: 'Run one line at a time and watch the variables' }, '👣 Step'),
       runBtn, checkBtn));
-    const ed = h('div'); box.append(ed, stage, out);
+    const stepPanel = h('div', { class: 'stepper' });
+    const ed = h('div'); box.append(ed, stepPanel, stage, out);
     cm = makeEditor(ed, saved != null ? saved : ch.starter, {
       onRun: doRun, onChange: v => { S.code[lesson.id] = v; save(); },
     });
@@ -990,6 +1133,7 @@ def lp_check_json(code, tests_json, inputs_json=None):
     l.blocks.forEach(b => content.append(renderBlock(b)));
     c.append(content);
     if (l.quiz && l.quiz.length) c.append(renderQuiz(l));
+    const prac = renderPractice(l); if (prac) c.append(prac);
     if (l.challenge) c.append(renderChallenge(l));
     const i = ALL.indexOf(l), prev = ALL[i - 1], nxt = ALL[i + 1];
     c.append(h('div', { class: 'lesson-nav' },
@@ -1016,7 +1160,9 @@ def lp_check_json(code, tests_json, inputs_json=None):
     box._cm.on('change', () => { S.code.__pg = box._cm.getValue(); save(); });
     Object.keys(PG_EXAMPLES).forEach(k => ex.append(h('button', { class: 'btn', onclick: () => box._cm.setValue(PG_EXAMPLES[k]) }, k)));
     ex.append(h('button', { class: 'btn ghost', onclick: () => box._cm.setValue('') }, '🗑 Clear'));
-    c.append(ex, box);
+    const share = shareButton(() => box._cm.getValue(), () => 'Playground program');
+    ex.append(share);
+    c.append(ex, share._holder, box);
     c.append(h('div', { class: 'callout tip' }, h('span', { class: 'ci' }, '💡'), h('div', { html: 'When your program calls <code>input()</code>, a box will pop up asking you to type your answer. Press <b>Ctrl+Enter</b> to run, <b>Ctrl+/</b> to comment a line in or out.' })));
     setTimeout(() => box._cm.refresh(), 0);
     return c;
@@ -1064,6 +1210,396 @@ def lp_check_json(code, tests_json, inputs_json=None):
   }
 
 
+  /* ============================================================
+   * Sound effects (synthesised, no audio files needed)
+   * ============================================================ */
+  let actx = null;
+  function audio() {
+    if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  function tone(f1, f2, dur, type = 'square', vol = 0.12, delay = 0) {
+    const a = audio(); if (!a) return;
+    const t = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function noise(dur, vol = 0.3, delay = 0) {
+    const a = audio(); if (!a) return;
+    const t = a.currentTime + delay, len = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = a.createBufferSource(), g = a.createGain(), f = a.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.value = 1200; src.buffer = buf; g.gain.value = vol;
+    src.connect(f).connect(g).connect(a.destination); src.start(t);
+  }
+  const SFX = {
+    coin: () => { tone(988, 988, 0.07); tone(1319, 1319, 0.22, 'square', 0.12, 0.07); },
+    jump: () => tone(280, 720, 0.18),
+    hit: () => { noise(0.15, 0.3); tone(220, 70, 0.18, 'sawtooth', 0.1); },
+    laser: () => tone(1500, 180, 0.16, 'sawtooth', 0.08),
+    explosion: () => noise(0.7, 0.45),
+    powerup: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, f, 0.1, 'square', 0.1, i * 0.08)),
+    click: () => tone(900, 900, 0.03, 'square', 0.07),
+    win: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, f, 0.16, 'triangle', 0.16, i * 0.12)),
+    lose: () => [392, 330, 262, 196].forEach((f, i) => tone(f, f * 0.97, 0.22, 'triangle', 0.16, i * 0.18)),
+    bounce: () => tone(200, 420, 0.09, 'sine', 0.22),
+  };
+  const playSound = n => { if (!S.mute && SFX[n]) { try { SFX[n](); } catch (e) { /* audio unavailable */ } } };
+
+  /* ============================================================
+   * Step-through visualiser
+   * ============================================================ */
+  async function openStepper(cm, panel, out, stage) {
+    stopGame(); stage.classList.remove('show');
+    panel.innerHTML = ''; panel.classList.add('show');
+    panel.append(h('div', { class: 'step-info' }, 'Recording your program…'));
+    const res = await pyCall('lp_trace_json', cm.getValue(), null).catch(() => null);
+    panel.innerHTML = '';
+    if (!res) { panel.classList.remove('show'); return; }
+    if (res.steps.length <= 1 && res.error) { panel.classList.remove('show'); renderOutput(out, res); return; }
+    out.classList.remove('show');
+    const steps = res.steps;
+    let i = 0, marked = null;
+    const clearMark = () => { if (marked != null) { cm.removeLineClass(marked, 'background', 'cm-step-line'); marked = null; } };
+    const info = h('div', { class: 'step-info' });
+    const count = h('span', { class: 'step-count' });
+    const slider = h('input', { type: 'range', min: '0', max: String(steps.length - 1), value: '0', 'aria-label': 'Step' });
+    const vars = h('div', { class: 'step-vars' });
+    const outEl = h('pre', { class: 'step-out' });
+    const errEl = h('div');
+    const table = (title, rows, prev) => {
+      const t = h('table', { class: 'vtable' }, h('caption', {}, title));
+      if (!rows.length) t.append(h('tr', {}, h('td', { class: 'muted', colspan: '3' }, 'No variables yet')));
+      rows.forEach(([n, kind, val]) => t.append(h('tr', { class: prev && prev[n] !== undefined && prev[n] !== val ? 'changed' : prev && prev[n] === undefined ? 'new' : '' },
+        h('td', { class: 'vn' }, n), h('td', { class: 'vk' }, kind), h('td', { class: 'vv' }, val))));
+      return t;
+    };
+    const asMap = rows => Object.fromEntries((rows || []).map(r => [r[0], r[2]]));
+    const show = () => {
+      const s = steps[i], p = steps[i - 1];
+      clearMark();
+      if (s.line) { marked = s.line - 1; cm.addLineClass(marked, 'background', 'cm-step-line'); cm.scrollIntoView({ line: marked, ch: 0 }, 80); }
+      count.textContent = `Step ${i + 1} of ${steps.length}`;
+      info.innerHTML = '';
+      if (s.event === 'end') info.append(res.error ? `💥 The program stopped with an error${res.error.line ? ' on line ' + res.error.line : ''}.` : res.truncated ? `⏸ Stopped recording after ${steps.length - 1} steps (that's a lot of steps!).` : '🏁 The program has finished.');
+      else if (s.event === 'return') info.append('↩️ ', h('b', {}, s.func + '()'), ' is finished and gives back ', h('code', {}, s.ret));
+      else info.append('➡️ About to run ', h('b', {}, `line ${s.line}`), s.func !== '<module>' ? ` (inside ${s.func}())` : '', ': ', h('code', {}, (cm.getLine(s.line - 1) || '').trim()));
+      vars.innerHTML = '';
+      if (s.locals) vars.append(table(`Inside ${s.func}()`, s.locals, p && p.func === s.func ? asMap(p.locals) : null));
+      vars.append(table('Variables', s.globals, p ? asMap(p.globals) : null));
+      outEl.textContent = res.output.slice(0, s.out) || '(nothing printed yet)';
+      errEl.innerHTML = ''; if (s.event === 'end' && res.error) errEl.append(errBox(res.error));
+      slider.value = String(i);
+    };
+    const go = n => { i = Math.max(0, Math.min(steps.length - 1, n)); show(); };
+    const close = () => { clearMark(); panel.classList.remove('show'); panel.innerHTML = ''; cm.off('change', close); };
+    slider.oninput = () => go(+slider.value);
+    panel.append(
+      h('div', { class: 'step-bar' },
+        h('span', { class: 'title' }, '👣 Step through'), count,
+        h('button', { class: 'btn', onclick: () => go(0), title: 'First step' }, '⏮'),
+        h('button', { class: 'btn', onclick: () => go(i - 1) }, '◀ Back'),
+        h('button', { class: 'btn primary', onclick: () => go(i + 1) }, 'Next ▶'),
+        h('button', { class: 'btn', onclick: () => go(steps.length - 1), title: 'Last step' }, '⏭'),
+        h('button', { class: 'btn', onclick: close, title: 'Close' }, '✕')),
+      slider, info,
+      ...(/def\s+(draw|update)\s*\(/.test(cm.getValue()) ? [h('p', { class: 'step-note' }, 'This shows the code that runs once at the start. Your draw() and update() run inside the game loop, so press ▶ Run to play.')] : []),
+      h('div', { class: 'step-grid' }, vars, h('div', {}, h('div', { class: 'step-cap' }, 'Printed so far'), outEl)),
+      errEl);
+    cm.on('change', close);
+    show();
+  }
+
+  /* ============================================================
+   * Spaced review (Leitner boxes)
+   * ============================================================ */
+  const today = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 864e5);
+  const INTERVALS = [0, 1, 3, 7, 14, 30];
+  function schedule(key, ok) {
+    const c = S.cards[key] || { box: 0 };
+    c.box = ok ? Math.min(c.box + 1, 5) : 0;
+    c.due = today() + (ok ? INTERVALS[c.box] : 1);
+    S.cards[key] = c; save();
+  }
+  // Every reviewable question, keyed: lesson|q|i (quiz) or lesson|x|i (predict practice)
+  function reviewItem(key) {
+    const [lid, kind, idx] = key.split('|'); const l = byId[lid]; if (!l) return null;
+    if (kind === 'q') { const q = l.quiz && l.quiz[+idx]; return q && { key, lesson: l, q: q.q, code: q.code, options: q.options, answer: q.answer, explain: q.explain }; }
+    const p = (window.PRACTICE || {})[lid]; const x = p && p[+idx];
+    return x && x.type === 'predict' && { key, lesson: l, q: 'What does this program print?', code: x.code, options: x.options, answer: x.answer, explain: x.explain, mono: true };
+  }
+  function reviewPool() {
+    const keys = [];
+    ALL.filter(l => S.done[l.id]).forEach(l => {
+      (l.quiz || []).forEach((q, i) => keys.push(`${l.id}|q|${i}`));
+      ((window.PRACTICE || {})[l.id] || []).forEach((x, i) => x.type === 'predict' && keys.push(`${l.id}|x|${i}`));
+    });
+    return keys;
+  }
+  const dueKeys = () => Object.keys(S.cards).filter(k => S.cards[k].due <= today() && reviewItem(k));
+  function shuffled(arr, seed) {
+    const a = arr.slice(); let s = 0;
+    for (const ch of String(seed)) s = (s * 31 + ch.charCodeAt(0)) >>> 0;
+    for (let i = a.length - 1; i > 0; i--) { s = (s * 1103515245 + 12345) >>> 0; const j = s % (i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+
+  // A multiple-choice card used by quizzes, predict exercises and review.
+  function choiceCard(item, { onAnswer, startAnswered, number, runnable } = {}) {
+    const card = h('div', { class: 'card quiz-q' });
+    card.append(h('p', { class: 'qtext', html: (number ? number + '. ' : '') + item.q }));
+    if (item.code) card.append(h('pre', { class: 'static' }, item.code));
+    const order = item.mono ? shuffled(item.options.map((_, i) => i), item.key) : item.options.map((_, i) => i);
+    const opts = h('div', { class: 'opts' + (item.mono ? ' mono' : '') });
+    const ex = h('div', { class: 'explain' });
+    let first = true;
+    const reveal = picked => {
+      [...opts.children].forEach(b => {
+        const i = +b.dataset.i; b.disabled = true;
+        if (i === item.answer) b.classList.add('right'); else if (i === picked) b.classList.add('wrong');
+      });
+      const ok = picked === item.answer;
+      ex.className = 'explain show ' + (ok ? 'right' : 'wrong');
+      ex.innerHTML = (ok ? '✅ <b>Correct!</b> ' : '❌ <b>Not quite.</b> ') + (item.explain || '');
+      const row = h('div', { class: 'row', style: 'margin-top:8px' });
+      if (!ok) row.append(h('button', { class: 'btn', onclick: () => { opts.innerHTML = ''; ex.className = 'explain'; build(); } }, '↺ Try again'));
+      if (runnable && item.code) row.append(h('button', { class: 'btn', onclick: e => { e.target.remove(); const r = runner(item.code, { title: 'See for yourself' }); ex.after(r); r._cm.refresh(); r._run(); } }, '▶ Run it and see'));
+      if (row.childElementCount) ex.append(row);
+    };
+    const build = () => order.forEach((i, pos) => opts.append(h('button', {
+      class: 'opt', 'data-i': String(i), onclick: () => { const ok = i === item.answer; if (onAnswer) onAnswer(ok, first); first = false; reveal(i); },
+    }, h('span', { class: 'letter' }, 'ABCD'[pos]), item.mono ? h('pre', { class: 'opt-out' }, item.options[i]) : h('span', { html: item.options[i] }))));
+    build();
+    if (startAnswered) reveal(item.answer);
+    card.append(opts, ex);
+    return card;
+  }
+
+  /* ============================================================
+   * Practice exercises
+   * ============================================================ */
+  const blankless = t => t.split('\n').filter(l => l.trim()).join('\n');
+  function markPractice(key, ok, xp = 5) {
+    if (ok && !S.prac[key]) { S.prac[key] = true; addXP(xp, 'Practice'); touchStreak(); }
+  }
+  function orderCard(item, key) {
+    const card = h('div', { class: 'card quiz-q' });
+    card.append(h('p', { class: 'qtext', html: item.task || 'Put these lines in the right order to make a working program.' }));
+    const lines = blankless(item.code).split('\n');
+    let pool = shuffled(lines.map((t, i) => ({ t, i })), key);
+    if (pool.every((x, i) => x.i === i)) pool.push(pool.shift());
+    let answer = [];
+    const poolEl = h('div', { class: 'parsons-list' }), ansEl = h('div', { class: 'parsons-list answer' });
+    const msg = h('div', { class: 'explain' });
+    const draw = () => {
+      poolEl.innerHTML = ''; ansEl.innerHTML = '';
+      if (!pool.length) poolEl.append(h('div', { class: 'parsons-empty' }, 'All lines used ✓'));
+      if (!answer.length) ansEl.append(h('div', { class: 'parsons-empty' }, 'Click lines on the left to add them here, in order'));
+      pool.forEach((x, n) => poolEl.append(h('button', { class: 'parsons-line', onclick: () => { answer.push(...pool.splice(n, 1)); msg.className = 'explain'; draw(); } }, x.t)));
+      answer.forEach((x, n) => ansEl.append(h('button', { class: 'parsons-line', title: 'Click to remove', onclick: () => { pool.push(...answer.splice(n, 1)); msg.className = 'explain'; draw(); } }, x.t)));
+    };
+    const check = async () => {
+      if (pool.length) { msg.className = 'explain show wrong'; msg.textContent = 'Use every line first.'; return; }
+      const mine = answer.map(x => x.t).join('\n');
+      let ok = mine === lines.join('\n'), same = false;
+      if (!ok) {
+        const [a, b] = await Promise.all([pyCall('lp_run_json', mine, '[]'), pyCall('lp_run_json', lines.join('\n'), '[]')]);
+        ok = same = !a.error && a.output === b.output;
+        if (!ok) { msg.className = 'explain show wrong'; msg.innerHTML = '❌ <b>Not quite.</b> ' + (a.error ? `That order gives an error (${esc(a.error.type)} on line ${a.error.line}).` : 'That order runs, but does something different.') + ' Click lines on the right to move them back.'; return; }
+      }
+      markPractice(key, true);
+      msg.className = 'explain show right';
+      msg.innerHTML = '✅ <b>Correct!</b> ' + (same ? 'That\'s a different order from ours, but it works exactly the same. ' : '') + (item.explain || '');
+    };
+    card.append(h('div', { class: 'parsons' }, h('div', {}, h('div', { class: 'step-cap' }, 'Jumbled lines'), poolEl), h('div', {}, h('div', { class: 'step-cap' }, 'Your program'), ansEl)),
+      h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn good', onclick: check }, '✓ Check'), h('button', { class: 'btn', onclick: () => { pool = pool.concat(answer); answer = []; msg.className = 'explain'; draw(); } }, '↺ Start again')), msg);
+    draw();
+    if (S.prac[key]) { pool = []; answer = lines.map((t, i) => ({ t, i })); draw(); msg.className = 'explain show right'; msg.innerHTML = '✅ Done! ' + (item.explain || ''); }
+    return card;
+  }
+  function codeCard(item, key) {
+    const card = h('div', { class: 'card quiz-q' });
+    card.append(h('div', { class: 'qtext', html: item.task }));
+    const box = h('div', { class: 'runner' }), out = h('pre', { class: 'output' }), stage = h('div', { class: 'stage' });
+    const results = h('div', { class: 'results' });
+    let cm;
+    const run = async () => { await execute(cm.getValue(), { out, stage }); };
+    const check = async () => {
+      chk.disabled = true;
+      const res = await checkCode(cm.getValue(), item.tests, item.inputs).catch(() => null);
+      chk.disabled = false; if (!res) return;
+      stopGame(); stage.classList.remove('show'); renderOutput(out, res);
+      results.innerHTML = ''; results.classList.add('show');
+      if (res.error) { results.append(h('div', { class: 'banner no' }, '🐞 Fix the error first, then check again.')); return; }
+      const ok = res.results.every(r => r.ok);
+      if (ok) { markPractice(key, true, 10); results.append(h('div', { class: 'banner ok' }, '🎉 Nailed it!')); }
+      res.results.filter(r => !ok || !r.ok).forEach(r => results.append(h('div', { class: 'result-item ' + (r.ok ? 'ok' : 'no') }, h('span', {}, r.ok ? '✅' : '❌'), h('span', {}, r.desc, r.msg ? h('span', { class: 'why', html: r.msg }) : null))));
+    };
+    const chk = h('button', { class: 'btn good', onclick: check }, '✓ Check');
+    box.append(h('div', { class: 'runner-bar' }, h('span', { class: 'title' }, '✏️ Your code'),
+      h('button', { class: 'btn', onclick: () => cm.setValue(item.starter) }, '↺ Reset'),
+      h('button', { class: 'btn', onclick: run }, '▶ Run'), chk));
+    const ed = h('div'); box.append(ed, stage, out);
+    cm = makeEditor(ed, S.code[key] != null ? S.code[key] : item.starter, { onRun: run, onChange: v => { S.code[key] = v; save(); } });
+    const solBtn = h('button', { class: 'btn ghost', onclick: () => { if (!S.prac[key] && !confirm('Show an answer? Have a proper go first!')) return; solBtn.replaceWith(h('pre', { class: 'static' }, item.solution)); } }, '👀 Show an answer');
+    card.append(box, results, h('div', { class: 'row', style: 'margin-top:10px' }, solBtn, S.prac[key] ? h('span', { class: 'muted' }, '✓ Done') : null));
+    setTimeout(() => cm.refresh(), 0);
+    return card;
+  }
+  function renderPractice(lesson) {
+    const items = (window.PRACTICE || {})[lesson.id];
+    if (!items || !items.length) return null;
+    const wrap = h('div');
+    const done = items.filter((x, i) => S.prac[`${lesson.id}|x|${i}`]).length;
+    wrap.append(h('div', { class: 'block-head' }, h('h2', {}, '🏋️ Practice'), h('span', { class: 'pill' }, `optional · ${done}/${items.length} done`)));
+    wrap.append(h('p', { class: 'muted', style: 'margin-top:-4px' }, 'Short extra exercises to make the new ideas stick. They\'re optional, but the more you practise, the easier the challenge (and everything after it) will be.'));
+    const labels = { predict: '🔮 Predict the output', order: '🧩 Put the lines in order', code: '🔧 Code it' };
+    items.forEach((x, i) => {
+      const key = `${lesson.id}|x|${i}`;
+      wrap.append(h('div', { class: 'prac-label' }, labels[x.type] || 'Exercise', S.prac[key] ? h('span', { class: 'prac-done' }, ' ✓') : null));
+      if (x.type === 'predict') {
+        wrap.append(choiceCard({ key, q: 'What does this program print? Work it out in your head first!', code: x.code, options: x.options, answer: x.answer, explain: x.explain, mono: true },
+          { runnable: true, startAnswered: !!S.prac[key], onAnswer: (ok, first) => { if (first) schedule(key, ok); markPractice(key, ok); } }));
+      } else if (x.type === 'order') wrap.append(orderCard(x, key));
+      else wrap.append(codeCard(x, key));
+    });
+    return wrap;
+  }
+
+  /* ============================================================
+   * Review page
+   * ============================================================ */
+  function pageReview() {
+    const c = h('div', { class: 'container' });
+    c.append(h('h1', { class: 'lesson-title' }, '🔁 Review'));
+    c.append(h('p', { class: 'muted' }, 'Questions from lessons you\'ve finished come back after a few days, just before you\'d forget them. Get one right and it comes back less often; get it wrong and it comes back sooner. A few minutes of review a day makes what you\'ve learned stick for good.'));
+    const due = dueKeys();
+    const pool = reviewPool();
+    if (!pool.length && !due.length) {
+      c.append(h('div', { class: 'card', style: 'text-align:center' }, h('div', { style: 'font-size:48px' }, '📚'), h('p', {}, 'Finish your first lesson, and its questions will start appearing here for review.'), h('a', { class: 'btn primary', href: '#/' }, 'Go to the course')));
+      return c;
+    }
+    let keys = shuffled(due, Date.now()).slice(0, 10);
+    if (keys.length < 6) keys = keys.concat(shuffled(pool.filter(k => !keys.includes(k)), Date.now() + 1).slice(0, 8 - keys.length));
+    const queue = keys.map(k => ({ k, retry: false }));
+    let pos = 0, right = 0, firstTry = 0;
+    const area = h('div');
+    const head = h('div', { class: 'review-head' });
+    const bar = h('div', { class: 'bar' }, h('span', { style: 'width:0%' }));
+    const next = () => {
+      area.innerHTML = '';
+      bar.firstChild.style.width = (pos / queue.length * 100) + '%';
+      if (pos >= queue.length) {
+        head.textContent = 'Round complete!';
+        const pct = Math.round(firstTry / keys.length * 100);
+        if (firstTry) addXP(firstTry * 2, 'Review');
+        touchStreak();
+        area.append(h('div', { class: 'card', style: 'text-align:center' },
+          h('div', { style: 'font-size:54px' }, pct >= 80 ? '🌟' : pct >= 50 ? '💪' : '🌱'),
+          h('h2', {}, `${firstTry} of ${keys.length} right first time`),
+          h('p', { class: 'muted' }, pct >= 80 ? 'Superb memory! These questions will now come back less often.' : 'Nice work. The ones you missed will come back soon so you can master them.'),
+          h('div', { class: 'row', style: 'justify-content:center' }, h('a', { class: 'btn primary', href: '#/' }, 'Back to the course'), h('button', { class: 'btn', onclick: () => route() }, '🔁 Another round'))));
+        return;
+      }
+      const { k, retry } = queue[pos];
+      const item = reviewItem(k);
+      head.textContent = `Question ${pos + 1} of ${queue.length}` + (retry ? ' (second try)' : '') + ` · from "${item.lesson.title}"`;
+      const card = choiceCard(item, { runnable: !!item.mono, onAnswer: (ok, first) => {
+        if (!first) return;
+        if (!retry) { schedule(k, ok); if (ok) firstTry++; }
+        if (ok) right++; else if (!retry) queue.push({ k, retry: true });
+        card.append(h('div', { class: 'row', style: 'margin-top:12px' }, h('button', { class: 'btn primary', onclick: () => { pos++; next(); } }, pos + 1 >= queue.length ? 'Finish' : 'Next question →')));
+      } });
+      area.append(card);
+    };
+    c.append(head, bar, h('div', { style: 'height:14px' }), area);
+    next();
+    return c;
+  }
+
+  /* ============================================================
+   * Sharing programs by link (no server: the code lives in the URL)
+   * ============================================================ */
+  const b64u = bytes => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const unb64u = s => { const b = atob(s.replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, ch => ch.charCodeAt(0)); };
+  async function packCode(code) {
+    const bytes = new TextEncoder().encode(code);
+    if (window.CompressionStream) {
+      const st = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+      return 'z' + b64u(new Uint8Array(await new Response(st).arrayBuffer()));
+    }
+    return 'p' + b64u(bytes);
+  }
+  async function unpackCode(s) {
+    const bytes = unb64u(s.slice(1));
+    if (s[0] === 'z') return await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    return new TextDecoder().decode(bytes);
+  }
+  function shareButton(getCode, getTitle) {
+    const holder = h('div', { class: 'share-box' });
+    const btn = h('button', { class: 'btn', onclick: async () => {
+      const link = `${location.href.split('#')[0]}#/play/${encodeURIComponent(getTitle() || 'My program')}/${await packCode(getCode())}`;
+      holder.innerHTML = '';
+      const input = h('input', { class: 'select', readonly: 'readonly', value: link, 'aria-label': 'Share link', onclick: e => e.target.select() });
+      holder.append(h('span', {}, '🔗 Anyone with this link can play your program:'), input,
+        h('button', { class: 'btn primary', onclick: () => { navigator.clipboard && navigator.clipboard.writeText(link).then(() => toast('Link copied!'), () => { input.select(); toast('Press Ctrl+C to copy'); }); } }, '📋 Copy'));
+      if (link.length > 8000) holder.append(h('span', { class: 'muted' }, '⚠️ This program is very long, so the link may not work everywhere.'));
+      input.select();
+    } }, '🔗 Share');
+    btn._holder = holder;
+    return btn;
+  }
+  function pagePlay(titleEnc, packed) {
+    const c = h('div', { class: 'container pg' });
+    let title = 'Shared program';
+    try { title = decodeURIComponent(titleEnc || '') || title; } catch (e) { /* keep default */ }
+    c.append(h('h1', { class: 'lesson-title' }, '🎮 ' + title));
+    c.append(h('div', { class: 'callout warn' }, h('span', { class: 'ci' }, '⚠️'), h('div', { html: 'Someone shared this program with you. <b>Have a look at the code before you run it</b>, and only run programs from people you trust. Press <b>▶ Run</b> to start it.' })));
+    const slot = h('div', {}, h('p', { class: 'muted' }, 'Opening…'));
+    c.append(slot);
+    unpackCode(packed || '').then(code => {
+      slot.innerHTML = '';
+      const box = runner(code, { title: title + '.py', noReset: true });
+      slot.append(box,
+        h('div', { class: 'row', style: 'margin-top:14px' },
+          h('button', { class: 'btn primary', onclick: () => {
+            if (!S.studio || !S.studio.projects) S.studio = { cur: '', projects: {} };
+            let n = title, i = 2; while (S.studio.projects[n]) n = `${title} ${i++}`;
+            S.studio.projects[n] = box._cm.getValue(); S.studio.cur = n; save(); location.hash = '#/studio';
+          } }, '🎨 Remix it in Game Studio'),
+          h('a', { class: 'btn', href: '#/' }, '🐍 Learn to make your own')));
+      setTimeout(() => box._cm.refresh(), 0);
+    }).catch(() => { slot.innerHTML = ''; slot.append(h('div', { class: 'card' }, '😕 This link seems to be broken or incomplete. Ask the person who shared it to copy it again.')); });
+    return c;
+  }
+
+  /* ============================================================
+   * Save / load progress as a file
+   * ============================================================ */
+  function exportProgress() {
+    const data = JSON.stringify({ app: 'python-path', version: 1, saved: new Date().toISOString(), progress: S }, null, 1);
+    const a = h('a', { href: URL.createObjectURL(new Blob([data], { type: 'application/json' })), download: `python-path-progress-${new Date().toISOString().slice(0, 10)}.json` });
+    document.body.append(a); a.click(); a.remove();
+    toast('Progress saved to a file. Keep it somewhere safe!');
+  }
+  function importProgress() {
+    const input = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none' });
+    input.onchange = () => {
+      const f = input.files && input.files[0]; if (!f) return;
+      f.text().then(t => {
+        const d = JSON.parse(t);
+        if (!d || d.app !== 'python-path' || !d.progress || typeof d.progress.done !== 'object') throw new Error('bad');
+        const n = Object.keys(d.progress.done).length;
+        if (!confirm(`Load this progress file?\n\nIt has ${n} lesson(s) complete and ${d.progress.xp || 0} XP, saved ${(d.saved || '').slice(0, 10)}.\nThis replaces the progress currently in this browser.`)) return;
+        S = Object.assign(blank(), d.progress); save(); updateXP(); route(); toast('Progress loaded. Welcome back!');
+      }).catch(() => toast('That file isn\'t a Python Path progress file.'));
+      input.remove();
+    };
+    document.body.append(input); input.click();
+  }
+
   /* ---------- Game Studio: save, run and download your own games ---------- */
   function pageStudio() {
     const T = window.GAME_TEMPLATES || {};
@@ -1100,6 +1636,7 @@ def lp_check_json(code, tests_json, inputs_json=None):
       if (!Object.keys(st.projects).length) st.projects['My game'] = T['Blank game'] || '';
       st.cur = Object.keys(st.projects)[0]; save(); route();
     };
+    const studioShare = shareButton(() => box._cm.getValue(), () => st.cur);
     const download = () => {
       const a = h('a', { href: URL.createObjectURL(new Blob([box._cm.getValue()], { type: 'text/x-python' })), download: st.cur.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') + '.py' });
       document.body.append(a); a.click(); a.remove();
@@ -1109,8 +1646,9 @@ def lp_check_json(code, tests_json, inputs_json=None):
       tpl,
       h('button', { class: 'btn', onclick: rename }, '✏️ Rename'),
       h('button', { class: 'btn', onclick: download }, '⬇ Download .py'),
+      studioShare,
       h('button', { class: 'btn ghost', onclick: del }, '🗑 Delete')));
-    c.append(box);
+    c.append(studioShare._holder, box);
     c.append(h('div', { class: 'callout tip' }, h('span', { class: 'ci' }, '💡'), h('div', { html:
       'Your game needs a <code>draw()</code> function (and usually <code>update()</code>). Press <b>▶ Run</b>, click the game, then play. ' +
       'Forgotten how something works? The <a href="#/reference">Cheat Sheet</a> has a Games section, and the Games modules in the course explain everything step by step.' })));
@@ -1124,13 +1662,15 @@ def lp_check_json(code, tests_json, inputs_json=None):
   function route() {
     stopGame();
     const hash = location.hash.replace(/^#\/?/, '');
-    const [page, arg] = hash.split('/');
+    const [page, arg, arg2] = hash.split('/');
     let view, nav = page || 'home';
     if (page === 'lesson') view = pageLesson(arg);
     else if (page === 'playground') view = pagePlayground();
     else if (page === 'reference') view = pageReference();
     else if (page === 'certificate') view = pageCertificate();
     else if (page === 'studio') view = pageStudio();
+    else if (page === 'review') view = pageReview();
+    else if (page === 'play') view = pagePlay(arg, arg2);
     else { view = pageHome(); nav = 'home'; }
     main.innerHTML = '';
     main.append(view);
@@ -1143,6 +1683,10 @@ def lp_check_json(code, tests_json, inputs_json=None):
     document.title = l ? `${l.title} · Python Path` : 'Python Path: Learn to Code';
   }
   window.addEventListener('hashchange', route);
+  // Offline support: cache the site and the Python engine after the first visit.
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('Offline mode unavailable', e));
+  }
   updateXP();
   route();
 
@@ -1166,6 +1710,32 @@ def lp_check_json(code, tests_json, inputs_json=None):
         if (e.error) fails.push({ id: l.id, kind: 'solution game error', err: e.error });
       }
     }
-    return { lessons: ALL.length, fails };
+    // Practice: predicted outputs must match what Python really prints; orders and code tasks must work.
+    const norm = t => t.replace(/\s+$/, '').split('\n').map(x => x.replace(/\s+$/, '')).join('\n');
+    let practice = 0;
+    for (const [lid, items] of Object.entries(window.PRACTICE || {})) {
+      if (!byId[lid]) fails.push({ id: lid, kind: 'practice for unknown lesson' });
+      for (const [i, x] of items.entries()) {
+        practice++;
+        const tag = { id: lid, n: i, type: x.type };
+        if (x.type === 'predict') {
+          const r = await pyCall('lp_run_json', x.code, JSON.stringify(x.inputs || []));
+          const actual = r.error ? '__ERROR__' : norm(r.output);
+          const matches = x.options.map((o, k) => (o === PRACTICE_ERROR ? '__ERROR__' : norm(o)) === actual ? k : -1).filter(k => k >= 0);
+          if (matches.length !== 1 || matches[0] !== x.answer) fails.push({ ...tag, kind: 'predict mismatch', actual, matches, err: r.error });
+        } else if (x.type === 'order') {
+          const r = await pyCall('lp_run_json', x.code, '[]');
+          if (r.error) fails.push({ ...tag, kind: 'order solution error', err: r.error });
+          if (new Set(x.code.split('\n').filter(t => t.trim())).size < 2) fails.push({ ...tag, kind: 'order too short' });
+        } else {
+          const r = await checkCode(x.solution, x.tests, x.inputs);
+          if (r.error || r.results.some(t => !t.ok)) fails.push({ ...tag, kind: 'code solution fails', r });
+          const st = await checkCode(x.starter, x.tests, x.inputs);
+          if (!st.error && st.results.every(t => t.ok)) fails.push({ ...tag, kind: 'code starter passes' });
+          if (x.game) { const e = await pyCall('lp_smoke_json', x.solution, '[]'); if (e.error) fails.push({ ...tag, kind: 'code game error', err: e.error }); }
+        }
+      }
+    }
+    return { lessons: ALL.length, practice, fails };
   };
 })();

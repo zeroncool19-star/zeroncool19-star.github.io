@@ -911,6 +911,7 @@ def update():
 
     if math.hypot(player_x - gem_x, player_y - gem_y) < 40:
         score += 1
+        play_sound("coin")
         gem_x = random.randint(20, WIDTH - 20)
         gem_y = random.randint(20, HEIGHT - 20)
 
@@ -921,6 +922,8 @@ def draw():
     screen.emoji("🐱", player_x, player_y, 50)
     screen.text(f"Gems: {score}", 10, 10, 26, "white")`, G],
         ['tip', `Emoji are drawn centred on their x and y, which makes distance checks easy: just compare the two centres.`],
+        ['h', 'Sound effects'],
+        ['p', `Did you hear that? 🔊 <code>play_sound("coin")</code> plays a sound effect. Sound makes a huge difference to how a game <i>feels</i>: players instantly know something good (or bad) happened. The sounds you can use are <code>coin</code>, <code>jump</code>, <code>hit</code>, <code>laser</code>, <code>explosion</code>, <code>powerup</code>, <code>click</code>, <code>win</code>, <code>lose</code> and <code>bounce</code>. The 🔊 button under the game turns sound on and off.`],
         ['key', [`Two circles touch when the distance between centres is less than their radii added together.`, `Collect pattern: check touching → add to score → move the item.`, `Show the score with an f-string in draw().`]],
       ],
       quiz: [
@@ -1655,12 +1658,15 @@ def update():
     if fruit_y >= BASKET_Y - 20 and abs(fruit_x - basket_x) < 60:
         score += 1
         fruit_speed += 0.25
+        play_sound("coin")
         reset_fruit()
     elif fruit_y > HEIGHT:
         lives -= 1
+        play_sound("hit")
         reset_fruit()
         if lives <= 0:
             state = "gameover"
+            play_sound("lose")
 
 
 def draw():
@@ -1945,6 +1951,7 @@ def on_key_down(key):
         if state == "playing":
             if len(bullets) < 5:
                 bullets.append({"x": ship_x, "y": SHIP_Y - 20})
+                play_sound("laser")
         else:
             bullets, aliens = [], []
             score, lives = 0, 3
@@ -1976,6 +1983,7 @@ def update():
                 a["dead"] = True
                 b["dead"] = True
                 score += 10
+                play_sound("explosion")
 
     bullets = [b for b in bullets if not b.get("dead") and b["y"] > -10]
     survivors = []
@@ -2039,6 +2047,7 @@ def on_key_down(key):
     if key in ("space", "up") and on_ground and state == "playing":
         vy = JUMP_SPEED
         on_ground = False
+        play_sound("jump")
 
 
 def update():
@@ -2463,6 +2472,7 @@ def update():
         f = flowers[i]
         if close(bee_x, bee_y, f["x"], f["y"], 35):
             score += 1
+            play_sound("coin")
             flowers[i] = new_flower()
             if score % 5 == 0:
                 wasps.append(new_wasp())        # one more wasp every 5 flowers
@@ -2479,6 +2489,7 @@ def update():
         if close(bee_x, bee_y, w["x"], w["y"], 30):
             state = "gameover"
             best = max(best, score)
+            play_sound("lose")
 
 
 def draw():
@@ -2670,7 +2681,10 @@ def on_key_down(key):       # once per press
 
 def on_mouse_down(x, y):    # click or tap
     ...
-# mouse.x, mouse.y = current mouse position`],
+# mouse.x, mouse.y = current mouse position
+
+play_sound("coin")   # coin jump hit laser explosion
+                     # powerup click win lose bounce`],
     ['Games: collisions & motion', c`import math
 # circles / emoji: distance between centres
 math.hypot(x1 - x2, y1 - y2) < r1 + r2
