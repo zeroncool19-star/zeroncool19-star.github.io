@@ -121,3 +121,6 @@ android-sdk/ -e
 # Environment files
 *.env
 *.env.*
+
+# Python Path needs its bundled Python standard library
+!docs/learn-python/vendor/pyodide/python_stdlib.zip

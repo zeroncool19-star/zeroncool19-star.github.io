@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="vendor/codemirror/codemirror.css">
 <link rel="stylesheet" href="style.css">
 <script>
   try { var t = localStorage.getItem('pp-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}
@@ -22,6 +22,7 @@
   <nav class="topnav">
     <a href="#/" data-nav="home">Home</a>
     <a href="#/playground" data-nav="playground">Playground</a>
+    <a href="#/review" data-nav="review">Review</a>
     <a href="#/studio" data-nav="studio">Game Studio</a>
     <a href="#/reference" data-nav="reference">Cheat Sheet</a>
   </nav>
@@ -40,14 +41,19 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pyodide@0.26.4/pyodide.js"></script>
+<!-- Hosted locally so the site works on filtered school networks and offline; falls back to public CDNs. -->
+<script src="vendor/codemirror/codemirror.js"></script>
+<script>window.CodeMirror || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"><\/script>')</script>
+<script src="vendor/codemirror/python.js"></script>
+<script src="vendor/codemirror/matchbrackets.js"></script>
+<script src="vendor/codemirror/closebrackets.js"></script>
+<script src="vendor/codemirror/comment.js"></script>
+<script src="vendor/pyodide/pyodide.js"></script>
+<script>window.loadPyodide || document.write('<script src="https://cdn.jsdelivr.net/npm/pyodide@0.26.4/pyodide.js"><\/script>')</script>
 <script src="lessons.js"></script>
 <script src="more.js"></script>
 <script src="games.js"></script>
+<script src="practice.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
