@@ -24,6 +24,15 @@
   .hidden { display: none !important; }
 
   /* HUD */
+  #crosshair.bad::before, #crosshair.bad::after { display: none; }
+  body.cbmode #crosshair.bad { width: 24px; height: 24px; border: 3px solid #ffb000; border-radius: 50%; box-shadow: 0 0 3px #000; }
+  body.cbmode #crosshair.bad::before { display: block; left: 9px; top: -1px; width: 3px; height: 21px; background: #ffb000; transform: rotate(45deg); box-shadow: none; }
+  /* bigger touch buttons and the left-handed layout */
+  body.bigbtn #tbtns { transform: scale(1.22); transform-origin: bottom right; } body.bigbtn #joy { transform: scale(1.2); transform-origin: bottom left; }
+  body.bigbtn #ttop { transform: scale(1.15); transform-origin: top right; }
+  @media (orientation: portrait) and (max-width: 480px) { body.bigbtn #tbtns { transform: scale(1.1); } body.bigbtn #joy { transform: scale(1.08); } }
+  body.lefty #joy { left: auto; right: calc(22px + env(safe-area-inset-right)); } body.bigbtn.lefty #joy { transform-origin: bottom right; }
+  body.lefty #tbtns { right: auto; left: calc(14px + env(safe-area-inset-left)); } body.bigbtn.lefty #tbtns { transform-origin: bottom left; }
   #crosshair { position: fixed; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); pointer-events: none; }
   #crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff; box-shadow: 0 0 2px #000; }
   #crosshair::before { left: 10px; top: 2px; width: 2px; height: 18px; }
@@ -290,6 +299,15 @@
       <div class="setRow"><span>Camera</span><button id="camBtn">👁 Behind player</button></div>
       <div class="setRow"><span>Look sensitivity</span><button id="sensBtn">🖱 1×</button></div>
       <div class="setRow"><span>Touch screen buttons</span><button id="touchBtn">📱 Off</button></div>
+      <div class="setRow"><span>Sound volume</span><button id="volBtn">🔉 Normal</button></div>
+      <div class="setRow"><span>Music</span><button id="musicBtn">🎵 On</button></div>
+    </details>
+    <details class="sect">
+      <summary>♿ Accessibility</summary>
+      <div class="setRow"><span>Touch button size</span><button id="bigBtn">🔲 Normal</button></div>
+      <div class="setRow"><span>Joystick and buttons</span><button id="leftyBtn">🫱 Right-handed</button></div>
+      <div class="setRow"><span>Colour-blind highlights</span><button id="cbBtn">👁 Off</button></div>
+      <p style="font-size:12px">Left-handed puts the joystick on the right and the build buttons on the left. Colour-blind highlights show blocked spots with a ⊘ shape, not just red.</p>
     </details>
     <details class="sect">
       <summary>🌍 My world</summary>
@@ -468,6 +486,7 @@
     <div class="invHead">
       <h1 style="font-size:22px">Brick box</h1>
       <button id="invClose" class="primary" style="font-size:14px;padding:8px 16px">Done (E)</button>
+      <button id="mirrorBtn" style="font-size:14px;padding:8px 12px" title="Mirror building (U)">🪞 Mirror: off</button>
       <div id="invJump" class="invJump"></div>
     </div>
     <h2>Hotbar: pick a slot, then click a brick to put it there</h2>
@@ -538,6 +557,7 @@
       <div>
         <div class="dzRow"><label>Name <input id="dzName" maxlength="30" autocomplete="off"></label></div>
         <div class="dzRow"><label>Size <input id="dzW" type="number" min="1" max="8" value="2"> × <input id="dzD" type="number" min="1" max="8" value="2"> studs</label> <label><input id="dzStuds" type="checkbox" checked> Studs on top</label></div>
+        <div class="dzRow"><label>Movement <select id="dzAnim"><option value="">None (stays still)</option><option value="spin">🔄 Spin</option><option value="swing">↔ Swing</option><option value="bob">⬆ Bob up and down</option><option value="slide">➡ Slide side to side</option><option value="blink">✨ Blink</option></select></label></div>
         <div class="dzRow"><button data-dza="down">⬇ Layer</button><b id="dzLayer">Layer 1 of 1</b><button data-dza="up">⬆ Layer</button></div>
         <canvas id="dzGrid" style="touch-action:none;border-radius:8px;display:block;margin:6px 0"></canvas>
         <div class="dzRow"><button data-dzt="paint" class="primary">🖌 Paint</button><button data-dzt="erase">⌫ Erase</button><button data-dza="fill">Fill layer</button><button data-dza="clear">Clear layer</button><button data-dza="copy">Copy layer below</button><button data-dza="mirror">Mirror ↔</button></div>
@@ -1289,7 +1309,44 @@ def({ id: 'craftstation', name: 'Crafting Station', cat: 'Crafted', W: 2, D: 2, 
     { geo: merge([new THREE.BoxGeometry(0.5, 0.5, 0.5).translate(0.45, 2.27, 0.35)]), fixed: '#c91a09' },
     { geo: merge([new THREE.BoxGeometry(0.3, 0.3, 0.3).translate(-0.55, 2.52, -0.45)]), fixed: '#1e5aa8' },
   ] });
-const SMOOTH_TOP = /^(wheel|rudder|outboard|tile|canopy|spoiler|skirt|nosecone|tailcone|sweptfin|craftstation|roundtile|quarter|wedge|curve|ridge|stairs|dome|fence|railing|door1x2|seat|steering|chair|wheel|flag|sign(?!wall)|lamp|flower|bush|grass|mushroom|tree|rock|cactus|exhaust|piston|gear|crank|lever|turbo|vblock)/;
+
+// ---- Furniture for building interiors
+const FB = (w, h, d, x = 0, y = 0, z = 0, r = 0.05) => new RoundedBoxGeometry(w, h, d, 1, Math.min(r, w / 2 - 0.01, h / 2 - 0.01, d / 2 - 0.01)).translate(x, y + h / 2, z);
+def({ id: 'bed4x6', name: 'Bed', cat: 'Furniture', W: 4, D: 6, H: 6,
+  parts: () => [{ geo: merge([FB(3.9, 0.5, 5.9, 0, 0.2), FB(3.9, 1.8, 0.3, 0, 0, -2.8)]), fixed: '#7a4b26' }, { geo: merge([FB(3.7, 0.35, 4.4, 0, 0.7, 0.6)]) }, { geo: merge([FB(1.6, 0.3, 0.9, -0.95, 0.75, -2.1), FB(1.6, 0.3, 0.9, 0.95, 0.75, -2.1)]), fixed: '#f4f4f4' }] });
+def({ id: 'sofa4x2', name: 'Sofa', cat: 'Furniture', W: 4, D: 2, H: 6,
+  parts: () => [{ geo: merge([FB(3.9, 0.7, 1.9, 0, 0.1), FB(3.9, 1.5, 0.5, 0, 0.1, -0.7), FB(0.45, 1.1, 1.9, -1.72, 0.1), FB(0.45, 1.1, 1.9, 1.72, 0.1)]) }, { geo: merge([FB(1.45, 0.25, 1.3, -0.75, 0.8, 0.25), FB(1.45, 0.25, 1.3, 0.75, 0.8, 0.25)]), fixed: '#e8e4da' }] });
+def({ id: 'bookshelf2x1', name: 'Bookshelf', cat: 'Furniture', W: 2, D: 1, H: 12,
+  parts: () => { const shelves = [0, 1.2, 2.4, 3.6, 4.7].map(y => FB(1.96, 0.1, 0.9, 0, y)), sides = [-0.93, 0.93].map(x => FB(0.1, 4.8, 0.9, x)); const books = [];
+    for (let s = 0; s < 4; s++) for (let i = 0; i < 6; i++) books.push(new THREE.BoxGeometry(0.22, 0.7 + ((i * 7 + s * 3) % 4) * 0.08, 0.6).translate(-0.7 + i * 0.27, s * 1.2 + 0.1 + 0.4, 0.05));
+    return [{ geo: merge([...shelves, ...sides, FB(1.96, 4.8, 0.06, 0, 0, -0.44)]) }, { geo: merge(books.filter((_, i) => i % 2)), fixed: '#c91a09' }, { geo: merge(books.filter((_, i) => !(i % 2))), fixed: '#1e5aa8' }]; } });
+def({ id: 'counter2x2', name: 'Kitchen counter', cat: 'Furniture', W: 2, D: 2, H: 6,
+  parts: () => [{ geo: merge([FB(1.96, 2.1, 1.96)]) }, { geo: merge([FB(2.0, 0.15, 2.0, 0, 2.1)]), fixed: '#d6d8db' }, { geo: merge([new THREE.CylinderGeometry(0.05, 0.05, 0.5, 8).translate(0.5, 2.5, -0.6), FB(0.9, 0.08, 0.7, 0, 2.2, 0.1)]), fixed: '#9aa0a8' }] });
+def({ id: 'fridge2x2', name: 'Fridge', cat: 'Furniture', W: 2, D: 2, H: 15,
+  parts: () => [{ geo: merge([FB(1.9, 5.9, 1.9, 0, 0, 0, 0.12)]) }, { geo: merge([new THREE.BoxGeometry(0.08, 0.9, 0.08).translate(0.7, 4.2, 0.98), new THREE.BoxGeometry(0.08, 1.2, 0.08).translate(0.7, 2.0, 0.98), new THREE.BoxGeometry(1.86, 0.04, 0.04).translate(0, 3.5, 0.97)]), fixed: '#9aa0a8' }] });
+def({ id: 'tv3x1', name: 'Television', cat: 'Furniture', W: 3, D: 1, H: 6,
+  parts: () => [{ geo: merge([FB(1.2, 0.08, 0.6), new THREE.BoxGeometry(0.12, 0.5, 0.12).translate(0, 0.3, 0), FB(2.9, 1.7, 0.12, 0, 0.55)]), fixed: '#1e1f22' }, { geo: merge([new THREE.PlaneGeometry(2.7, 1.5).translate(0, 1.4, 0.065)]), mat: 'b' }] });
+def({ id: 'bathtub2x4', name: 'Bath', cat: 'Furniture', W: 2, D: 4, H: 5,
+  parts: () => [{ geo: merge([FB(1.96, 0.25, 3.96), FB(0.2, 1.8, 3.96, -0.88), FB(0.2, 1.8, 3.96, 0.88), FB(1.96, 1.8, 0.2, 0, 0, -1.88), FB(1.96, 1.8, 0.2, 0, 0, 1.88)]) }, { geo: merge([new THREE.BoxGeometry(1.5, 0.05, 3.5).translate(0, 1.3, 0)]), fixed: '#6fc3ea', mat: 't' }] });
+def({ id: 'rug4x6', name: 'Rug', cat: 'Furniture', W: 4, D: 6, H: 1, parts: () => [{ geo: merge([FB(3.9, 0.12, 5.9, 0, 0, 0, 0.05)]) }, { geo: merge([FB(3.3, 0.13, 5.3, 0, 0.005, 0, 0.04)]), fixed: '#f2e8cf' }], cell: () => 2 });
+def({ id: 'plantpot1x1', name: 'House plant', cat: 'Furniture', W: 1, D: 1, H: 6,
+  parts: () => [{ geo: merge([new THREE.CylinderGeometry(0.42, 0.3, 0.7, 14).translate(0, 0.35, 0)]) }, { geo: merge([new THREE.SphereGeometry(0.5, 10, 8).scale(1, 1.3, 1).translate(0, 1.4, 0), new THREE.SphereGeometry(0.35, 10, 8).translate(0.25, 1.9, 0.1)]), fixed: '#3e8e41' }] });
+def({ id: 'wardrobe4x2', name: 'Wardrobe', cat: 'Furniture', W: 4, D: 2, H: 15,
+  parts: () => [{ geo: merge([FB(3.9, 5.9, 1.9)]) }, { geo: merge([new THREE.BoxGeometry(0.03, 5.6, 0.05).translate(0, 2.95, 0.96), new THREE.SphereGeometry(0.07, 8, 6).translate(-0.2, 3.0, 1.0), new THREE.SphereGeometry(0.07, 8, 6).translate(0.2, 3.0, 1.0)]), fixed: '#d4af37' }] });
+def({ id: 'lightdesk1x1', name: 'Desk lamp (light)', cat: 'Furniture', W: 1, D: 1, H: 5,
+  parts: () => [{ geo: merge([new THREE.CylinderGeometry(0.35, 0.4, 0.12, 14), new THREE.CylinderGeometry(0.05, 0.05, 1.1, 8).translate(0, 0.6, 0)]), fixed: '#2b2d31' }, { geo: merge([new THREE.ConeGeometry(0.4, 0.45, 16, 1, true).translate(0, 1.35, 0)]), mat: 'b' }] });
+// ---- Lift: stand on it and use it (J / 🛗 button) to ride up to the next floor and back down
+def({ id: 'lift4x4', name: 'Lift platform 4×4', cat: 'Special', W: 4, D: 4, H: 1, use: 'lift',
+  parts: () => [{ geo: merge([FB(3.96, P - 0.02, 3.96, 0, 0, 0, 0.04)]) }, { geo: merge([-1, 1].flatMap(s => [new THREE.BoxGeometry(3.6, 0.05, 0.12).translate(0, P, s * 1.7), new THREE.BoxGeometry(0.12, 0.05, 3.6).translate(s * 1.7, P, 0)])), fixed: '#f2cd37' }] });
+// ---- Light bricks can be switched off and on (each has an "off" twin)
+for (const id of ['light1x1', 'light1x2', 'light2x2', 'lightdesk1x1']) {
+  const p0 = PIECE_BY_ID[id];
+  def({ id: 'dark' + id, name: p0.name + ' (off)', cat: p0.cat, W: p0.W, D: p0.D, H: p0.H, hidden: true, toggleTo: id, switchable: true, cell: p0.cell,
+    parts: () => p0.parts().map(pt => pt.mat === 'b' ? { ...pt, mat: undefined } : pt) });
+  p0.toggleTo = 'dark' + id; p0.switchable = true;
+}
+
+const SMOOTH_TOP = /^(wheel|rudder|outboard|tile|canopy|spoiler|skirt|nosecone|tailcone|sweptfin|craftstation|roundtile|quarter|wedge|curve|ridge|stairs|dome|fence|railing|door1x2|seat|steering|chair|bed4x6|sofa4x2|counter2x2|tv3x1|bathtub2x4|rug4x6|plantpot|lightdesk|darklightdesk|wheel|flag|sign(?!wall)|lamp|flower|bush|grass|mushroom|tree|rock|cactus|exhaust|piston|gear|crank|lever|turbo|vblock)/;
 for (const p of PIECES) {
   if (SMOOTH_TOP.test(p.id)) p.smooth = true;
   if (/^slope/.test(p.id)) p.studTop = (i, j) => j === 0;
@@ -1570,11 +1627,13 @@ function addBrick(p, c, x, y, z, r, check = true) {
     b.slots.push({ batch, index: batch.add(_m, _c, { b, pi }) });
   });
   bricks.add(b);
+  if (p.anim && !b.coarse) makeAnimObj(b);
   return b;
 }
 function removeBrick(b) {
   if (b.coarse) { const s = coarse.get(ckey(b.x, b.z)); if (s) { s.delete(b); if (!s.size) coarse.delete(ckey(b.x, b.z)); } }
   if (b.textMesh) setSignText(b, '');
+  if (b.animObj) dropAnimObj(b);
   // Remove in descending index order per batch isn't needed: each slot lives in its own batch.
   for (const s of b.slots) s.batch.remove(s.index);
   for (const k of b.cells) occ.delete(k);
@@ -1597,6 +1656,7 @@ function clearWorld() {
   for (const b of batches.values()) { scene.remove(b.mesh); b.mesh.dispose(); }
   for (const b of bricks) if (b.textMesh) setSignText(b, '');
   batches.clear(); occ.clear(); coarse.clear(); bricks.clear(); pickDirty = true;
+  if (animBricks) { for (const b of animBricks) if (b.animObj) scene.remove(b.animObj); animBricks.clear(); }
   undoStack.length = 0; redoStack.length = 0;
 }
 
@@ -2065,28 +2125,28 @@ function digBlock(bx, by, bz) {
 
 // ---------------------------------------------------------------- tools: build / mine / chop
 const TOOLS = [['build', '🔨', 'PLACE', 'Build'], ['mine', '⛏', 'MINE', 'Pickaxe: dig ground and break bricks'], ['chop', '🪓', 'CHOP', 'Axe: chop down trees'],
-  ['paint', '🖌', 'PAINT', 'Paint brush: paints bricks the selected colour (C / V or the brick box to change it)'], ['copy', '📋', 'COPY', 'Copy: point at a build and press COPY, then paste copies anywhere']];
+  ['paint', '🖌', 'PAINT', 'Paint brush: paints bricks the selected colour (C / V or the brick box to change it)'], ['copy', '📋', 'COPY', 'Copy: point at a build and press COPY, then paste copies anywhere'], ['box', '📦', 'BOX', 'Box: PLACE at two corners fills the space with the selected brick, ✖ at two corners clears it']];
 let tool = 'build';
 function setTool(t) {
   tool = t; const [, icon, label, help] = TOOLS.find(x => x[0] === t);
   $('tbTool').textContent = icon;
   $('tbPlace').innerHTML = (t === 'build' ? '＋' : icon) + `<small>${label}</small>`;
   toast(t === 'build' ? '🔨 Building' : `${icon} ${help}`);
-  updatePlaceLabel(); if (t !== 'copy') hideClipGhost();
+  updatePlaceLabel(); if (t !== 'copy') hideClipGhost(); boxA = null;
 }
 function cycleTool() { const i = TOOLS.findIndex(x => x[0] === tool); setTool(TOOLS[(i + 1) % TOOLS.length][0]); }
 // What the crosshair points at for the pickaxe/axe: an earth block or a brick.
 function toolTarget() {
   refreshPickables();
   raycaster.far = REACH + camDist; raycaster.setFromCamera(CENTER, camera);
-  const hit = raycaster.intersectObjects(pickables, false).find(h => h.object.userData.isGround || h.instanceId !== undefined);
+  const hit = raycaster.intersectObjects(pickables, false).find(h => h.object.userData.isGround || h.object.userData.brick || h.instanceId !== undefined);
   if (!hit) return null;
   if (hit.object.userData.isGround) {
     const p = hit.point.clone().addScaledVector(hit.face.normal, -0.05);
     const bx = Math.floor(p.x / BLK), by = Math.floor(p.y / BLK_Y), bz = Math.floor(p.z / BLK);
     return by < 0 ? { block: [bx, by, bz] } : null;
   }
-  return { brick: hit.object.userData.batch.items[hit.instanceId].b };
+  return { brick: (hit.object.userData.brick || hit.object.userData.batch.items[hit.instanceId].b) };
 }
 const TREE_PIECES = new Set(['round2x2', 'round1x1', 'brick2x2', 'bush2x2', 'plate6x6', 'plate4x4', 'plate2x2', 'cone1x1', 'cactus', 'tree2x2']);
 const TREE_COLS = new Set(['Brown', 'Dark Brown', 'Green', 'Dark Green', 'Lime', 'White'].map(cid));
@@ -2254,18 +2314,18 @@ const CENTER = new THREE.Vector2(0, 0);
 let target = null;
 function refreshPickables() {
   if (!pickDirty) return;
-  pickables = [...[...chunks.values()].flatMap(c => c.t ? [c.g, c.t] : [c.g]), ...[...batches.values()].map(b => b.mesh)];
+  pickables = [...[...chunks.values()].flatMap(c => c.t ? [c.g, c.t] : [c.g]), ...[...batches.values()].map(b => b.mesh), ...[...animBricks].flatMap(b => b.animObj ? b.animObj.children[0].children : [])];
   pickDirty = false;
 }
 function computeTarget(ndc = CENTER) {
   refreshPickables(); camera.updateMatrixWorld();
   raycaster.far = REACH + camDist;
   raycaster.setFromCamera(ndc, camera);
-  const hit = raycaster.intersectObjects(pickables, false).find(h => h.object.userData.isGround || h.instanceId !== undefined);
+  const hit = raycaster.intersectObjects(pickables, false).find(h => h.object.userData.isGround || h.object.userData.brick || h.instanceId !== undefined);
   if (!hit) return null;
   let brick = null, n;
   if (hit.object.userData.isGround) n = hit.face.normal.clone();
-  else { brick = hit.object.userData.batch.items[hit.instanceId].b; n = hit.face.normal.clone().applyAxisAngle(Y_AXIS, brick.r * Math.PI / 2); }
+  else { brick = (hit.object.userData.brick || hit.object.userData.batch.items[hit.instanceId].b); n = hit.face.normal.clone().applyAxisAngle(Y_AXIS, brick.r * Math.PI / 2); }
   const p = currentPiece(), pt = hit.point;
   const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
   // Wall signs turn so their back sits against the face you aim at.
@@ -2315,15 +2375,15 @@ function updateTarget() {
   if (!(tool === 'copy' && clip && isActive() && !car && !photoMode)) hideClipGhost();
   if (photoMode) { target = null; ghost.visible = false; hl.visible = false; return; }
   if (isActive() && !car && tool === 'copy' && clip) { target = null; showPasteGhost(); return; }
-  if (isActive() && !car && tool !== 'build') { target = null; showToolTarget(); return; }
+  if (isActive() && !car && tool !== 'build' && tool !== 'box') { target = null; showToolTarget(); return; }
   target = isActive() && !car ? computeTarget() : null;
-  if (!target) { ghost.visible = false; hl.visible = false; return; }
+  if (!target) { ghost.visible = false; hl.visible = false; cross.classList.remove('bad'); return; }
   rebuildGhost();
   const p = target.piece, tr = target.r ?? rot, [w, d] = dims(p, tr);
   ghost.visible = true;
   ghost.position.set(target.x0 + w / 2, target.y0 * P + 0.002, target.z0 + d / 2);
   ghost.rotation.y = tr * Math.PI / 2;
-  ghostMat.color.set(target.valid ? COLORS[colorIdx].h : '#ff3b30');
+  ghostMat.color.set(target.valid ? COLORS[colorIdx].h : opts.cb ? '#14161a' : '#ff3b30'); cross.classList.toggle('bad', !!opts.cb && !target.valid);
   ghostMat.opacity = target.valid ? 0.45 + 0.1 * Math.sin(performance.now() / 180) : 0.35;
   const b = target.brick;
   if (b) {
@@ -2350,6 +2410,7 @@ function record(op) { undoStack.push(op); if (undoStack.length > 500) undoStack.
 const SNAP_FALL = 85, SNAP_SETTLE = 110, SNAP_HEIGHT = 0.5;
 const snaps = [], pops = [], _ss = new THREE.Vector3();
 function poseBrick(b, dy, sy, sxz) {
+  if (b.animObj) return;
   const [w, d] = dims(b.p, b.r);
   _q.setFromAxisAngle(Y_AXIS, b.r * Math.PI / 2);
   _m.compose(_v.set(b.x + w / 2, b.y * P + dy, b.z + d / 2), _q, _ss.set(sxz, sy, sxz));
@@ -2387,7 +2448,7 @@ let lastPlaced = null, repeatTimer = null, stackDir = 0, stackAxis = null;
 const STACK_DIRS = [['up', '⬆', 'UP'], ['down', '⬇', 'DOWN'], ['right', '➡', 'RIGHT'], ['left', '⬅', 'LEFT'], ['away', '⬈', 'AWAY']];
 function placeAt(p, x0, y0, z0, r = rot) {
   const b = addBrick(p, colorIdx, x0, y0, z0, r);
-  if (b) { record({ t: 'add', d: brickData(b) }); snapIn(b); brickSound('place', b.p, SNAP_FALL / 1000); lastPlaced = b; tutEvent('place'); stats.placed++; }
+  if (b) { record({ t: 'add', d: brickData(b) }); snapIn(b); brickSound('place', b.p, SNAP_FALL / 1000); lastPlaced = b; tutEvent('place'); stats.placed++; mirrorPlace(b); }
   return b;
 }
 function placeAction(t = target) {
@@ -2423,6 +2484,7 @@ function startRepeat() {
   stopRepeat();
   if (car) return;
   if (tool === 'copy') { toolAction(); return; }
+  if (tool === 'box') { boxAction(false); return; }
   if (tool !== 'build') {   // pickaxe / axe / paint: act now, keep going while held
     toolAction();
     const tick = () => { if (!isActive()) return stopRepeat(); toolAction(); repeatTimer = setTimeout(tick, tool === 'mine' ? 230 : 450); };
@@ -2447,6 +2509,7 @@ function cycleStackDir() {
   toast(`Hold Place to stack ${label.toLowerCase()}`);
 }
 function removeAction(t = target) {
+  if (tool === 'box' && !car) { boxAction(true); return; }
   if (tool === 'copy' && clip) { setClip(null); hideClipGhost(); toast('📋 Copy cleared'); return; }
   if ((!t || !t.brick) && tool !== 'build') {
     const tt = toolTarget();
@@ -2455,7 +2518,7 @@ function removeAction(t = target) {
   }
   if (!t || !t.brick) return;
   brickLoot(t.brick);
-  const d = brickData(t.brick); popOut(t.brick); brickSound('remove', t.brick.p); forgetGen(t.brick); removeBrick(t.brick); record({ t: 'remove', d }); tutEvent('remove');
+  const d = brickData(t.brick); popOut(t.brick); brickSound('remove', t.brick.p); forgetGen(t.brick); removeBrick(t.brick); record({ t: 'remove', d }); tutEvent('remove'); mirrorRemove(d);
 }
 function pickAction(t = target) {
   if (!t || !t.brick) return false;
@@ -2595,7 +2658,7 @@ document.addEventListener('pointerlockchange', () => {
   else { for (const k in keys) keys[k] = false; if (photoMode && !touchMode) setPhoto(false); if (!invOpen && !charOpen && !gOpen && !textOpen && !mapOpen && !talkOpen && !decoOpen && !designOpen && !mpOpen && !achOpen) { menu.classList.remove('hidden'); save(); } }
 });
 $('playBtn').onclick = () => { if (!charSaved) openChar(true); else play(); };
-$('invClose').onclick = closeInv;
+$('invClose').onclick = closeInv; $('mirrorBtn').onclick = () => toggleMirror();
 canvas.addEventListener('click', () => { if (!touchMode && !locked && !invOpen && !textOpen && !mapOpen && !talkOpen) lock(); });
 document.addEventListener('mousemove', (e) => {
   if (!locked) return;
@@ -2662,6 +2725,7 @@ document.addEventListener('keydown', (e) => {
     case 'KeyK': openChar(true); break;
     case 'KeyM': openGarage(true); break;
     case 'KeyN': cycleTool(); break;
+    case 'KeyU': toggleMirror(); break;
   }
 });
 document.addEventListener('keyup', (e) => { keys[e.code] = false; });
@@ -3991,11 +4055,11 @@ addEventListener('resize', () => { if (gOpen) sizeGarage(); });
 
 // ---------------------------------------------------------------- sound
 let actx = null;
-let master = null, noiseBuf = null;
+let master = null, noiseBuf = null, outGain = null;
 function initAudio() {
   if (!actx) try {
     actx = new (window.AudioContext || window.webkitAudioContext)();
-    master = actx.createDynamicsCompressor(); master.threshold.value = -12; master.ratio.value = 4; master.connect(actx.destination);
+    master = actx.createDynamicsCompressor(); master.threshold.value = -12; master.ratio.value = 4; outGain = actx.createGain(); outGain.gain.value = VOLS[opts.vol]; master.connect(outGain); outGain.connect(actx.destination);
     const len = Math.floor(actx.sampleRate * 0.25); noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
     const ch = noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
   } catch (e) {}
@@ -4035,7 +4099,7 @@ function brickSound(kind, piece, delay = 0) {
 function sfx(kind) {
   if (!actx) return;
   const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
-  o.connect(g); g.connect(actx.destination);
+  o.connect(g); g.connect(master || actx.destination);
   if (kind === 'click') { o.type = 'triangle'; o.frequency.setValueAtTime(900, t); o.frequency.exponentialRampToValueAtTime(260, t + 0.06); g.gain.setValueAtTime(0.18, t); }
   else if (kind === 'pop') { o.type = 'square'; o.frequency.setValueAtTime(320, t); o.frequency.exponentialRampToValueAtTime(700, t + 0.07); g.gain.setValueAtTime(0.06, t); }
   else { o.type = 'sawtooth'; o.frequency.setValueAtTime(140, t); g.gain.setValueAtTime(0.05, t); }
@@ -4157,11 +4221,11 @@ function clipLayout(r) {
 function pasteTarget() {
   refreshPickables();
   raycaster.far = REACH + camDist + 20; raycaster.setFromCamera(CENTER, camera);
-  const hit = raycaster.intersectObjects(pickables, false).find(h => h.object.userData.isGround || h.instanceId !== undefined);
+  const hit = raycaster.intersectObjects(pickables, false).find(h => h.object.userData.isGround || h.object.userData.brick || h.instanceId !== undefined);
   if (!hit) return null;
   const L = clipLayout(rot), pt = hit.point;
   let n = hit.face.normal.clone(), bx, by, bz, brick = null;
-  if (!hit.object.userData.isGround) { brick = hit.object.userData.batch.items[hit.instanceId].b; n.applyAxisAngle(Y_AXIS, brick.r * Math.PI / 2); }
+  if (!hit.object.userData.isGround) { brick = (hit.object.userData.brick || hit.object.userData.batch.items[hit.instanceId].b); n.applyAxisAngle(Y_AXIS, brick.r * Math.PI / 2); }
   if (n.y > 0.5) { bx = Math.floor(pt.x); bz = Math.floor(pt.z); by = brick ? brick.y + brick.p.H : Math.round(pt.y / P); }
   else { bx = Math.floor(pt.x + n.x * 0.5); bz = Math.floor(pt.z + n.z * 0.5); by = brick ? brick.y : Math.round(pt.y / P); }
   const x0 = bx - Math.floor(L.W / 2), z0 = bz - Math.floor(L.D / 2);
@@ -4660,12 +4724,13 @@ function questTrack(biome) {   // called a few times a second
 const questLine = () => { if (!quest) return ''; const [a, n] = questProgress(), q = QUESTS[quest.i]; return `📜 ${a >= n ? '✅ Talk to a villager' : `${a}/${n}${q.unit || ''}`}`; };
 let talkOpen = false, talkWho = null;
 function updateTalkPrompt() {
-  const door = useTarget(), show = (!!nearVillager || !!door) && isActive() && !talkOpen && !photoMode;
+  const lift = liftUnder() || (useTarget()?.p.use === 'lift' ? useTarget() : null), door = lift || useTarget(), show = (!!nearVillager || !!door) && isActive() && !talkOpen && !photoMode && !liftRide;
   $('talkBtn').classList.toggle('hidden', !show);
-  if (show) { const t = door ? (door.p.use ? `🛠 Design pieces${touchMode ? '' : ' (J)'}` : `🚪 ${PIECE_BY_ID[door.p.toggleTo].hidden ? 'Open' : 'Close'}${touchMode ? '' : ' (J)'}`) : `💬 Talk to ${nearVillager.name}${touchMode ? '' : ' (J)'}`; if ($('talkBtn').textContent !== t) $('talkBtn').textContent = t; }
+  if (show) { const t = door ? (door.p.use === 'lift' ? `🛗 Ride the lift${touchMode ? '' : ' (J)'}` : door.p.switchable ? `💡 Switch ${door.p.id.startsWith('dark') ? 'on' : 'off'}${touchMode ? '' : ' (J)'}` : door.p.use ? `🛠 Design pieces${touchMode ? '' : ' (J)'}` : `🚪 ${PIECE_BY_ID[door.p.toggleTo].hidden ? 'Open' : 'Close'}${touchMode ? '' : ' (J)'}`) : `💬 Talk to ${nearVillager.name}${touchMode ? '' : ' (J)'}`; if ($('talkBtn').textContent !== t) $('talkBtn').textContent = t; }
 }
 function talk() {
-  const door = useTarget(); if (door) { if (door.p.use === 'designer') openDesigner(null); else toggleOpen(door); return; }
+  const lift = liftUnder(); if (lift) { useLift(lift); return; }
+  const door = useTarget(); if (door) { if (door.p.use === 'designer') openDesigner(null); else if (door.p.use === 'lift') useLift(door); else toggleOpen(door); return; }
   if (!nearVillager) return;
   talkWho = nearVillager; talkOpen = true; resetTouchInput(); stopRepeat(); touchPlaying = false; setHud();
   if (locked) document.exitPointerLock();
@@ -5432,7 +5497,7 @@ function registerCustom(cp, quiet) {
   if (PIECE_BY_ID[cp.id]) { const p = PIECE_BY_ID[cp.id]; p.hidden = false; return p; }
   const set = new Set(cp.cells.map(c => c[0] + ',' + c[1] + ',' + c[2]));
   const H = Math.max(1, ...cp.cells.map(c => c[2] + 1));
-  const p = { id: cp.id, name: cp.name, cat: 'My pieces', W: cp.W, D: cp.D, H, custom: true,
+  const p = { id: cp.id, name: cp.name, cat: 'My pieces', W: cp.W, D: cp.D, H, custom: true, anim: ['spin', 'swing', 'bob', 'slide', 'blink'].includes(cp.anim) ? cp.anim : undefined,
     parts: () => customParts(cp), cell: (i, j, k) => set.has(i + ',' + j + ',' + k) ? 1 : 0,
     studTop: (i, j) => cp.studs !== false && set.has(i + ',' + j + ',' + (H - 1)) };
   def(p); p.built = p.parts(); thumbColor = -1;
@@ -5449,7 +5514,7 @@ function openDesigner(cp) {
   if (!cp) for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 3; k++) dz.cp.cells.push([i, j, k, colorIdx]);
   designOpen = true; resetTouchInput(); stopRepeat(); touchPlaying = false; setHud(); if (locked) document.exitPointerLock();
   $('designUI').classList.remove('hidden'); menu.classList.add('hidden');
-  $('dzName').value = dz.cp.name; $('dzW').value = dz.cp.W; $('dzD').value = dz.cp.D; $('dzStuds').checked = dz.cp.studs !== false;
+  $('dzName').value = dz.cp.name; $('dzW').value = dz.cp.W; $('dzD').value = dz.cp.D; $('dzStuds').checked = dz.cp.studs !== false; $('dzAnim').value = dz.cp.anim || '';
   $('dzColors').innerHTML = COLORS.map((c, i) => `<div class="color${c.t ? ' glass' : ''}" data-dzc="${i}" title="${c.n}" style="background-color:${c.h}"></div>`).join('');
   dzRefresh();
 }
@@ -5522,10 +5587,10 @@ $('designUI').addEventListener('click', (e) => {
     case 'mirror': { const left = cp.cells.filter(x => x[2] === L && x[0] < cp.W / 2); cp.cells = cp.cells.filter(x => !(x[2] === L && x[0] >= cp.W / 2)); for (const x of left) if (cp.W - 1 - x[0] !== x[0]) cp.cells.push([cp.W - 1 - x[0], x[1], L, x[3]]); break; }
     case 'save': {
       if (!cp.cells.length) { toast('Paint at least one stud'); sfx('bad'); return; }
-      cp.name = ($('dzName').value || 'My piece').trim().slice(0, 30); cp.studs = $('dzStuds').checked;
+      cp.name = ($('dzName').value || 'My piece').trim().slice(0, 30); cp.studs = $('dzStuds').checked; cp.anim = $('dzAnim').value || undefined;
       const i = customPieces.findIndex(x => x.id === cp.id); if (i >= 0) customPieces[i] = cp; else customPieces.push(cp);
       saveCustomList();
-      if (PIECE_BY_ID[cp.id]) { const p = PIECE_BY_ID[cp.id]; p.name = cp.name; const set = new Set(cp.cells.map(c => dzKey(c[0], c[1], c[2]))); p.W = cp.W; p.D = cp.D; p.H = H; p.cell = (ii, jj, kk) => set.has(dzKey(ii, jj, kk)) ? 1 : 0; p.studTop = (ii, jj) => cp.studs !== false && set.has(dzKey(ii, jj, H - 1)); p.built.forEach(b => b.geo.dispose()); p.built = customParts(cp); for (const [k, bt] of batches) if (k.startsWith(cp.id + '|')) { scene.remove(bt.mesh); bt.mesh.dispose(); batches.delete(k); } thumbColor = -1; pickDirty = true; toast(`✨ ${cp.name} updated (already placed copies keep their old shape until reloaded)`); }
+      if (PIECE_BY_ID[cp.id]) { const p = PIECE_BY_ID[cp.id]; p.name = cp.name; p.anim = cp.anim; const set = new Set(cp.cells.map(c => dzKey(c[0], c[1], c[2]))); p.W = cp.W; p.D = cp.D; p.H = H; p.cell = (ii, jj, kk) => set.has(dzKey(ii, jj, kk)) ? 1 : 0; p.studTop = (ii, jj) => cp.studs !== false && set.has(dzKey(ii, jj, H - 1)); p.built.forEach(b => b.geo.dispose()); p.built = customParts(cp); for (const [k, bt] of batches) if (k.startsWith(cp.id + '|')) { scene.remove(bt.mesh); bt.mesh.dispose(); batches.delete(k); } thumbColor = -1; pickDirty = true; toast(`✨ ${cp.name} updated (already placed copies keep their old shape until reloaded)`); }
       else { registerCustom(cp); mpSend({ t: 'piece', cp }); }
       hotbar[slot] = cp.id; refreshUI(); showLabel(); stats.pieces++; saveSoon(); closeDesigner(); return;
     }
@@ -5918,10 +5983,285 @@ function renderAch() {
 }
 $('achBtn').onclick = openAch; $('achClose').onclick = closeAch;
 
+
+// ================================================================ building power: box fill/clear, mirror building, moving pieces, lifts
+// ---- 📦 Box tool: PLACE at two corners fills the box with the selected brick; ✖ at two corners clears it.
+var boxA = null, boxMode = null;
+const boxLine = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: 0x4fd8ff, transparent: true, opacity: 0.9 }));
+boxLine.visible = false; scene.add(boxLine);
+function boxCorner(forClear) {
+  if (forClear) { const tt = toolTarget(); if (tt && tt.brick) return [tt.brick.x, tt.brick.y, tt.brick.z]; }
+  const t = computeTarget(); return t ? [t.x0, t.y0, t.z0] : null;
+}
+function boxBounds(a, b, p, r) {
+  const [w, d] = p ? dims(p, r) : [1, 1], h = p ? p.H : 1;
+  return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.min(a[2], b[2]), Math.max(a[0], b[0]) + w, Math.max(a[1], b[1]) + h, Math.max(a[2], b[2]) + d];
+}
+function boxAction(clear) {
+  const c = boxCorner(clear); if (!c) return false;
+  if (!boxA || boxMode !== (clear ? 'clear' : 'fill')) { boxA = c; boxMode = clear ? 'clear' : 'fill'; toast(clear ? '📦 First corner set. Aim at the opposite corner and press ✖ to clear everything in between' : '📦 First corner set. Aim at the opposite corner and press PLACE to fill it'); sfx('click'); return true; }
+  const p = currentPiece(), [w, d] = dims(p, rot), [x0, y0, z0, x1, y1, z1] = boxBounds(boxA, c, clear ? null : p, rot); boxA = null; boxLine.visible = false;
+  const vol = (x1 - x0) * (y1 - y0) * (z1 - z0); if (vol > 40000) { toast('📦 That box is too big (keep it under about 30×30 studs)'); sfx('bad'); return false; }
+  const ops = [];
+  if (clear) {
+    const gone = new Set();
+    for (const b of bricks) { if (b.coarse) continue; const [bw, bd] = dims(b.p, b.r); if (b.x < x1 && b.x + bw > x0 && b.z < z1 && b.z + bd > z0 && b.y < y1 && b.y + b.p.H > y0) gone.add(b); }
+    for (const b of gone) { ops.push({ t: 'remove', d: brickData(b) }); forgetGen(b); removeBrick(b); }
+    if (!ops.length) { toast('📦 Nothing to clear there'); return false; }
+    brickSound('remove', null); toast(`📦 Cleared ${ops.length} bricks (↶ undo brings them back)`);
+  } else {
+    for (let y = y0; y + p.H <= y1; y += p.H) for (let x = x0; x + w <= x1; x += w) for (let z = z0; z + d <= z1; z += d) {
+      if (ops.length >= 2500) break;
+      if (playerOverlaps(cellsOf(p, x, y, z, rot))) continue;
+      const b = addBrick(p, colorIdx, x, y, z, rot); if (b) ops.push({ t: 'add', d: brickData(b) });
+    }
+    if (!ops.length) { toast('📦 Nothing fitted in that box'); sfx('bad'); return false; }
+    stats.placed += ops.length; brickSound('place', p); toast(`📦 Filled with ${ops.length} bricks (↶ undo removes them)`);
+  }
+  record({ t: 'multi', ops }); navigator.vibrate?.(30); return true;
+}
+function showBox() {
+  if (tool !== 'box' || !boxA || !isActive() || car) { boxLine.visible = false; return; }
+  const c = boxCorner(boxMode === 'clear'); if (!c) { boxLine.visible = false; return; }
+  const [x0, y0, z0, x1, y1, z1] = boxBounds(boxA, c, boxMode === 'clear' ? null : currentPiece(), rot);
+  boxLine.visible = true; boxLine.material.color.set(boxMode === 'clear' ? (opts.cb ? 0xffb000 : 0xff5a4a) : (opts.cb ? 0x3d8bff : 0x4fd8ff));
+  boxLine.position.set((x0 + x1) / 2, (y0 + y1) / 2 * P, (z0 + z1) / 2); boxLine.scale.set(x1 - x0 + 0.04, (y1 - y0) * P + 0.04, z1 - z0 + 0.04);
+}
+
+// ---- 🪞 Mirror building: everything you place or remove is copied across a mirror line in front of you
+var mirror = null;   // { axis: 'x' | 'z', m }
+const mirrorPlane = new THREE.Mesh(new THREE.PlaneGeometry(60, 40), new THREE.MeshBasicMaterial({ color: 0x4fd8ff, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false }));
+mirrorPlane.visible = false; scene.add(mirrorPlane);
+function toggleMirror() {
+  if (mirror) { mirror = null; mirrorPlane.visible = false; toast('🪞 Mirror building off'); }
+  else {
+    const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
+    const axis = Math.abs(rx) >= Math.abs(rz) ? 'x' : 'z', m = Math.round(axis === 'x' ? player.x + fx * 6 : player.z + fz * 6);
+    mirror = { axis, m }; mirrorPlane.visible = true;
+    mirrorPlane.rotation.set(0, axis === 'x' ? Math.PI / 2 : 0, 0); mirrorPlane.position.set(axis === 'x' ? m : player.x + fx * 6, player.y + 8, axis === 'z' ? m : player.z + fz * 6);
+    toast('🪞 Mirror building on: whatever you build on one side appears on the other');
+  }
+  const b = document.getElementById('mirrorBtn'); if (b) b.textContent = mirror ? '🪞 Mirror: on' : '🪞 Mirror: off';
+}
+function mirrorOf(p, x, y, z, r) {
+  const [w, d] = dims(p, r);
+  if (mirror.axis === 'x') return [2 * mirror.m - (x + w), y, z, r % 2 ? (r + 2) % 4 : r];
+  return [x, y, 2 * mirror.m - (z + d), r % 2 ? r : (r + 2) % 4];
+}
+var mirroring = false;
+function mirrorPlace(b) {
+  if (!mirror || mirroring || !b) return;
+  const [x, y, z, r] = mirrorOf(b.p, b.x, b.y, b.z, b.r); if (x === b.x && z === b.z && r === b.r) return;
+  mirroring = true; const nb = addBrick(b.p, b.c, x, y, z, r); if (nb) { record({ t: 'add', d: brickData(nb) }); stats.placed++; } mirroring = false;
+}
+function mirrorRemove(d) {
+  if (!mirror || mirroring) return;
+  const p = PIECES[d[0]], [x, y, z, r] = mirrorOf(p, d[2], d[3], d[4], d[5]), b = findBrick([d[0], d[1], x, y, z, r]) || findBrick([d[0], d[1], x, y, z, d[5]]);
+  if (!b || (b.x === d[2] && b.z === d[4])) return;
+  mirroring = true; const dd = brickData(b); forgetGen(b); removeBrick(b); record({ t: 'remove', d: dd }); mirroring = false;
+}
+
+// ---- moving custom pieces: drawn as their own little model so they can spin, swing, bob or slide
+var animBricks = new Set(), ZERO_M = new THREE.Matrix4().makeScale(0, 0, 0);
+function makeAnimObj(b) {
+  const [w, d] = dims(b.p, b.r), outer = new THREE.Group(), inner = new THREE.Group();
+  outer.position.set(b.x + w / 2, b.y * P, b.z + d / 2); outer.rotation.y = b.r * Math.PI / 2; outer.add(inner);
+  for (const part of b.p.built) { const m = new THREE.Mesh(part.geo, carMat(part.fixed || COLORS[b.c].h, part.mat || 'o')); m.castShadow = true; m.userData.brick = b; inner.add(m); }
+  if (b.p.anim === 'swing') inner.position.y = 0;
+  scene.add(outer); b.animObj = outer; b.animPhase = Math.random() * 6; animBricks.add(b);
+  for (const sl of b.slots) { sl.batch.mesh.setMatrixAt(sl.index, ZERO_M); sl.batch.mesh.instanceMatrix.needsUpdate = true; sl.batch.mesh.boundingSphere = null; }
+  pickDirty = true;
+}
+function dropAnimObj(b) { if (!b.animObj) return; scene.remove(b.animObj); b.animObj = null; animBricks.delete(b); pickDirty = true; }
+function updateAnimBricks(dt) {
+  const t = performance.now() / 1000;
+  for (const b of animBricks) {
+    const o = b.animObj; if (!o) continue; if (Math.abs(o.position.x - player.x) > 120 || Math.abs(o.position.z - player.z) > 120) continue;
+    const inner = o.children[0], ph = t * (b.p.animSpeed || 1) + b.animPhase, H = b.p.H * P;
+    switch (b.p.anim) {
+      case 'spin': inner.rotation.y = ph * 1.6; break;
+      case 'swing': inner.rotation.x = Math.sin(ph * 1.8) * 0.5; break;
+      case 'bob': inner.position.y = (Math.sin(ph * 2) + 1) * 0.25 * Math.max(1, H); break;
+      case 'slide': inner.position.x = Math.sin(ph * 1.2) * Math.max(0.5, b.p.W * 0.4); break;
+      case 'blink': inner.visible = Math.sin(ph * 4) > -0.2; break;
+    }
+  }
+}
+
+// ---- 🛗 lifts
+var liftRide = null;
+function liftUnder() {
+  if (car) return null;
+  const o = occ.get(key(Math.floor(player.x), Math.round(player.y / P) - 1, Math.floor(player.z)));
+  return o && o.b.p.use === 'lift' ? o.b : null;
+}
+function useLift(b) {
+  if (liftRide || !b || !bricks.has(b)) return;
+  const { p, c, x, z, r } = b, y0 = b.y, [w, d] = dims(p, r);
+  removeBrick(b);   // look for room above (or below) without bumping into itself
+  const sides = [[x - 1, z + (d >> 1)], [x + w, z + (d >> 1)], [x + (w >> 1), z - 1], [x + (w >> 1), z + d]];
+  const floorAt = (k) => sides.some(([bx, bz]) => solidAt(bx, k, bz) && !solidAt(bx, k + 1, bz));
+  let target = null;
+  for (let k = y0 + 1; k - y0 <= 90 && canPlace(p, x, k, z, r); k++) if (k >= y0 + 3 && floorAt(k)) { target = k; break; }
+  if (target === null) { let low = y0; for (let k = y0 - 1; y0 - k <= 90 && canPlace(p, x, k, z, r); k--) { low = k; if (k <= y0 - 3 && floorAt(k)) { target = k; break; } } if (target === null && low < y0 - 2) target = low; }
+  const nb = addBrick(p, c, x, y0, z, r, false);
+  if (target === null) { toast('🛗 The lift has nowhere to go. Build a floor beside the shaft, higher up or lower down'); sfx('bad'); return; }
+  const onIt = !car && player.x > x - 0.3 && player.x < x + w + 0.3 && player.z > z - 0.3 && player.z < z + d + 0.3 && Math.abs(player.y - (y0 + p.H) * P) < 1.2;
+  liftRide = { b: nb, p, c, x, z, r, y: y0, from: y0, to: target, carry: onIt, t: 0 };
+  sfx('click'); toast(target > y0 ? '🛗 Going up' : '🛗 Going down');
+  mpRemoved([[p.idx, c, x, y0, z, r]]);
+}
+function updateLift(dt) {
+  const L = liftRide; if (!L) return;
+  L.t += dt; const want = L.from + Math.sign(L.to - L.from) * Math.min(Math.abs(L.to - L.from), Math.floor(L.t * 12));
+  if (want !== L.y) {
+    if (L.b && bricks.has(L.b)) removeBrick(L.b);
+    L.b = addBrick(L.p, L.c, L.x, want, L.z, L.r, false); L.y = want;
+    if (L.carry) { player.y = (want + L.p.H) * P; player.vy = 0; }
+  }
+  if (L.y === L.to) { liftRide = null; mpPlaced([[L.p.idx, L.c, L.x, L.y, L.z, L.r]]); saveSoon(); sfx('pop'); }
+}
+
+
+// ================================================================ polish: music, ambient sound, footsteps and accessibility
+// ---- settings (saved in this browser)
+var opts = { music: true, vol: 2, big: false, lefty: false, cb: false };
+try { Object.assign(opts, JSON.parse(localStorage.getItem('brick-builder-opts-v1') || '{}')); } catch (e) {}
+const VOLS = [0, 0.35, 0.7, 1], VOL_NAMES = ['🔇 Off', '🔈 Quiet', '🔉 Normal', '🔊 Loud'];
+function saveOpts() { try { localStorage.setItem('brick-builder-opts-v1', JSON.stringify(opts)); } catch (e) {} }
+function applyOpts() {
+  document.body.classList.toggle('bigbtn', !!opts.big); document.body.classList.toggle('lefty', !!opts.lefty); document.body.classList.toggle('cbmode', !!opts.cb);
+  const set = (id, t) => { const b = document.getElementById(id); if (b) b.textContent = t; };
+  set('volBtn', VOL_NAMES[opts.vol]); set('musicBtn', opts.music ? '🎵 On' : '🎵 Off');
+  set('bigBtn', opts.big ? '🔲 Big' : '🔲 Normal'); set('leftyBtn', opts.lefty ? '🫲 Left-handed' : '🫱 Right-handed'); set('cbBtn', opts.cb ? '👁 On' : '👁 Off');
+  if (outGain) outGain.gain.setTargetAtTime(VOLS[opts.vol], actx.currentTime, 0.05);
+  if (musicBus) musicBus.gain.setTargetAtTime(opts.music ? 0.55 : 0, actx.currentTime, 0.4);
+  boxLine.material.color.set(opts.cb ? 0x3d8bff : 0x4fd8ff);
+}
+$('volBtn').onclick = () => { opts.vol = (opts.vol + 1) % VOLS.length; saveOpts(); initAudio(); applyOpts(); sfx('click'); };
+$('musicBtn').onclick = () => { opts.music = !opts.music; saveOpts(); initAudio(); applyOpts(); };
+$('bigBtn').onclick = () => { opts.big = !opts.big; saveOpts(); applyOpts(); };
+$('leftyBtn').onclick = () => { opts.lefty = !opts.lefty; saveOpts(); applyOpts(); };
+$('cbBtn').onclick = () => { opts.cb = !opts.cb; saveOpts(); applyOpts(); toast(opts.cb ? '👁 Colour-blind highlights: blocked spots show a ⊘ and a dark ghost brick' : '👁 Normal highlights'); };
+
+// ---- music: soft, made up as you go, with a different mood for each kind of place
+let musicBus = null, musicFx = null, mus = { next: 0, pad: 0, step: 0, mood: '' };
+const MOODS = {   // notes are semitones above the root; tempo is seconds per beat
+  grass:  { root: 60, scale: [0, 2, 4, 7, 9, 12, 14, 16], tempo: 0.42, wave: 'triangle', busy: 0.55, pad: [0, 7, 16] },
+  forest: { root: 57, scale: [0, 2, 3, 7, 9, 10, 12, 14], tempo: 0.5, wave: 'sine', busy: 0.45, pad: [0, 7, 15] },
+  desert: { root: 62, scale: [0, 1, 4, 5, 7, 8, 11, 12], tempo: 0.46, wave: 'triangle', busy: 0.4, pad: [0, 7, 12] },
+  snow:   { root: 72, scale: [0, 2, 4, 7, 11, 12, 14, 19], tempo: 0.7, wave: 'sine', busy: 0.3, pad: [0, 4, 11] },
+  lake:   { root: 55, scale: [0, 2, 4, 7, 9, 12, 16, 19], tempo: 0.6, wave: 'sine', busy: 0.35, pad: [0, 4, 9] },
+  town:   { root: 60, scale: [0, 2, 4, 5, 7, 9, 11, 12], tempo: 0.32, wave: 'square', busy: 0.7, pad: [0, 4, 7] },
+  cave:   { root: 48, scale: [0, 3, 5, 6, 7, 10, 12, 15], tempo: 0.75, wave: 'sine', busy: 0.25, pad: [0, 3, 7] },
+  night:  { root: 57, scale: [0, 3, 5, 7, 10, 12, 15], tempo: 0.8, wave: 'sine', busy: 0.25, pad: [0, 3, 10] },
+};
+function musicSetup() {
+  if (musicBus || !actx) return;
+  musicBus = actx.createGain(); musicBus.gain.value = 0;
+  // a little echo makes the notes feel like they are in a big open space
+  const dl = actx.createDelay(1), fb = actx.createGain(), lp = actx.createBiquadFilter(); dl.delayTime.value = 0.36; fb.gain.value = 0.32; lp.type = 'lowpass'; lp.frequency.value = 2400;
+  musicFx = actx.createGain(); musicFx.connect(musicBus); musicFx.connect(dl); dl.connect(lp).connect(fb).connect(dl); lp.connect(musicBus);
+  musicBus.connect(outGain);
+  musicBus.gain.setTargetAtTime(opts.music ? 0.55 : 0, actx.currentTime, 1.5);
+}
+function moodNow() {
+  if (player.y < -BLK_Y * 2 && !car) return 'cave';
+  if (night > 0.6) return 'night';
+  const s = siteAt(player.x, player.z); if (s && s.type !== 'village') return 'town';
+  return biomeAt(Math.floor(player.x / CHUNK), Math.floor(player.z / CHUNK)) || 'grass';
+}
+const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+function tone(t, f, dur, gain, wave = 'sine', dest = musicFx) {
+  const o = actx.createOscillator(), g = actx.createGain(); o.type = wave; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain, t + Math.min(0.03, dur / 4)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(dest); o.start(t); o.stop(t + dur + 0.05);
+}
+function updateMusic() {
+  if (!actx || !musicBus || !opts.music || actx.state !== 'running' || !isActive()) return;
+  const now = actx.currentTime; if (now < mus.next - 0.05) return;
+  const moodId = moodNow(), M = MOODS[moodId] || MOODS.grass;
+  if (moodId !== mus.mood) { mus.mood = moodId; mus.step = 0; mus.pad = now; }
+  const t = Math.max(now, mus.next);
+  if (t >= mus.pad) {   // a soft chord every couple of bars
+    const shift = [0, 5, -3, 7][Math.floor(mus.step / 8) % 4];
+    for (const n of M.pad) tone(t, mtof(M.root - 12 + n + shift), M.tempo * 8, 0.022, 'sine');
+    mus.pad = t + M.tempo * 8;
+  }
+  if (Math.random() < M.busy) {   // the tune: a gentle random walk along the scale
+    mus.idx = Math.max(0, Math.min(M.scale.length - 1, (mus.idx ?? 3) + Math.floor(Math.random() * 5) - 2));
+    tone(t, mtof(M.root + M.scale[mus.idx]), M.tempo * (1.2 + Math.random()), M.wave === 'square' ? 0.018 : 0.05, M.wave);
+  }
+  mus.step++; mus.next = t + M.tempo;
+}
+
+// ---- ambient sound: wind when flying fast or high up, birds by day, splashes and footsteps
+let wind = null, lastStep = null, stepAcc = 0, wasWet = false, birdT = 0;
+function noiseLoop() {
+  const len = actx.sampleRate * 2, buf = actx.createBuffer(1, len, actx.sampleRate), ch = buf.getChannelData(0);
+  let v = 0; for (let i = 0; i < len; i++) { v = v * 0.97 + (Math.random() * 2 - 1) * 0.03; ch[i] = v * 6; }   // brown-ish noise sounds like wind
+  const src = actx.createBufferSource(); src.buffer = buf; src.loop = true; return src;
+}
+function windSetup() {
+  if (wind || !actx) return;
+  const src = noiseLoop(), bp = actx.createBiquadFilter(), g = actx.createGain();
+  bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q.value = 0.7; g.gain.value = 0.0001;
+  src.connect(bp).connect(g).connect(outGain); src.start(); wind = { bp, g };
+}
+function noiseHit(t, freq, q, gain, decay, type = 'bandpass') {
+  const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  src.buffer = noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+  src.connect(f).connect(g).connect(master); src.start(t, Math.random() * 0.1); src.stop(t + decay + 0.02);
+}
+function footstep() {
+  const t = actx.currentTime, o = occ.get(key(Math.floor(player.x), Math.round(player.y / P) - 1, Math.floor(player.z)));
+  if (o) { clickTransient(t, 1800 + Math.random() * 500, 1.6, 0.18, 0.03); bodyTock(t, 300, 180, 0.05, 0.05); return; }   // on bricks: a plasticky tap
+  const bio = biomeAt(Math.floor(player.x / CHUNK), Math.floor(player.z / CHUNK));
+  if (bio === 'snow') noiseHit(t, 2600, 0.8, 0.22, 0.12, 'highpass');           // crunch
+  else if (bio === 'desert') noiseHit(t, 1400, 0.6, 0.14, 0.1);                 // soft sand
+  else noiseHit(t, 700 + Math.random() * 200, 0.9, 0.2, 0.07);                  // grass and earth
+}
+function splash(big) {
+  if (!actx || !master) return;
+  const t = actx.currentTime;
+  noiseHit(t, 900, 0.5, big ? 0.5 : 0.3, big ? 0.6 : 0.35, 'lowpass');
+  for (let i = 0; i < 5; i++) tone(t + 0.05 + i * 0.05 * Math.random(), 600 + Math.random() * 900, 0.08, 0.03, 'sine', master);
+}
+function chirp() {
+  const t = actx.currentTime, f = 2600 + Math.random() * 1600, n = 2 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < n; i++) { const o = actx.createOscillator(), g = actx.createGain(), s = t + i * 0.13;
+    o.frequency.setValueAtTime(f, s); o.frequency.exponentialRampToValueAtTime(f * 1.35, s + 0.07);
+    g.gain.setValueAtTime(0.0001, s); g.gain.linearRampToValueAtTime(0.025, s + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, s + 0.09);
+    o.connect(g).connect(master); o.start(s); o.stop(s + 0.1); }
+}
+function updateAmbient(dt) {
+  if (!actx || !master) return;
+  if (!outGain) return; musicSetup(); windSetup(); updateMusic();
+  // wind: flying, falling or driving an aircraft fast
+  let w = 0;
+  if (car && car.air) w = Math.min(1, Math.abs(car.speed || 0) / 60) * 0.9;
+  else if (!car && player.fly) w = Math.min(1, (player.flyLv || 1) * 0.3);
+  else if (!car && player.vy < -12) w = Math.min(1, -player.vy / 40);
+  w += Math.max(0, Math.min(0.3, (player.y - 60) / 200));
+  wind.g.gain.setTargetAtTime(isActive() ? w * 0.07 : 0.0001, actx.currentTime, 0.3);
+  wind.bp.frequency.setTargetAtTime(380 + w * 900, actx.currentTime, 0.3);
+  if (!isActive() || car) { lastStep = null; return; }
+  // footsteps
+  if (player.ground && !player.fly && !player.swim) {
+    if (lastStep) { stepAcc += Math.hypot(player.x - lastStep[0], player.z - lastStep[1]); if (stepAcc > 1.9) { stepAcc = 0; footstep(); } }
+    lastStep = [player.x, player.z];
+  } else lastStep = null;
+  // splashes when you jump into water
+  const wet = !!player.swim; if (wet && !wasWet) splash(player.vy < -8); wasWet = wet;
+  // birds singing by day in the countryside
+  if ((birdT -= dt) < 0) { birdT = 3 + Math.random() * 7; const m = mus.mood; if (night < 0.3 && (m === 'grass' || m === 'forest') && player.y > -1) chirp(); }
+}
+
 function toggleNight() { cycleDayMode(); }
 $('fuelBtn').onclick = toggleFuel;
 $('weatherBtn').onclick = cycleWeatherMode;
-setSens(lookSens); $('sensBtn').onclick = () => { const i = SENS_STEPS.indexOf(lookSens); setSens(SENS_STEPS[(i + 1) % SENS_STEPS.length]); toast(`Look sensitivity ${lookSens}×`); };
+applyOpts(); setSens(lookSens); $('sensBtn').onclick = () => { const i = SENS_STEPS.indexOf(lookSens); setSens(SENS_STEPS[(i + 1) % SENS_STEPS.length]); toast(`Look sensitivity ${lookSens}×`); };
 const camText = () => thirdPerson ? '👁 Behind player' : '👀 Through eyes';
 $('camBtn').textContent = camText();
 $('camBtn').onclick = () => { toggleView(); $('camBtn').textContent = camText(); };
@@ -6060,7 +6400,7 @@ function frame() {
   sea.position.set(player.x, 0, player.z); sea.visible = Math.max(Math.abs(player.x), Math.abs(player.z)) > WORLD - 420;
   updateFigure(dt);
   if (charOpen) renderPreview(dt);
-  updateTarget();
+  updateTarget(); showBox(); updateAnimBricks(dt); updateLift(dt); updateAmbient(dt);
   updateSnaps(performance.now());
   updateSmoke(dt);
   updateLamps();
@@ -6083,7 +6423,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { get stats() { return stats; }, get achDone() { return achDone; }, xpTotal, levelOf, storySteps, storyNow, get storyIdx() { return storyIdx; }, set storyIdx(v) { storyIdx = v; }, storyCheck, startCityRace, get cityRace() { return cityRace; }, openAch, checkGoals, record, undo, digBlock, mp, hostGame, joinGame, leaveGame, openMp, openChat, camera, raycaster, get pickables() { refreshPickables(); return pickables; }, scene, openDesigner, closeDesigner, registerCustom, get customPieces() { return customPieces; }, get dz() { return dz; }, dzRefresh, openDeco, closeDeco, get padIdx() { return padIdx; }, setPiece: (id) => { hotbar[slot] = id; rot = 0; refreshUI(); }, setRot: (r) => { rot = r; }, get visitedSites() { return visitedSites; }, siteKnown, mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { opts, applyOpts, moodNow, get outGain() { return outGain; }, footstep, splash, updateAmbient, boxAction, toggleMirror, get mirror() { return mirror; }, useLift, liftUnder, get liftRide() { return liftRide; }, get animBricks() { return animBricks; }, findBrick, get stats() { return stats; }, get achDone() { return achDone; }, xpTotal, levelOf, storySteps, storyNow, get storyIdx() { return storyIdx; }, set storyIdx(v) { storyIdx = v; }, storyCheck, startCityRace, get cityRace() { return cityRace; }, openAch, checkGoals, record, undo, digBlock, mp, hostGame, joinGame, leaveGame, openMp, openChat, camera, raycaster, get pickables() { refreshPickables(); return pickables; }, scene, openDesigner, closeDesigner, registerCustom, get customPieces() { return customPieces; }, get dz() { return dz; }, dzRefresh, openDeco, closeDeco, get padIdx() { return padIdx; }, setPiece: (id) => { hotbar[slot] = id; rot = 0; refreshUI(); }, setRot: (r) => { rot = r; }, get visitedSites() { return visitedSites; }, siteKnown, mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
