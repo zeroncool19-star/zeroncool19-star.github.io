@@ -220,6 +220,12 @@
   .dzWrap { display: grid; grid-template-columns: 1fr 200px; gap: 16px; } @media (max-width: 640px) { .dzWrap { grid-template-columns: 1fr; } }
   .dzRow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; font-size: 14px; } .dzRow button { padding: 6px 10px; font-size: 13px; }
   .dzRow input[type=number] { width: 52px; } #dzName { width: 150px; } .dzRow input { font: inherit; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: #0d121b; color: var(--text); }
+  .mpCode { font-size: 40px; font-weight: 800; letter-spacing: 8px; text-align: center; color: var(--accent); margin: 6px 0; }
+  #chatLog { position: fixed; left: 12px; bottom: 100px; display: flex; flex-direction: column; gap: 4px; pointer-events: none; z-index: 4; max-width: min(380px, 60vw); }
+  body.touch #chatLog { bottom: auto; top: calc(130px + env(safe-area-inset-top)); left: calc(130px + env(safe-area-inset-left)); }
+  .chatLine { background: rgba(15,20,30,.75); color: #fff; padding: 5px 10px; border-radius: 10px; font-size: 14px; transition: opacity 1s; }
+  .chatLine b { color: var(--accent); } .chatLine.old { opacity: 0; }
+  .tiles { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important; }
   .invHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .invJump { flex-basis: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
   .invJump button { flex: none; padding: 5px 11px; font-size: 13px; border-radius: 999px; }
@@ -268,6 +274,7 @@
       <button id="homeBtn"><span>🏠</span>Go home</button>
       <button id="photoBtn"><span>📷</span>Photo</button>
       <button id="tutBtn"><span>🎓</span>How to play</button>
+      <button id="mpBtn"><span>👥</span>Play with friends</button>
     </div>
     <details class="sect">
       <summary>⚙ Settings</summary>
@@ -362,6 +369,7 @@
     <button class="tb hidden" id="tbChar" title="Character">🧍</button>
     <button class="tb hidden" id="tbGarage" title="Garage">🚘</button>
     <button class="tb" id="tbMap" title="Map">🗺</button>
+    <button class="tb hidden" id="tbChat" title="Chat">💬</button>
     <button class="tb hidden" id="tbPhoto" title="Photo mode">📷</button>
   </div>
 </div>
@@ -535,6 +543,21 @@
         <h2>Colour</h2><div id="dzColors" class="colors"></div>
       </div>
     </div>
+  </div>
+</div>
+<div id="chatLog"></div>
+<div id="mpUI" class="overlay hidden">
+  <div class="card" style="max-width:520px">
+    <div class="invHead" style="position:static;margin:0;padding:0;border:0"><h1 style="font-size:22px">👥 Play with friends</h1><button id="mpClose" class="primary">Close</button></div>
+    <div class="dzRow" style="margin-top:10px"><label>Your name <input id="mpName" maxlength="16" autocomplete="off" placeholder="Name" style="width:170px"></label></div>
+    <div id="mpStatus"></div>
+    <div id="mpIdle">
+      <div class="btns"><button id="mpHost" class="primary">🏠 Host my world</button></div>
+      <h2>Join a friend</h2>
+      <div class="dzRow"><input id="mpCodeIn" maxlength="6" autocomplete="off" placeholder="CODE" style="width:120px;text-transform:uppercase;font-size:18px;letter-spacing:2px"><button id="mpJoin" class="primary">Join</button></div>
+      <p style="font-size:12px">Players connect directly to each other. A free public service is only used to help them find each other. Some school or work networks block this.</p>
+    </div>
+    <div class="btns"><button id="mpLeave" class="danger hidden">Leave game</button></div>
   </div>
 </div>
 <div id="tut" class="hidden"><div id="tutText"></div><button id="tutSkip">Skip</button></div>
@@ -1858,7 +1881,7 @@ function resetChunks() {
   for (const [k, ch] of [...chunks]) { disposeChunkMeshes(ch); removeMobs(ch); chunks.delete(k); }
   chunkQueue = []; lastPC = null; pickDirty = true;
 }
-function forgetGen(b) { if (b.gen) removedGen.add(b.gen); }
+function forgetGen(b) { if (b.gen) { removedGen.add(b.gen); mpGenGone(b.gen); } }
 
 // ---------------------------------------------------------------- underground: digging, ores, water
 // The ground is solid "earth blocks" (2x2 studs, 3 plates tall) down DEPTH blocks to bedrock.
@@ -2010,7 +2033,7 @@ function digBlock(bx, by, bz) {
   if (by < -DEPTH) { toast('Bedrock is too hard to dig'); sfx('bad'); return false; }
   if (isOpen(bx, by, bz)) return false;
   const ore = oreAt(bx, by, bz);
-  addDug(bkey(bx, by, bz)); rebuildBlockChunks(bx, bz);
+  addDug(bkey(bx, by, bz)); rebuildBlockChunks(bx, bz); mpSend({ t: 'dig', b: [bx, by, bz] });
   for (let i = 0; i < 3; i++) puff(bx * BLK + 0.5 + Math.random(), by * BLK_Y + 0.4 + Math.random() * 0.6, bz * BLK + 0.5 + Math.random());
   digSound(); navigator.vibrate?.(15);
   if (ore) { res[ore]++; toast(`+1 ${ORE_NAME[ore]} (${res[ore]})`); brickSound('place', null); }
@@ -2057,7 +2080,7 @@ function chopTree(start) {
       if (o && !S.has(o.b) && treeish(o.b)) { S.add(o.b); q.push(o.b); }
     }
   }
-  let n = 0;
+  let n = 0; mpRemoved([...S].map(brickData));
   for (const b of S) { if (n++ < 30) popOut(b); forgetGen(b); removeBrick(b); }
   res.wood += S.size; toast(`🪵 +${S.size} wood (${res.wood})`);
   if (actx && master) bodyTock(actx.currentTime, 260, 120, 0.3, 0.15);
@@ -2297,9 +2320,9 @@ function doOp(op, inverse) {
   if (add) return !!addBrick(PIECES[op.d[0]], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5]);
   const b = findBrick(op.d); if (b) { forgetGen(b); removeBrick(b); } return !!b;
 }
-function undo() { const op = undoStack.pop(); if (!op) return toast('Nothing to undo'); doOp(op, true); redoStack.push(op); brickSound(op.t === 'add' ? 'remove' : 'place', op.d ? PIECES[op.d[0]] : null); saveSoon(); }
-function redo() { const op = redoStack.pop(); if (!op) return toast('Nothing to redo'); doOp(op, false); undoStack.push(op); brickSound(op.t === 'add' ? 'place' : 'remove', op.d ? PIECES[op.d[0]] : null); saveSoon(); }
-function record(op) { undoStack.push(op); if (undoStack.length > 500) undoStack.shift(); redoStack.length = 0; saveSoon(); }
+function undo() { const op = undoStack.pop(); if (!op) return toast('Nothing to undo'); doOp(op, true); mpOp(op, true); redoStack.push(op); brickSound(op.t === 'add' ? 'remove' : 'place', op.d ? PIECES[op.d[0]] : null); saveSoon(); }
+function redo() { const op = redoStack.pop(); if (!op) return toast('Nothing to redo'); doOp(op, false); mpOp(op, false); undoStack.push(op); brickSound(op.t === 'add' ? 'place' : 'remove', op.d ? PIECES[op.d[0]] : null); saveSoon(); }
+function record(op) { undoStack.push(op); if (undoStack.length > 500) undoStack.shift(); redoStack.length = 0; saveSoon(); mpOp(op, false); }
 
 // ---- Snap-in / pop-off animations -----------------------------------------
 // A placed brick drops onto the studs, squashes a touch as it locks on, then settles.
@@ -2544,7 +2567,7 @@ document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   setHud();
   if (locked) { menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; }
-  else { for (const k in keys) keys[k] = false; if (photoMode && !touchMode) setPhoto(false); if (!invOpen && !charOpen && !gOpen && !textOpen && !mapOpen && !talkOpen && !decoOpen && !designOpen) { menu.classList.remove('hidden'); save(); } }
+  else { for (const k in keys) keys[k] = false; if (photoMode && !touchMode) setPhoto(false); if (!invOpen && !charOpen && !gOpen && !textOpen && !mapOpen && !talkOpen && !decoOpen && !designOpen && !mpOpen) { menu.classList.remove('hidden'); save(); } }
 });
 $('playBtn').onclick = () => { if (!charSaved) openChar(true); else play(); };
 $('invClose').onclick = closeInv;
@@ -2568,6 +2591,8 @@ document.addEventListener('wheel', (e) => {
 document.addEventListener('keydown', (e) => {
   if (textOpen || decoOpen) return;
   if (designOpen) { if (e.code === 'Escape') closeDesigner(); return; }
+  if (mpOpen) { if (e.code === 'Escape') closeMp(); return; }
+  if (e.code === 'Enter' && mp.role && isActive() && !car) { e.preventDefault(); openChat(); return; }
   if (talkOpen) { if (e.code === 'Escape' || e.code === 'KeyJ') closeTalk(); return; }
   if (mapOpen) { if (e.code === 'Escape' || e.code === 'KeyL') closeMap(); return; }
   if (charOpen) { if (e.code === 'Escape' || e.code === 'Enter') { e.preventDefault(); closeChar(); } return; }
@@ -3237,6 +3262,7 @@ function enterCar(base) {
     mesh.castShadow = mode !== 't'; mesh.receiveShadow = true; mesh.userData.own = true; group.add(mesh);
   }
   for (const [part, mat, pos, rotY, off] of animated) addAnimPart(group, part, mat, pos, rotY, off, anims);
+  const mpRm = [...S].map(b => encD(brickData(b)));
   for (const b of S) { forgetGen(b); removeBrick(b); }
   const W = base.p.W, D = base.p.D, an = analyzeVehicle(parts);
   const legacy = !an.boat && an.builtin && !an.wheels.length;
@@ -3258,6 +3284,7 @@ function enterCar(base) {
   else toast(touchMode ? 'Joystick to drive · 🛑 to brake' : 'W/S to drive · A/D to steer · Space brakes · Q to get out');
   if (car.boat && !boatFits(car.x, car.z, car.yaw)) setTimeout(() => toast('Boats only move on water: launch it on a lake'), 1800);
   placeCarModel(); seatPlayer();
+  mpSend({ t: 'carIn', rm: mpRm, items: car.items.map(it => [it.p.id, it.c, it.lx, it.ly, it.lz, it.lr]) });
 }
 // Where the parked car's bricks would go: snapped to studs and a quarter turn, nudged a little if something is in the way.
 function planPark() {
@@ -3289,6 +3316,7 @@ function exitCar() {
   if (!plan) { toast('No room to park here. Move a little'); sfx('bad'); return false; }
   if (trailer && !trailerPlan()) { toast('No room to park the trailer here. Move a little'); sfx('bad'); return false; }
   for (const d of plan) addBrick(PIECES[d[0]], d[1], d[2], d[3], d[4], d[5], false);
+  mpSend({ t: 'carOut', put: plan.map(encD) });
   if (trailer && !parkTrailer()) { for (const it of trailer.items) addBrick(PIECES[it.orig[0]], ...it.orig.slice(1), false); dropTrailer(); }
   const W = car.base.W, D = car.base.D, c = Math.cos(car.yaw), s = Math.sin(car.yaw);
   let placed = false;
@@ -4027,6 +4055,7 @@ $('textInput').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.k
 // ---------------------------------------------------------------- signs with words
 function setSignText(b, text) {
   if (!b || !b.p.text) return;
+  if (!b.gen && typeof mpSend === 'function' && b.text !== text) mpSend({ t: 'sign', d: encD(brickData(b)), text: text || '' });
   if (b.textMesh) { scene.remove(b.textMesh); b.textMesh.children.forEach(m => { m.material.map.dispose(); m.material.dispose(); }); b.textMesh = null; }
   b.text = text;
   if (!text) return;
@@ -4852,6 +4881,7 @@ function hookTrailer() {
   }
   const group = new THREE.Group();
   for (const { hex, mode, geos } of buckets.values()) { const m = new THREE.Mesh(mergeGeometries(geos, false), carMat(hex, mode)); geos.forEach(g => g.dispose()); m.castShadow = true; m.userData.own = true; group.add(m); }
+  mpRemoved([...S].map(brickData));
   for (const b of S) { forgetGen(b); removeBrick(b); }
   scene.add(group);
   trailer = { base: tb.p, items, group, x: bcx, z: bcz, y: tb.y * P, yaw: r0 * Math.PI / 2, n: S.size };
@@ -4877,7 +4907,7 @@ function parkTrailer() {   // true when there is no trailer or it parked fine
   const plan = trailerPlan();
   if (!plan) return false;
   for (const d of plan) addBrick(PIECES[d[0]], d[1], d[2], d[3], d[4], d[5], false);
-  dropTrailer(); return true;
+  mpPlaced(plan); dropTrailer(); return true;
 }
 function dropTrailer() {
   if (!trailer) return;
@@ -4953,6 +4983,7 @@ function toggleOpen(b) {
   const to = PIECE_BY_ID[b.p.toggleTo]; if (!to) return false;
   const opening = !!to.hidden;
   if (!opening && playerOverlaps(cellsOf(to, b.x, b.y, b.z, b.r))) { toast('Step out of the doorway first'); sfx('bad'); return false; }
+  mpSend({ t: 'door', d: encD(brickData(b)) });
   const { c, x, y, z, r } = b; forgetGen(b); removeBrick(b);
   const nb = addBrick(to, c, x, y, z, r, false);
   if (actx && master) bodyTock(actx.currentTime, opening ? 240 : 180, opening ? 140 : 90, 0.25, 0.12);
@@ -5322,7 +5353,7 @@ function updateGamepad(dt) {
   const B = gp.buttons.map(b => b.pressed || b.value > 0.5), down = (i) => B[i] && !padPrev[i], up = (i) => !B[i] && padPrev[i];
   const dz = (v) => Math.abs(v) < 0.15 ? 0 : v;
   const lx = dz(gp.axes[0] || 0), ly = dz(gp.axes[1] || 0), rx = dz(gp.axes[2] || 0), ry = dz(gp.axes[3] || 0);
-  const overlay = invOpen || charOpen || gOpen || mapOpen || textOpen || talkOpen || decoOpen || designOpen;
+  const overlay = invOpen || charOpen || gOpen || mapOpen || textOpen || talkOpen || decoOpen || designOpen || mpOpen;
   // START: play / pause.  Buttons on the standard layout: 0 A, 1 B, 2 X, 3 Y, 4 LB, 5 RB, 6 LT, 7 RT, 8 Back, 9 Start, 12-15 D-pad
   if (down(9)) { if (isActive()) { if (touchMode) pauseTouch(); else if (locked) document.exitPointerLock(); else { touchPlaying = false; menu.classList.remove('hidden'); setHud(); save(); } } else if (!overlay) { if (!charSaved) openChar(true); else { initAudio(); touchPlaying = true; menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; setHud(); } } }
   if (overlay) { if (down(1) || down(9)) { if (invOpen) closeInv(); else if (mapOpen) closeMap(); else if (talkOpen) closeTalk(); else if (decoOpen) closeDeco(false); else if (designOpen) closeDesigner(); } padPrev = B; return; }
@@ -5467,7 +5498,7 @@ $('designUI').addEventListener('click', (e) => {
       const i = customPieces.findIndex(x => x.id === cp.id); if (i >= 0) customPieces[i] = cp; else customPieces.push(cp);
       saveCustomList();
       if (PIECE_BY_ID[cp.id]) { const p = PIECE_BY_ID[cp.id]; p.name = cp.name; const set = new Set(cp.cells.map(c => dzKey(c[0], c[1], c[2]))); p.W = cp.W; p.D = cp.D; p.H = H; p.cell = (ii, jj, kk) => set.has(dzKey(ii, jj, kk)) ? 1 : 0; p.studTop = (ii, jj) => cp.studs !== false && set.has(dzKey(ii, jj, H - 1)); p.built.forEach(b => b.geo.dispose()); p.built = customParts(cp); for (const [k, bt] of batches) if (k.startsWith(cp.id + '|')) { scene.remove(bt.mesh); bt.mesh.dispose(); batches.delete(k); } thumbColor = -1; pickDirty = true; toast(`✨ ${cp.name} updated (already placed copies keep their old shape until reloaded)`); }
-      else registerCustom(cp);
+      else { registerCustom(cp); mpSend({ t: 'piece', cp }); }
       hotbar[slot] = cp.id; refreshUI(); showLabel(); stats.crafted++; saveSoon(); closeDesigner(); return;
     }
     case 'new': openDesigner(null); return;
@@ -5486,6 +5517,265 @@ $('inv').addEventListener('click', (e) => {
   if (ed) { const cp = customPieces[+ed.dataset.cpedit]; if (cp) { closeInv(); openDesigner(cp); } }
   else if (dl) { const cp = customPieces[+dl.dataset.cpdel]; if (cp && confirm(`Delete "${cp.name}"? Copies already placed stay in the world.`)) { customPieces.splice(+dl.dataset.cpdel, 1); saveCustomList(); if (PIECE_BY_ID[cp.id]) PIECE_BY_ID[cp.id].hidden = true; if (hotbar.includes(cp.id)) { hotbar = hotbar.map(id => id === cp.id ? 'brick2x4' : id); refreshUI(); } refreshMyPieces(); buildInventory(); } }
 });
+
+
+// ================================================================ multiplayer: play with friends (peer-to-peer)
+// The host's browser is the meeting point. Friends join with a short code, get a copy of the host's world, and from
+// then on every change (bricks, digging, chopping, doors, signs, vehicles) is sent to everyone. Guests connect only to
+// the host, and the host passes each guest's changes on to the others. A guest's own saved world is never touched.
+const mp = { role: null, peer: null, conns: new Map(), host: null, code: '', id: '', applying: false, players: new Map(), gen: [], stT: 0, envT: 0, name: '' };
+try { mp.name = localStorage.getItem('brick-builder-mp-name') || ''; } catch (e) {}
+const MP_PREFIX = 'brickbuilderworld-';
+function loadPeerLib() {
+  if (window.Peer) return Promise.resolve();
+  return new Promise((ok, bad) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js'; s.onload = ok; s.onerror = () => bad(new Error('Could not load the connection library')); document.head.appendChild(s); });
+}
+const mpActive = () => !!mp.role;
+// Piece numbers can differ between players (custom pieces), so bricks travel with their piece id instead.
+const encD = (d) => [PIECES[d[0]].id, ...d.slice(1)];
+const decD = (d) => { const p = PIECE_BY_ID[d[0]]; return p ? [p.idx, ...d.slice(1)] : null; };
+function encOp(op) { return op.t === 'multi' ? { t: 'multi', ops: op.ops.map(encOp) } : { ...op, d: encD(op.d) }; }
+function decOp(op) { if (op.t === 'multi') { const ops = op.ops.map(decOp).filter(Boolean); return { t: 'multi', ops }; } const d = decD(op.d); return d ? { ...op, d } : null; }
+// Each data message must stay small, so anything big is cut into parts and put back together at the other end.
+let mpPartId = 0;
+function sendTo(conn, msg) {
+  if (!conn || !conn.open) return;
+  const txt = JSON.stringify(msg);
+  try {
+    if (txt.length < 7000) conn.send(msg);
+    else { const id = ++mpPartId, n = Math.ceil(txt.length / 7000); for (let i = 0; i < n; i++) conn.send({ t: 'part', id, i, n, s: txt.slice(i * 7000, (i + 1) * 7000) }); }
+  } catch (e) { console.warn('send failed', e); }
+}
+function joinParts(conn, msg) {   // returns the whole message once every part has arrived
+  if (msg.t !== 'part') return msg;
+  const box = conn._parts || (conn._parts = new Map()), list = box.get(msg.id) || []; list[msg.i] = msg.s; box.set(msg.id, list);
+  if (list.filter(x => x !== undefined).length < msg.n) return null;
+  box.delete(msg.id); try { return JSON.parse(list.join('')); } catch (e) { return null; }
+}
+function mpSend(msg, except) {
+  if (!mp.role || mp.applying) return;
+  if (mp.role === 'host') { for (const [id, c] of mp.conns) if (id !== except) sendTo(c, msg); }
+  else sendTo(mp.host, msg);
+}
+// ---- hooks called by the rest of the game
+const mpOp = (op, inv) => mpSend({ t: 'op', op: encOp(op), inv: !!inv });
+const mpRemoved = (list) => mpSend({ t: 'rm', list: list.map(encD) });
+const mpPlaced = (list) => mpSend({ t: 'put', list: list.map(encD) });
+const mpGenGone = (id) => { if (mp.role && !mp.applying) mp.gen.push(id); };
+
+// ---- applying what others did
+function mpWith(fn) { mp.applying = true; try { fn(); } catch (e) { console.warn('multiplayer apply failed', e); } finally { mp.applying = false; } }
+function findPlaced(d) { const dd = decD(d); return dd ? findBrick(dd) : null; }
+function applyMsg(msg, from) {
+  switch (msg.t) {
+    case 'op': { const op = decOp(msg.op); if (op) mpWith(() => doOp(op, msg.inv)); break; }
+    case 'rm': mpWith(() => { for (const d of msg.list) { const b = findPlaced(d); if (b) { forgetGen(b); removeBrick(b); } } }); break;
+    case 'put': mpWith(() => { for (const d of msg.list) { const dd = decD(d); if (dd && !findBrick(dd)) addBrick(PIECES[dd[0]], dd[1], dd[2], dd[3], dd[4], dd[5], false); } }); break;
+    case 'gen': mpWith(() => { for (const id of msg.ids) { removedGen.add(id); for (const b of bricks) if (b.gen === id) { removeBrick(b); break; } } }); break;
+    case 'dig': mpWith(() => { const [bx, by, bz] = msg.b; if (!isOpen(bx, by, bz)) { addDug(bkey(bx, by, bz)); rebuildBlockChunks(bx, bz); } }); break;
+    case 'door': mpWith(() => { const b = findPlaced(msg.d), to = b && PIECE_BY_ID[b.p.toggleTo]; if (to) { const { c, x, y, z, r } = b; forgetGen(b); removeBrick(b); addBrick(to, c, x, y, z, r, false); } }); break;
+    case 'sign': { let tries = 0; const go = () => { const b = findPlaced(msg.d); if (b) mpWith(() => setSignText(b, msg.text)); else if (tries++ < 5) setTimeout(go, 250); }; go(); break; }
+    case 'piece': mpWith(() => { const cp = msg.cp; if (cp && cp.id && !PIECE_BY_ID[cp.id]) { registerCustom(cp, true); customPieces.push(cp); saveCustomList(); } }); break;
+    case 'carIn': mpWith(() => { for (const d of msg.rm) { const b = findPlaced(d); if (b) { forgetGen(b); removeBrick(b); } } const pl = remotePlayer(msg.id || from); if (pl) setRemoteCar(pl, msg.items); }); break;
+    case 'carOut': mpWith(() => { const pl = remotePlayer(msg.id || from); if (pl) setRemoteCar(pl, null); for (const d of msg.put) { const dd = decD(d); if (dd && !findBrick(dd)) addBrick(PIECES[dd[0]], dd[1], dd[2], dd[3], dd[4], dd[5], false); } }); break;
+    case 'st': updateRemote(msg); break;
+    case 'chat': showChat(msg.n, msg.text); break;
+    case 'env': if (mp.role === 'guest') { dayMode = msg.day; timeOfDay = msg.tod; if (msg.w !== weatherMode) { weatherMode = msg.w; } if (msg.weather !== weather) setWeather(msg.weather, true); } break;
+    case 'bye': dropRemote(msg.id || from); break;
+  }
+}
+function saveAllowed() { return mp.role !== 'guest'; }
+
+// ---- other players' figures and vehicles
+function remotePlayer(id) { return mp.players.get(id); }
+function makeRemote(msg) {
+  const fig = buildFigure({ ...DEFAULT_CHAR, ...(msg.c || {}) }), tag = nameTag('🙂 ' + (msg.n || 'Player'));
+  tag.position.set(0, 4.5, 0); fig.add(tag); scene.add(fig);
+  const pl = { id: msg.id, name: msg.n || 'Player', fig, tag, car: null, x: msg.p[0], y: msg.p[1], z: msg.p[2], yaw: msg.p[3], tx: msg.p[0], ty: msg.p[1], tz: msg.p[2], tyaw: msg.p[3], fly: !!msg.f, last: performance.now(), lx: msg.p[0], lz: msg.p[2], cfgKey: JSON.stringify(msg.c || {}) };
+  mp.players.set(msg.id, pl); refreshMpUI(); toast(`👋 ${pl.name} joined`);
+  return pl;
+}
+function updateRemote(msg) {
+  if (!msg.id || msg.id === mp.id) return;
+  let pl = mp.players.get(msg.id); if (!pl) pl = makeRemote(msg);
+  const ck = JSON.stringify(msg.c || {});
+  if (ck !== pl.cfgKey) { scene.remove(pl.fig); disposeFigure(pl.fig); pl.fig = buildFigure({ ...DEFAULT_CHAR, ...(msg.c || {}) }); pl.fig.add(pl.tag); scene.add(pl.fig); pl.cfgKey = ck; }
+  if (msg.n && msg.n !== pl.name) { pl.name = msg.n; pl.fig.remove(pl.tag); pl.tag = nameTag('🙂 ' + pl.name); pl.tag.position.set(0, 4.5, 0); pl.fig.add(pl.tag); refreshMpUI(); }
+  [pl.tx, pl.ty, pl.tz, pl.tyaw] = msg.p; pl.fly = !!msg.f; pl.last = performance.now(); pl.drive = msg.car || null;
+}
+function buildItemsGroup(items) {
+  const buckets = new Map(), M = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), ONE = new THREE.Vector3(1, 1, 1);
+  for (const [id, c, lx, ly, lz, lr] of items) {
+    const p = PIECE_BY_ID[id]; if (!p) continue;
+    Q.setFromAxisAngle(Y_AXIS, lr * Math.PI / 2); M.compose(V.set(lx, ly * P, lz), Q, ONE);
+    for (const part of p.built) { const col = COLORS[c] || COLORS[0], mode = part.fixed ? (part.mat || 'o') : part.mat === 'b' ? 'b' : (col.t ? 't' : (part.mat || 'o')), hex = part.fixed || col.h, k = hex + mode;
+      if (!buckets.has(k)) buckets.set(k, { hex, mode, geos: [] }); buckets.get(k).geos.push(part.geo.clone().applyMatrix4(M)); }
+  }
+  const g = new THREE.Group(); g.rotation.order = 'YXZ';
+  for (const { hex, mode, geos } of buckets.values()) { const m = new THREE.Mesh(mergeGeometries(geos, false), carMat(hex, mode)); geos.forEach(x => x.dispose()); m.castShadow = true; m.userData.own = true; g.add(m); }
+  return g;
+}
+function setRemoteCar(pl, items) {
+  if (pl.car) { scene.remove(pl.car); pl.car.traverse(m => { if (m.isMesh && m.userData.own) m.geometry.dispose(); }); pl.car = null; }
+  if (items) { pl.car = buildItemsGroup(items); scene.add(pl.car); }
+}
+function dropRemote(id) {
+  const pl = mp.players.get(id); if (!pl) return;
+  setRemoteCar(pl, null); scene.remove(pl.fig); disposeFigure(pl.fig); mp.players.delete(id); refreshMpUI(); toast(`👋 ${pl.name} left`);
+}
+function updateRemotes(dt) {
+  const k = Math.min(1, dt * 10), now = performance.now();
+  for (const pl of mp.players.values()) {
+    if (now - pl.last > 15000) { dropRemote(pl.id); continue; }
+    pl.x += (pl.tx - pl.x) * k; pl.y += (pl.ty - pl.y) * k; pl.z += (pl.tz - pl.z) * k;
+    let dy = pl.tyaw - pl.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); pl.yaw += dy * k;
+    if (pl.car && pl.drive) { const [x, y, z, yaw] = pl.drive; pl.car.position.x += (x - pl.car.position.x) * k; pl.car.position.y += (y - pl.car.position.y) * k; pl.car.position.z += (z - pl.car.position.z) * k;
+      let d2 = yaw - pl.car.rotation.y; d2 = Math.atan2(Math.sin(d2), Math.cos(d2)); pl.car.rotation.y += d2 * k; }
+    const sp = dt > 0 ? Math.hypot(pl.x - pl.lx, pl.z - pl.lz) / dt : 0; pl.lx = pl.x; pl.lz = pl.z;
+    pl.fig.position.set(pl.x, pl.y, pl.z); pl.fig.rotation.y = pl.yaw + Math.PI;
+    animateFigure(pl.fig, pl.drive ? 0 : sp, dt, false, pl.fly);
+  }
+}
+
+// ---- connecting
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const newCode = () => Array.from({ length: 6 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
+function myState() {
+  return { t: 'st', id: mp.id, n: mp.name || 'Player', c: charCfg, p: [+player.x.toFixed(2), +player.y.toFixed(2), +player.z.toFixed(2), +player.yaw.toFixed(3)], f: player.fly ? 1 : 0,
+    car: car ? [+car.x.toFixed(2), +car.y.toFixed(2), +car.z.toFixed(2), +car.yaw.toFixed(3)] : null };
+}
+function wireConn(conn) {
+  conn.on('data', (raw) => {
+    if (!raw || typeof raw !== 'object') return;
+    const msg = joinParts(conn, raw); if (!msg) return;
+    if (mp.role === 'host') {
+      if (msg.t === 'hello') {
+        sendTo(conn, { t: 'welcome', you: conn.peer, world: serialize(), hostState: myState(), players: [...mp.players.values()].map(pl => ({ t: 'st', id: pl.id, n: pl.name, c: JSON.parse(pl.cfgKey), p: [pl.tx, pl.ty, pl.tz, pl.tyaw], f: pl.fly ? 1 : 0 })) });
+        if (car) { const plan = planPark() || car.items.map(it => it.orig); sendTo(conn, { t: 'carIn', id: 'host', rm: plan.map(encD), items: car.items.map(it => [it.p.id, it.c, it.lx, it.ly, it.lz, it.lr]) }); }
+        return;
+      }
+      if (msg.t === 'st') msg.id = conn.peer;
+      if (msg.t === 'carIn' || msg.t === 'carOut') msg.id = conn.peer;
+      applyMsg(msg, conn.peer);
+      mpSend(msg, conn.peer);   // pass it on to everyone else
+      if (msg.t !== 'st') saveSoon();
+    } else {
+      if (msg.t === 'welcome') {
+        const world = msg.world;
+        if (!world) { toast('🌐 The world did not arrive. Try joining again'); leaveGame(true); return; }
+        mp.id = msg.you;
+        mpWith(() => { load(world); refreshUI(); });
+        const h = msg.hostState; Object.assign(player, { x: h.p[0] + 2, y: h.p[1] + 1, z: h.p[2] + 2, vy: 0 }); lastPC = null; updateChunks(25);
+        updateRemote({ ...h, id: 'host' }); for (const s of msg.players) if (s.id !== mp.id) updateRemote(s);
+        toast(`✅ Joined ${h.n || 'the host'}'s world!`); refreshMpUI(); return;
+      }
+      if (msg.t === 'st' && msg.id === undefined) msg.id = 'host';
+      if ((msg.t === 'carIn' || msg.t === 'carOut') && !msg.id) msg.id = 'host';
+      applyMsg(msg, 'host');
+    }
+  });
+  conn.on('close', () => {
+    if (mp.role === 'host') { mp.conns.delete(conn.peer); dropRemote(conn.peer); mpSend({ t: 'bye', id: conn.peer }); refreshMpUI(); }
+    else if (mp.role === 'guest') { toast('📴 The host left the game'); leaveGame(true); }
+  });
+}
+async function hostGame() {
+  try { await loadPeerLib(); } catch (e) { toast('Could not load the connection library. Check your internet'); return; }
+  leaveGame(true);
+  mp.code = newCode(); mp.role = 'host'; mp.id = 'host';
+  mp.peer = new window.Peer(MP_PREFIX + mp.code);
+  mp.peer.on('open', () => { toast(`🌐 Hosting! Friends join with code ${mp.code}`); refreshMpUI(); });
+  mp.peer.on('connection', (conn) => {
+    if (mp.conns.size >= 7) { conn.on('open', () => { sendTo(conn, { t: 'chat', n: '🌐', text: 'This game is full (8 players)' }); setTimeout(() => conn.close(), 500); }); return; }
+    mp.conns.set(conn.peer, conn); wireConn(conn); refreshMpUI();
+  });
+  mp.peer.on('error', (e) => { toast('🌐 ' + (e.type === 'unavailable-id' ? 'That code is busy, try again' : 'Connection problem: ' + (e.type || e.message))); if (e.type === 'unavailable-id' || e.type === 'server-error' || e.type === 'network') leaveGame(true); });
+  refreshMpUI();
+}
+async function joinGame(code) {
+  code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length !== 6) { toast('Codes are 6 letters and numbers'); return; }
+  try { await loadPeerLib(); } catch (e) { toast('Could not load the connection library. Check your internet'); return; }
+  leaveGame(true); save();   // keep your own world safe before visiting
+  mp.role = 'guest'; mp.code = code;
+  mp.peer = new window.Peer();
+  mp.peer.on('open', () => {
+    const conn = mp.peer.connect(MP_PREFIX + code, { reliable: true, serialization: 'json' }); mp.host = conn; wireConn(conn);
+    conn.on('open', () => sendTo(conn, { t: 'hello', n: mp.name || 'Player' }));
+    setTimeout(() => { if (mp.role === 'guest' && !mp.id) { toast('🌐 Could not reach that game. Check the code, and that the host is still playing'); leaveGame(true); } }, 45000);
+  });
+  mp.peer.on('error', (e) => { toast('🌐 ' + (e.type === 'peer-unavailable' ? 'No game found with that code' : 'Connection problem: ' + (e.type || e.message))); leaveGame(true); });
+  toast('🌐 Joining…'); refreshMpUI();
+}
+function leaveGame(quiet) {
+  if (!mp.role) return;
+  const wasGuest = mp.role === 'guest';
+  try { mpSend({ t: 'bye', id: mp.id }); } catch (e) {}
+  for (const id of [...mp.players.keys()]) { const pl = mp.players.get(id); setRemoteCar(pl, null); scene.remove(pl.fig); disposeFigure(pl.fig); }
+  mp.players.clear(); mp.conns.clear(); mp.host = null;
+  try { mp.peer && mp.peer.destroy(); } catch (e) {}
+  mp.peer = null; mp.role = null; mp.id = ''; mp.code = '';
+  if (wasGuest) {   // go back to your own world
+    if (car) dropCar();
+    try { const s = localStorage.getItem(SAVE_KEY); if (s) load(JSON.parse(s)); else generateWorld(1234); } catch (e) { generateWorld(1234); }
+    refreshUI(); if (!quiet) toast('🏠 Back in your own world');
+  } else if (!quiet) toast('🌐 Stopped hosting');
+  refreshMpUI();
+}
+function mpUpdate(dt) {
+  $('tbChat').classList.toggle('hidden', !mp.role);
+  if (!mp.role) return;
+  updateRemotes(dt);
+  if ((mp.stT -= dt) <= 0 && (mp.role === 'host' || mp.id)) { mp.stT = 0.1; mpSend(myState()); }
+  if (mp.gen.length) { mpSend({ t: 'gen', ids: mp.gen }); mp.gen = []; }
+  if (mp.role === 'host' && (mp.envT -= dt) <= 0) { mp.envT = 4; mpSend({ t: 'env', day: dayMode, tod: timeOfDay, w: weatherMode, weather }); }
+}
+
+// ---- chat
+function showChat(name, text) {
+  const el = document.createElement('div'); el.className = 'chatLine'; el.innerHTML = `<b>${escapeHtml(name)}</b> ${escapeHtml(String(text).slice(0, 120))}`;
+  $('chatLog').appendChild(el); while ($('chatLog').children.length > 6) $('chatLog').firstChild.remove();
+  setTimeout(() => el.classList.add('old'), 9000); setTimeout(() => el.remove(), 10000);
+  if (actx && master) sfx('pop');
+}
+function openChat() { if (!mp.role) return; askText('Say something', '', (v) => { if (!v) return; showChat(mp.name || 'You', v); mpSend({ t: 'chat', n: mp.name || 'Player', text: v }); }); }
+
+// ---- the multiplayer screen
+let mpOpen = false;
+function openMp() {
+  mpOpen = true; resetTouchInput(); stopRepeat(); touchPlaying = false; setHud(); if (locked) document.exitPointerLock();
+  $('mpUI').classList.remove('hidden'); menu.classList.add('hidden'); $('mpName').value = mp.name; refreshMpUI();
+}
+function closeMp() { mpOpen = false; $('mpUI').classList.add('hidden'); play(); }
+function refreshMpUI() {
+  const st = $('mpStatus'); if (!st) return;
+  const list = [...mp.players.values()].map(pl => `<div class="gRow"><span>🙂 ${escapeHtml(pl.name)}${pl.drive ? ' <small>driving</small>' : ''}</span><button data-mpgo="${escapeHtml(pl.id)}">Go to</button></div>`).join('');
+  if (!mp.role) { st.innerHTML = '<p>Play together in one world. One person hosts and shares their code, friends join with it.</p>'; $('mpIdle').classList.remove('hidden'); $('mpLeave').classList.add('hidden'); }
+  else {
+    $('mpIdle').classList.add('hidden'); $('mpLeave').classList.remove('hidden');
+    const link = `${location.origin}${location.pathname}?join=${mp.code}`;
+    st.innerHTML = mp.role === 'host'
+      ? `<p>You are hosting. Friends join with this code:</p><div class="mpCode">${mp.code}</div><div class="btns" style="justify-content:center;margin-top:6px"><button data-mpcopy="${escapeHtml(link)}">🔗 Copy invite link</button></div><h2>Players (${mp.players.size + 1} of 8)</h2><div class="gRow"><span>⭐ ${escapeHtml(mp.name || 'You')} <small>host</small></span></div>${list}`
+      : mp.id ? `<p>You are visiting a friend's world. Your own world is safe and comes back when you leave.</p><h2>Players</h2><div class="gRow"><span>🙂 ${escapeHtml(mp.name || 'You')} <small>you</small></span></div>${list}` : '<p>Connecting…</p>';
+  }
+}
+$('mpUI').addEventListener('click', (e) => {
+  const go = e.target.closest('[data-mpgo]'), cp = e.target.closest('[data-mpcopy]');
+  if (go) { const pl = mp.players.get(go.dataset.mpgo); if (pl && !car) { Object.assign(player, { x: pl.x + 2, y: pl.y + 1, z: pl.z + 2, vy: 0 }); lastPC = null; updateChunks(25); closeMp(); } }
+  if (cp) { navigator.clipboard?.writeText(cp.dataset.mpcopy).then(() => toast('🔗 Invite link copied'), () => window.prompt('Copy this invite link:', cp.dataset.mpcopy)); }
+});
+$('mpName').addEventListener('change', () => { mp.name = $('mpName').value.trim().slice(0, 16); try { localStorage.setItem('brick-builder-mp-name', mp.name); } catch (e) {} });
+$('mpName').addEventListener('keydown', (e) => e.stopPropagation());
+$('mpCodeIn').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') $('mpJoin').click(); });
+const needName = () => { mp.name = ($('mpName').value || '').trim().slice(0, 16); if (!mp.name) { toast('Type your name first'); $('mpName').focus(); return false; } try { localStorage.setItem('brick-builder-mp-name', mp.name); } catch (e) {} return true; };
+$('mpHost').onclick = () => { if (needName()) hostGame(); };
+$('mpJoin').onclick = () => { if (needName()) joinGame($('mpCodeIn').value); };
+$('mpLeave').onclick = () => leaveGame(false);
+$('mpClose').onclick = closeMp;
+$('mpBtn').onclick = openMp;
+tapBtn('tbChat', openChat);
+{ const j = new URLSearchParams(location.search).get('join'); if (j) setTimeout(() => { openMp(); $('mpCodeIn').value = j.toUpperCase(); }, 800); }
+addEventListener('beforeunload', () => { if (mp.role) try { mpSend({ t: 'bye', id: mp.id }); } catch (e) {} });
 
 function toggleNight() { cycleDayMode(); }
 $('fuelBtn').onclick = toggleFuel;
@@ -5539,7 +5829,7 @@ function serialize() {
            seed: worldSeed, empty: emptyWorld ? 1 : 0, removed: [...removedGen], dug: [...dug], res,
            pl: [player.x, player.y, player.z, player.yaw, player.pitch, player.fly ? 1 : 0] };
 }
-function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) { console.warn('Save failed', e); } }
+function save() { if (typeof mp !== 'undefined' && mp.role === 'guest') return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) { console.warn('Save failed', e); } }
 function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 1200); }
 function load(data) {
   if (!data || data.v !== 1 || !Array.isArray(data.b)) throw new Error('Not a Brick Builder World save');
@@ -5632,7 +5922,7 @@ function frame() {
   updateSnaps(performance.now());
   updateSmoke(dt);
   updateLamps();
-  updateGamepad(dt); cullRegions(dt); updateCompass(dt); updateWaypoints(); updateMobs(dt); updateWeather(dt); updateTrailer(); updateRace(dt);
+  updateGamepad(dt); mpUpdate(dt); cullRegions(dt); updateCompass(dt); updateWaypoints(); updateMobs(dt); updateWeather(dt); updateTrailer(); updateRace(dt);
   if (car) { if (lastCarXZ) stats.driven += Math.hypot(car.x - lastCarXZ[0], car.z - lastCarXZ[1]) * 0.53; lastCarXZ = [car.x, car.z]; } else lastCarXZ = null;
   updateDayCycle(dt);
   night += (nightTarget - night) * Math.min(1, dt * 2.5); applyLight();
@@ -5646,11 +5936,11 @@ function frame() {
     const wt = performance.now() / 1000; waterNormal.offset.set(wt * 0.02, wt * 0.013); seaMat.normalMap.offset.set(wt * 0.004, wt * 0.003); }
   clouds.position.set(Math.round(player.x / 520) * 520 + ((performance.now() / 1000) * 1.2) % 200 - 100, 0, Math.round(player.z / 520) * 520);
   if ((infoT += dt) > 0.2) { infoT = 0; updateInfo(); updateTutorial(); }
-  renderer.render(scene, camera);
+  if (!window.__noRender) renderer.render(scene, camera);   // automated tests can switch drawing off
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { camera, raycaster, get pickables() { refreshPickables(); return pickables; }, scene, openDesigner, closeDesigner, registerCustom, get customPieces() { return customPieces; }, get dz() { return dz; }, dzRefresh, openDeco, closeDeco, get padIdx() { return padIdx; }, setPiece: (id) => { hotbar[slot] = id; rot = 0; refreshUI(); }, setRot: (r) => { rot = r; }, get visitedSites() { return visitedSites; }, siteKnown, mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { record, undo, digBlock, mp, hostGame, joinGame, leaveGame, openMp, openChat, camera, raycaster, get pickables() { refreshPickables(); return pickables; }, scene, openDesigner, closeDesigner, registerCustom, get customPieces() { return customPieces; }, get dz() { return dz; }, dzRefresh, openDeco, closeDeco, get padIdx() { return padIdx; }, setPiece: (id) => { hotbar[slot] = id; rot = 0; refreshUI(); }, setRot: (r) => { rot = r; }, get visitedSites() { return visitedSites; }, siteKnown, mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
