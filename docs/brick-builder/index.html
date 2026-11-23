@@ -226,6 +226,11 @@
   .chatLine { background: rgba(15,20,30,.75); color: #fff; padding: 5px 10px; border-radius: 10px; font-size: 14px; transition: opacity 1s; }
   .chatLine b { color: var(--accent); } .chatLine.old { opacity: 0; }
   .tiles { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important; }
+  .lvlBox { text-align: center; margin: 10px 0; } .lvlNum { font-size: 26px; font-weight: 800; color: var(--accent); }
+  .lvlBar { height: 12px; border-radius: 999px; background: rgba(255,255,255,.1); overflow: hidden; margin: 6px 0; } .lvlBar div { height: 100%; background: linear-gradient(90deg, #ffcf33, #ff8a3d); }
+  .achGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+  .ach { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.05); opacity: .6; } .ach.done { opacity: 1; background: rgba(255, 207, 51, .12); }
+  .achIcon { font-size: 26px; } .ach small { color: var(--muted); }
   .invHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .invJump { flex-basis: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
   .invJump button { flex: none; padding: 5px 11px; font-size: 13px; border-radius: 999px; }
@@ -275,6 +280,7 @@
       <button id="photoBtn"><span>📷</span>Photo</button>
       <button id="tutBtn"><span>🎓</span>How to play</button>
       <button id="mpBtn"><span>👥</span>Play with friends</button>
+      <button id="achBtn"><span>🏆</span>Goals &amp; story</button>
     </div>
     <details class="sect">
       <summary>⚙ Settings</summary>
@@ -546,6 +552,12 @@
   </div>
 </div>
 <div id="chatLog"></div>
+<div id="achUI" class="overlay hidden">
+  <div class="card" style="max-width:640px">
+    <div class="invHead" style="position:static;margin:0;padding:0;border:0"><h1 style="font-size:22px">🏆 Goals &amp; story</h1><button id="achClose" class="primary">Close</button></div>
+    <div id="achBody"></div>
+  </div>
+</div>
 <div id="mpUI" class="overlay hidden">
   <div class="card" style="max-width:520px">
     <div class="invHead" style="position:static;margin:0;padding:0;border:0"><h1 style="font-size:22px">👥 Play with friends</h1><button id="mpClose" class="primary">Close</button></div>
@@ -888,6 +900,15 @@ def({ id: 'pipe1x4', name: 'Copper pipe 1×4', cat: 'Crafted', W: 1, D: 4, H: 3,
     new THREE.CylinderGeometry(0.42, 0.42, 0.3, 18).rotateX(Math.PI / 2).translate(0, 0.6, -1.8), new THREE.CylinderGeometry(0.42, 0.42, 0.3, 18).rotateX(Math.PI / 2).translate(0, 0.6, 1.8)]), fixed: '#c8773a' }] });
 def({ id: 'pipe1x1v', name: 'Copper pipe (upright)', cat: 'Crafted', W: 1, D: 1, H: 12, locked: true,
   parts: () => [{ geo: merge([cyl(0.34, 4.8, 18), cyl(0.42, 0.3, 18), cyl(0.42, 0.3, 18, 4.5)]), fixed: '#c8773a' }] });
+def({ id: 'crown', name: 'Royal crown', cat: 'Crafted', W: 2, D: 2, H: 3, locked: true,
+  parts: () => [{ geo: merge([new THREE.CylinderGeometry(0.85, 0.75, 0.55, 20, 1, true).translate(0, 0.3, 0), new THREE.CylinderGeometry(0.75, 0.75, 0.08, 20).translate(0, 0.04, 0),
+    ...[0, 1, 2, 3, 4, 5, 6, 7].map(i => new THREE.ConeGeometry(0.16, 0.45, 6).translate(Math.cos(i * Math.PI / 4) * 0.82, 0.78, Math.sin(i * Math.PI / 4) * 0.82))]), fixed: '#f0c63a' },
+    { geo: merge([0, 2, 4, 6].map(i => new THREE.SphereGeometry(0.1, 10, 8).translate(Math.cos(i * Math.PI / 4) * 0.86, 0.32, Math.sin(i * Math.PI / 4) * 0.86))), fixed: '#c91a09' }] });
+def({ id: 'goldbars', name: 'Stack of gold bars', cat: 'Crafted', W: 2, D: 2, H: 3, locked: true,
+  parts: () => [{ geo: merge([[-0.45, 0.2, -0.45], [0.45, 0.2, -0.45], [-0.45, 0.2, 0.45], [0.45, 0.2, 0.45], [0, 0.6, -0.45], [0, 0.6, 0.45], [0, 1.0, 0]].map(([x, y, z]) => new RoundedBoxGeometry(0.85, 0.38, 0.85, 1, 0.06).translate(x, y, z))), fixed: '#f0c63a' }] });
+def({ id: 'rainbowarch', name: 'Rainbow arch', cat: 'Crafted', W: 8, D: 1, H: 12, locked: true,
+  parts: () => ['#c91a09', '#fe8a18', '#f2cd37', '#4b9f4a', '#1e5aa8', '#81007b'].map((col, i) => ({ geo: merge([new THREE.TorusGeometry(3.8 - i * 0.22, 0.11, 8, 40, Math.PI).translate(0, 0.02, 0)]), fixed: col })),
+  cell: (i, j, k) => (i === 0 || i === 7) && k < 4 ? 1 : 0 });
 def({ id: 'trophy', name: 'Gold trophy', cat: 'Crafted', W: 1, D: 1, H: 5, locked: true,
   parts: () => [{ geo: merge([body(1, 1, 0.3), cyl(0.12, 0.6, 12, 0.3), new THREE.CylinderGeometry(0.42, 0.16, 0.7, 18).translate(0, 1.25, 0),
     new THREE.TorusGeometry(0.2, 0.05, 6, 14).translate(0.42, 1.3, 0), new THREE.TorusGeometry(0.2, 0.05, 6, 14).translate(-0.42, 1.3, 0)]), fixed: '#f0c63a' }] });
@@ -2033,7 +2054,7 @@ function digBlock(bx, by, bz) {
   if (by < -DEPTH) { toast('Bedrock is too hard to dig'); sfx('bad'); return false; }
   if (isOpen(bx, by, bz)) return false;
   const ore = oreAt(bx, by, bz);
-  addDug(bkey(bx, by, bz)); rebuildBlockChunks(bx, bz); mpSend({ t: 'dig', b: [bx, by, bz] });
+  addDug(bkey(bx, by, bz)); rebuildBlockChunks(bx, bz); mpSend({ t: 'dig', b: [bx, by, bz] }); stats.dug++;
   for (let i = 0; i < 3; i++) puff(bx * BLK + 0.5 + Math.random(), by * BLK_Y + 0.4 + Math.random() * 0.6, bz * BLK + 0.5 + Math.random());
   digSound(); navigator.vibrate?.(15);
   if (ore) { res[ore]++; toast(`+1 ${ORE_NAME[ore]} (${res[ore]})`); brickSound('place', null); }
@@ -2082,7 +2103,7 @@ function chopTree(start) {
   }
   let n = 0; mpRemoved([...S].map(brickData));
   for (const b of S) { if (n++ < 30) popOut(b); forgetGen(b); removeBrick(b); }
-  res.wood += S.size; toast(`🪵 +${S.size} wood (${res.wood})`);
+  res.wood += S.size; stats.chopped += S.size; toast(`🪵 +${S.size} wood (${res.wood})`);
   if (actx && master) bodyTock(actx.currentTime, 260, 120, 0.3, 0.15);
   brickSound('remove', start.p); navigator.vibrate?.(30);
   saveSoon();
@@ -2513,13 +2534,17 @@ function updateInfo() {
   const pcx = Math.floor(player.x / CHUNK), pcz = Math.floor(player.z / CHUNK), km = Math.hypot(player.x, player.z) * 0.00053;
   const here = siteAt(player.x, player.z), SITE_ICON = { town: '🏙 ', village: '🏘 ', airport: '✈ ', port: '⚓ ' };
   if (here) visitSite(here);
+  if (!car && player.y < -2) stats.deepest = Math.max(stats.deepest, Math.floor(-player.y * 0.53));
+  if (!car && !player.fly && player.ground) stats.highest = Math.max(stats.highest, Math.floor(player.y / P));
+  if (isActive() && night > 0.8 && dayMode === 'auto' && Math.abs(timeOfDay - 0.75) < 0.03) stats.nightout = 1;
+  if (mp.role !== 'guest') { checkGoals(); storyCheck(); }
   const place = (here ? SITE_ICON[here.type] + here.name : BIOME_NAMES[inVillage(pcx, pcz) ? 'village' : biomeAt(pcx, pcz)]) + (km >= 0.1 ? ` · ${km.toFixed(1)} km from home` : '');
   const RES_ICON = RES_ICONS; questTrack(inVillage(pcx, pcz) ? 'village' : biomeAt(pcx, pcz));
   const bag = Object.entries(res).filter(([, v]) => v).map(([k, v]) => `${RES_ICON[k]} ${v}`).join(' · ');
   const doing = car ? (car.air ? (isAirborne() ? (car.air === 'heli' ? '🚁 Flying' : '✈ Flying') : (car.air === 'heli' ? '🚁 Landed' : '✈ Taxiing')) : car.boat ? '🚤 Boating' : '🚗 Driving') + ' · speed ' + Math.round(Math.abs(car.speed) * 4) + (car.air ? ' · altitude ' + Math.max(0, Math.round(car.y * 0.53)) + ' m' : '') + (fuelOn && car.stats.power ? ` · ⛽ ${Math.round(fuel)}%` : '') + (trailer ? ' · 🔗 trailer' : '') : player.fly ? FLY_LEVELS[player.flyLv || 1][0] + ' ' + FLY_LEVELS[player.flyLv || 1][1] : player.swim ? '🏊 Swimming' : '🚶 Walking';
   const toolTxt = { mine: ' · ⛏ Pickaxe', chop: ' · 🪓 Axe', paint: ' · 🖌 Paint', copy: clip ? ' · 📋 Pasting' : ' · 📋 Copy' }[tool] || '';
   const h = Math.floor(player.y / P);
-  infoEl.innerHTML = `<b>Brick Builder World</b><br>${place}<br>${doing}${toolTxt}<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · ${h < -3 && !car && !player.swim ? '⛏ depth ' + Math.ceil(-player.y * 0.53) + ' m' : 'height ' + h}${bag ? '<br>🎒 ' + bag : ''}${dayMode === 'auto' ? ' · 🕒 ' + clockText() : ''}${wet > 0.4 ? (weather === 'storm' ? ' ⛈' : ' 🌧') : ''}${quest ? '<br>' + questLine() : ''}`;
+  infoEl.innerHTML = `<b>Brick Builder World</b><br>${place}<br>${doing}${toolTxt}<br>x ${Math.floor(player.x)} · z ${Math.floor(player.z)} · ${h < -3 && !car && !player.swim ? '⛏ depth ' + Math.ceil(-player.y * 0.53) + ' m' : 'height ' + h}${bag ? '<br>🎒 ' + bag : ''}${dayMode === 'auto' ? ' · 🕒 ' + clockText() : ''}${wet > 0.4 ? (weather === 'storm' ? ' ⛈' : ' 🌧') : ''}${quest ? '<br>' + questLine() : ''}${storyNow() ? '<br>' + storyLine() : ''}<br>⭐ Level ${stats.level || 1}`;
 }
 function buildInventory() {
   ensureThumbs(colorIdx);
@@ -2567,7 +2592,7 @@ document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   setHud();
   if (locked) { menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; }
-  else { for (const k in keys) keys[k] = false; if (photoMode && !touchMode) setPhoto(false); if (!invOpen && !charOpen && !gOpen && !textOpen && !mapOpen && !talkOpen && !decoOpen && !designOpen && !mpOpen) { menu.classList.remove('hidden'); save(); } }
+  else { for (const k in keys) keys[k] = false; if (photoMode && !touchMode) setPhoto(false); if (!invOpen && !charOpen && !gOpen && !textOpen && !mapOpen && !talkOpen && !decoOpen && !designOpen && !mpOpen && !achOpen) { menu.classList.remove('hidden'); save(); } }
 });
 $('playBtn').onclick = () => { if (!charSaved) openChar(true); else play(); };
 $('invClose').onclick = closeInv;
@@ -2592,6 +2617,7 @@ document.addEventListener('keydown', (e) => {
   if (textOpen || decoOpen) return;
   if (designOpen) { if (e.code === 'Escape') closeDesigner(); return; }
   if (mpOpen) { if (e.code === 'Escape') closeMp(); return; }
+  if (achOpen) { if (e.code === 'Escape') closeAch(); return; }
   if (e.code === 'Enter' && mp.role && isActive() && !car) { e.preventDefault(); openChat(); return; }
   if (talkOpen) { if (e.code === 'Escape' || e.code === 'KeyJ') closeTalk(); return; }
   if (mapOpen) { if (e.code === 'Escape' || e.code === 'KeyL') closeMap(); return; }
@@ -4221,7 +4247,7 @@ function takePhoto() {
   renderer.render(scene, camera);
   const a = document.createElement('a'); a.href = renderer.domElement.toDataURL('image/png'); a.download = `brick-world-${Date.now()}.png`; a.click();
   const f = $('photoFlash'); f.classList.remove('hidden'); setTimeout(() => f.classList.add('hidden'), 180);
-  toast('📸 Picture saved');
+  toast('📸 Picture saved'); stats.photos++;
 }
 $('photoBtn').onclick = () => { setPhoto(true); play(); };
 $('photoSnap').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); takePhoto(); });
@@ -4251,7 +4277,6 @@ let mapOpen = false, mapZoom = 8, mapPick = null;
 let marks = [];
 const MAP_BIOME = { grass: '#6dbb4f', forest: '#3d8b3a', desert: '#e2c47f', snow: '#f1f5f8', lake: '#e6d59a' };
 function openMap() {
-  if (car) { toast('Get out of the car to use the map'); return; }
   mapOpen = true; tutEvent('map'); resetTouchInput(); stopRepeat(); touchPlaying = false; setHud();
   $('mapUI').classList.remove('hidden'); menu.classList.add('hidden');
   if (locked) document.exitPointerLock();
@@ -4310,7 +4335,8 @@ function refreshMarks() {
   const SI = { town: '🏙', village: '🏘', airport: '✈', port: '⚓' };
   const dist = (st) => Math.hypot(st.X - player.x, st.Z - player.z), all = [...allSites().values()];
   const near = [...all.filter(st => st.type === 'airport' || st.type === 'port'), ...all.filter(st => (st.type === 'town' || st.type === 'village') && siteKnown(st)).sort((a, b) => dist(a) - dist(b)).slice(0, 6)];
-  $('mapMarks').innerHTML = near.map(st => `<button data-site="${st.i},${st.j}">${SI[st.type]} ${escapeHtml(st.name)}</button>`).join('') +
+  const here = siteAt(player.x, player.z), races = car && !car.air ? all.filter(st => siteKnown(st) && !(here && here.i === st.i && here.j === st.j) && dist(st) < 9000).sort((a, b) => dist(a) - dist(b)).slice(0, 5) : [];
+  $('mapMarks').innerHTML = races.map(st => `<button data-race="${st.i},${st.j}" class="primary">🏁 Race to ${escapeHtml(st.name)}</button>`).join('') + near.map(st => `<button data-site="${st.i},${st.j}">${SI[st.type]} ${escapeHtml(st.name)}</button>`).join('') +
     (marks.length ? marks.map((m, i) => `<button data-mk="${i}">📍 ${escapeHtml(m.n)}</button>`).join('') : '<span style="font-size:12px;color:var(--muted)">Tap a place to go there. Mark spots with 📍 to find them again.</span>');
 }
 function teleportTo(x, z) {
@@ -4322,13 +4348,14 @@ $('mapCanvas').addEventListener('pointerdown', (e) => {
   const cv = $('mapCanvas'), r = cv.getBoundingClientRect(), S = cv.width, px = (e.clientX - r.left) * S / r.width, py = (e.clientY - r.top) * S / r.height;
   mapPick = { x: player.x + (px - S / 2) * mapZoom, z: player.z + (py - S / 2) * mapZoom }; drawMap();
 });
-$('mapGo').onclick = () => { if (mapPick) { const p = mapPick; closeMap(); teleportTo(p.x, p.z); } };
+$('mapGo').onclick = () => { if (car) { toast('Get out of the vehicle to teleport'); return; } if (mapPick) { const p = mapPick; closeMap(); teleportTo(p.x, p.z); } };
 $('mapIn').onclick = () => { mapZoom = Math.max(1, mapZoom / 2); drawMap(); };
 $('mapOut').onclick = () => { mapZoom = Math.min(64, mapZoom * 2); drawMap(); };
-$('mapHome').onclick = () => { closeMap(); teleportTo(2.5, 1.5); };
+$('mapHome').onclick = () => { if (car) { toast('Get out of the vehicle to teleport'); return; } closeMap(); teleportTo(2.5, 1.5); };
 $('mapMark').onclick = () => askText('Name this place', '', (n) => { marks.push({ n: n || `Place ${marks.length + 1}`, x: Math.round(player.x), z: Math.round(player.z) }); saveSoon(); refreshMarks(); drawMap(); toast('📍 Place marked'); });
 $('mapClose').onclick = closeMap;
-$('mapMarks').addEventListener('click', (e) => { const sb = e.target.closest('[data-site]'); if (sb) { const st = allSites().get(sb.dataset.site); if (st) { mapPick = st.type === 'port' ? { x: st.X + st.ax * (st.S - 40) + st.px * 60, z: st.Z + st.az * (st.S - 40) + st.pz * 60 } : st.type === 'airport' ? { x: st.X + 110, z: st.Z + 120 } : { x: st.X + 2, z: st.Z + 12 }; mapZoom = Math.min(mapZoom, 4); drawMap(); } return; }
+$('mapMarks').addEventListener('click', (e) => { const rb = e.target.closest('[data-race]'); if (rb) { const st = allSites().get(rb.dataset.race); if (st) startCityRace(st); return; }
+  const sb = e.target.closest('[data-site]'); if (sb) { const st = allSites().get(sb.dataset.site); if (st) { mapPick = st.type === 'port' ? { x: st.X + st.ax * (st.S - 40) + st.px * 60, z: st.Z + st.az * (st.S - 40) + st.pz * 60 } : st.type === 'airport' ? { x: st.X + 110, z: st.Z + 120 } : { x: st.X + 2, z: st.Z + 12 }; mapZoom = Math.min(mapZoom, 4); drawMap(); } return; }
   const b = e.target.closest('[data-mk]'); if (!b) return; const m = marks[+b.dataset.mk]; mapPick = { x: m.x, z: m.z }; drawMap(); });
 
 // ---------------------------------------------------------------- tutorial
@@ -4412,7 +4439,7 @@ const pieceAvail = (p) => !p.hidden && (!p.locked || unlocked.has(p.id));
 const RES_ICONS = { wood: '🪵', stone: '🪨', coal: '⚫', copper: '🟠', gold: '🟡', crystal: '💎' };
 const RES_NAMES = { wood: 'wood', stone: 'stone', coal: 'coal', copper: 'copper', gold: 'gold', crystal: 'crystal' };
 const resText = (o) => Object.entries(o).filter(([k, v]) => v && RES_ICONS[k]).map(([k, v]) => `${RES_ICONS[k]} ${v}`).join('  ');
-let stats = { placed: 0, chests: 0, signs: 0, crafted: 0, driven: 0, quests: 0 };
+let stats = { placed: 0, chests: 0, signs: 0, crafted: 0, driven: 0, quests: 0, dug: 0, chopped: 0, sailed: 0, flown: 0, laps: 0, photos: 0, pieces: 0, mp: 0, deepest: 0, highest: 0, nightout: 0, level: 1 };
 function fanfare() {
   if (!actx || !master) return;
   const t = actx.currentTime;
@@ -4945,7 +4972,7 @@ function updateRace(dt) {
           const t = (now - race.t0) / 1000, best = raceBest[keyS];
           if (!best || t < best) raceBest[keyS] = t;
           fanfare(); toast(`🏁 Lap ${race.lap}: ${fmtTime(t)}${!best || t < best ? ' · 🏆 New best!' : ` · best ${fmtTime(best)}`}`); saveSoon();
-          race.lap++; race.t0 = now; race.passed.clear();
+          race.lap++; race.t0 = now; race.passed.clear(); stats.laps++;
         }
       } else {
         const checks = raceGates().filter(g => g.p.race === 'check' && Math.hypot(g.x - b.x, g.z - b.z) < 600);
@@ -5246,6 +5273,7 @@ function updateCompass(dt) {
     for (const st of allSites().values()) if (siteKnown(st)) { const [x, z] = siteSpot(st); compassPins.push([x, z, { town: '🏙', village: '🏘', airport: '✈', port: '⚓' }[st.type], st.name]); }
     for (const m of marks) compassPins.push([m.x, m.z, '📍', m.n]);
     if (mapPick) compassPins.push([mapPick.x, mapPick.z, '🔷', 'Teleport spot']);
+    { const st = storyNow(); if (st) { const [x, z] = siteSpot(st.site); compassPins.push([x, z, '📖', 'Story: ' + st.site.name]); } }
   }
   if (!document.body.classList.contains('playing') || photoMode) return;
   const g = compassG, W = compassCv.width, H = compassCv.height, FOV = Math.PI * 0.9, heading = -player.yaw, half = W / 2 - 14;
@@ -5353,7 +5381,7 @@ function updateGamepad(dt) {
   const B = gp.buttons.map(b => b.pressed || b.value > 0.5), down = (i) => B[i] && !padPrev[i], up = (i) => !B[i] && padPrev[i];
   const dz = (v) => Math.abs(v) < 0.15 ? 0 : v;
   const lx = dz(gp.axes[0] || 0), ly = dz(gp.axes[1] || 0), rx = dz(gp.axes[2] || 0), ry = dz(gp.axes[3] || 0);
-  const overlay = invOpen || charOpen || gOpen || mapOpen || textOpen || talkOpen || decoOpen || designOpen || mpOpen;
+  const overlay = invOpen || charOpen || gOpen || mapOpen || textOpen || talkOpen || decoOpen || designOpen || mpOpen || achOpen;
   // START: play / pause.  Buttons on the standard layout: 0 A, 1 B, 2 X, 3 Y, 4 LB, 5 RB, 6 LT, 7 RT, 8 Back, 9 Start, 12-15 D-pad
   if (down(9)) { if (isActive()) { if (touchMode) pauseTouch(); else if (locked) document.exitPointerLock(); else { touchPlaying = false; menu.classList.remove('hidden'); setHud(); save(); } } else if (!overlay) { if (!charSaved) openChar(true); else { initAudio(); touchPlaying = true; menu.classList.add('hidden'); inv.classList.add('hidden'); invOpen = false; setHud(); } } }
   if (overlay) { if (down(1) || down(9)) { if (invOpen) closeInv(); else if (mapOpen) closeMap(); else if (talkOpen) closeTalk(); else if (decoOpen) closeDeco(false); else if (designOpen) closeDesigner(); } padPrev = B; return; }
@@ -5499,7 +5527,7 @@ $('designUI').addEventListener('click', (e) => {
       saveCustomList();
       if (PIECE_BY_ID[cp.id]) { const p = PIECE_BY_ID[cp.id]; p.name = cp.name; const set = new Set(cp.cells.map(c => dzKey(c[0], c[1], c[2]))); p.W = cp.W; p.D = cp.D; p.H = H; p.cell = (ii, jj, kk) => set.has(dzKey(ii, jj, kk)) ? 1 : 0; p.studTop = (ii, jj) => cp.studs !== false && set.has(dzKey(ii, jj, H - 1)); p.built.forEach(b => b.geo.dispose()); p.built = customParts(cp); for (const [k, bt] of batches) if (k.startsWith(cp.id + '|')) { scene.remove(bt.mesh); bt.mesh.dispose(); batches.delete(k); } thumbColor = -1; pickDirty = true; toast(`✨ ${cp.name} updated (already placed copies keep their old shape until reloaded)`); }
       else { registerCustom(cp); mpSend({ t: 'piece', cp }); }
-      hotbar[slot] = cp.id; refreshUI(); showLabel(); stats.crafted++; saveSoon(); closeDesigner(); return;
+      hotbar[slot] = cp.id; refreshUI(); showLabel(); stats.pieces++; saveSoon(); closeDesigner(); return;
     }
     case 'new': openDesigner(null); return;
     case 'close': closeDesigner(); return;
@@ -5667,7 +5695,7 @@ function wireConn(conn) {
         mpWith(() => { load(world); refreshUI(); });
         const h = msg.hostState; Object.assign(player, { x: h.p[0] + 2, y: h.p[1] + 1, z: h.p[2] + 2, vy: 0 }); lastPC = null; updateChunks(25);
         updateRemote({ ...h, id: 'host' }); for (const s of msg.players) if (s.id !== mp.id) updateRemote(s);
-        toast(`✅ Joined ${h.n || 'the host'}'s world!`); refreshMpUI(); return;
+        toast(`✅ Joined ${h.n || 'the host'}'s world!`); stats.mp = 1; refreshMpUI(); return;
       }
       if (msg.t === 'st' && msg.id === undefined) msg.id = 'host';
       if ((msg.t === 'carIn' || msg.t === 'carOut') && !msg.id) msg.id = 'host';
@@ -5684,7 +5712,7 @@ async function hostGame() {
   leaveGame(true);
   mp.code = newCode(); mp.role = 'host'; mp.id = 'host';
   mp.peer = new window.Peer(MP_PREFIX + mp.code);
-  mp.peer.on('open', () => { toast(`🌐 Hosting! Friends join with code ${mp.code}`); refreshMpUI(); });
+  mp.peer.on('open', () => { toast(`🌐 Hosting! Friends join with code ${mp.code}`); stats.mp = 1; refreshMpUI(); });
   mp.peer.on('connection', (conn) => {
     if (mp.conns.size >= 7) { conn.on('open', () => { sendTo(conn, { t: 'chat', n: '🌐', text: 'This game is full (8 players)' }); setTimeout(() => conn.close(), 500); }); return; }
     mp.conns.set(conn.peer, conn); wireConn(conn); refreshMpUI();
@@ -5777,6 +5805,119 @@ tapBtn('tbChat', openChat);
 { const j = new URLSearchParams(location.search).get('join'); if (j) setTimeout(() => { openMp(); $('mpCodeIn').value = j.toUpperCase(); }, 800); }
 addEventListener('beforeunload', () => { if (mp.role) try { mpSend({ t: 'bye', id: mp.id }); } catch (e) {} });
 
+
+// ================================================================ goals: achievements, level, story and city races
+// ---- achievements (worked out from your stats every second; new ones pop up with a fanfare)
+const ACH = [
+  ['first', '🧱', 'First brick', 'Place your first brick', () => stats.placed >= 1, 10],
+  ['b100', '🏗', 'Builder', 'Place 100 bricks', () => stats.placed >= 100, 30, () => [stats.placed, 100]],
+  ['b1000', '🏰', 'Master builder', 'Place 1,000 bricks', () => stats.placed >= 1000, 100, () => [stats.placed, 1000]],
+  ['dig50', '⛏', 'Miner', 'Dig 50 blocks', () => stats.dug >= 50, 30, () => [stats.dug, 50]],
+  ['deep', '🕳', 'Deep down', 'Reach 20 m underground', () => stats.deepest >= 20, 40, () => [stats.deepest, 20]],
+  ['chop', '🪓', 'Lumberjack', 'Chop 50 pieces of wood', () => stats.chopped >= 50, 30, () => [stats.chopped, 50]],
+  ['chest5', '💰', 'Treasure hunter', 'Open 5 treasure chests', () => stats.chests >= 5, 50, () => [stats.chests, 5]],
+  ['craft3', '🔨', 'Crafter', 'Craft 3 things', () => stats.crafted >= 3, 30, () => [stats.crafted, 3]],
+  ['piece', '✨', 'Designer', 'Design your own piece at a Crafting Station', () => stats.pieces >= 1, 40],
+  ['drive', '🚗', 'Road trip', 'Drive 5 km', () => stats.driven >= 5000, 40, () => [Math.floor(stats.driven), 5000]],
+  ['sail', '🚤', 'Sailor', 'Sail 1 km', () => stats.sailed >= 1000, 40, () => [Math.floor(stats.sailed), 1000]],
+  ['fly', '✈', 'Pilot', 'Fly 2 km in a plane or helicopter', () => stats.flown >= 2000, 50, () => [Math.floor(stats.flown), 2000]],
+  ['lap', '🏁', 'Racer', 'Finish a race lap or a city race', () => stats.laps >= 1, 40],
+  ['cities', '🏙', 'Explorer', 'Visit all 9 cities', () => visitedOf('town') >= 9, 120, () => [visitedOf('town'), 9]],
+  ['villages', '🏘', 'Wanderer', 'Visit 5 villages', () => visitedOf('village') >= 5, 60, () => [visitedOf('village'), 5]],
+  ['quests5', '📜', 'Good neighbour', 'Finish 5 villager quests', () => stats.quests >= 5, 60, () => [stats.quests, 5]],
+  ['story', '📖', 'Hero of Brick World', 'Finish the story', () => storyIdx >= storySteps().length, 150],
+  ['summit', '⛰', 'Summit', 'Stand 50 plates high without flying', () => stats.highest >= 50, 40, () => [stats.highest, 50]],
+  ['night', '🌙', 'Night owl', 'Be out at midnight', () => stats.nightout >= 1, 15],
+  ['photo', '📸', 'Photographer', 'Take a photo', () => stats.photos >= 1, 15],
+  ['friends', '👥', 'Better together', 'Host or join a game with friends', () => stats.mp >= 1, 40],
+];
+let achDone = new Set();
+const visitedOf = (type) => [...allSites().values()].filter(s => s.type === type && visitedSites.has(s.i + ',' + s.j)).length;
+// XP comes from achievements and from everything you do; the level follows from it.
+function xpTotal() {
+  let xp = 0; for (const a of ACH) if (achDone.has(a[0])) xp += a[5];
+  xp += Math.floor(stats.placed / 10) + Math.floor(stats.dug / 5) + stats.chests * 15 + stats.quests * 40 + storyIdx * 60 + visitedSites.size * 25 + stats.laps * 20 + stats.crafted * 10;
+  return xp;
+}
+const levelOf = (xp) => Math.floor(Math.sqrt(xp / 40)) + 1, xpFor = (lv) => (lv - 1) * (lv - 1) * 40;
+function checkGoals() {
+  for (const a of ACH) if (!achDone.has(a[0]) && a[4]()) {
+    achDone.add(a[0]); fanfare(); toast(`🏆 Achievement: ${a[1]} ${a[2]}! (+${a[5]} XP)`); saveSoon();
+  }
+  const lv = levelOf(xpTotal());
+  if (lv > (stats.level || 1)) {
+    const gift = { wood: 5 * lv, stone: 3 * lv, coal: 2 * lv, copper: lv, gold: Math.ceil(lv / 2), crystal: lv >= 5 ? 1 : 0 };
+    stats.level = lv; setTimeout(() => giveLoot(`⭐ Level ${lv}! Reward:`, gift), 1800); saveSoon();
+  }
+}
+
+// ---- the story: a journey across the world, chapter by chapter
+let storyIdx = 0;
+function storySteps() {
+  const all = [...allSites().values()], d = (s) => Math.hypot(s.X, s.Z), by = (t) => all.filter(s => s.type === t).sort((a, b) => d(a) - d(b));
+  const towns = by('town'), villages = by('village'), port = by('port')[0], airport = by('airport')[0], steps = [];
+  if (villages[0]) steps.push({ site: villages[0], how: 'walk', text: `The villagers have heard of a world full of cities. Start small: walk to ${villages[0].name}.`, reward: { wood: 10, coal: 4 } });
+  if (towns[0]) steps.push({ site: towns[0], how: 'drive', text: `Find a car and drive to the city of ${towns[0].name}.`, reward: { copper: 4, gold: 2 } });
+  if (port) steps.push({ site: port, how: 'sail', text: `Sail a boat to ${port.name}. Boats wait at the piers of every lake.`, reward: { crystal: 1, gold: 2 }, unlock: 'goldbars' });
+  if (airport) steps.push({ site: airport, how: 'fly', text: `Learn to fly! Take off and land a plane or helicopter at ${airport.name}.`, reward: { gold: 3, crystal: 2 }, unlock: 'rainbowarch' });
+  for (const t of towns.slice(1)) steps.push({ site: t, how: 'any', text: `Carry the news to ${t.name}. Go any way you like.`, reward: { gold: 2, copper: 3 } });
+  if (steps.length) steps[steps.length - 1].unlock = 'crown';
+  return steps;
+}
+const HOW = { walk: '🚶 on foot', drive: '🚗 by car', sail: '🚤 by boat', fly: '✈ flying', any: '' };
+function storyNow() { const s = storySteps(); return storyIdx < s.length ? s[storyIdx] : null; }
+function storyCheck() {
+  const st = storyNow(); if (!st) return;
+  const here = siteAt(player.x, player.z); if (!here || here.i !== st.site.i || here.j !== st.site.j) return;
+  const ok = st.how === 'any' || (st.how === 'walk' && !car) || (st.how === 'drive' && car && !car.boat && !car.air) || (st.how === 'sail' && car && car.boat) || (st.how === 'fly' && car && car.air);
+  if (!ok) { if (performance.now() - (storyCheck.t || 0) > 8000) { storyCheck.t = performance.now(); toast(`📖 You made it to ${st.site.name}, but the story needs you to arrive ${HOW[st.how]}`); } return; }
+  storyIdx++;
+  if (st.unlock) { unlocked.add(st.unlock); setTimeout(() => toast(`🎁 Rare piece unlocked: ${PIECE_BY_ID[st.unlock].name}! Find it in the brick box`), 2500); }
+  giveLoot(`📖 Chapter ${storyIdx} complete!`, st.reward); saveSoon();
+  const nx = storyNow(); if (nx) setTimeout(() => toast('📖 Next: ' + nx.text), 5500);
+}
+const storyLine = () => { const st = storyNow(); return st ? `📖 ${st.site.name} ${HOW[st.how]}` : ''; };
+
+// ---- city-to-city races (start one from the map while driving)
+let cityRace = null;
+function startCityRace(st) {
+  if (!car || car.air) { toast('🏁 Get in a car or boat first'); return; }
+  const from = siteAt(player.x, player.z);
+  cityRace = { to: st, from: from ? from.name : 'here', key: `city:${from ? from.i + ',' + from.j : Math.round(player.x / 512) + ',' + Math.round(player.z / 512)}>${st.i},${st.j}`, t0: performance.now() };
+  closeMap(); toast(`🏁 GO! Race to ${st.name}`); sfx('click');
+}
+function updateCityRace() {
+  if (!cityRace) return;
+  if (!car) { cityRace = null; toast('🏁 Race stopped'); return; }
+  const here = siteAt(car.x, car.z), t = (performance.now() - cityRace.t0) / 1000, [x, z] = siteSpot(cityRace.to), km = (Math.hypot(x - car.x, z - car.z) * 0.00053).toFixed(1);
+  $('raceHud').classList.remove('hidden');
+  $('raceHud').innerHTML = `🏁 To ${escapeHtml(cityRace.to.name)} · <b>${fmtTime(t)}</b> · ${km} km${raceBest[cityRace.key] ? ` · 🏆 ${fmtTime(raceBest[cityRace.key])}` : ''}`;
+  if (here && here.i === cityRace.to.i && here.j === cityRace.to.j) {
+    const best = raceBest[cityRace.key], nb = !best || t < best; if (nb) raceBest[cityRace.key] = t;
+    stats.laps++; fanfare(); toast(`🏁 You reached ${cityRace.to.name} in ${fmtTime(t)}${nb ? ' · 🏆 New best!' : ` · best ${fmtTime(best)}`}`);
+    cityRace = null; $('raceHud').classList.add('hidden'); saveSoon();
+  }
+}
+
+// ---- the achievements screen
+let achOpen = false;
+function openAch() {
+  achOpen = true; resetTouchInput(); stopRepeat(); touchPlaying = false; setHud(); if (locked) document.exitPointerLock();
+  $('achUI').classList.remove('hidden'); menu.classList.add('hidden'); renderAch();
+}
+function closeAch() { achOpen = false; $('achUI').classList.add('hidden'); play(); }
+function renderAch() {
+  const xp = xpTotal(), lv = levelOf(xp), a0 = xpFor(lv), a1 = xpFor(lv + 1), st = storyNow(), steps = storySteps();
+  const races = Object.entries(raceBest).filter(([k]) => k.startsWith('city:')).map(([k, t]) => { const [a, b] = k.slice(5).split('>'), nm = (key) => (allSites().get(key) || {}).name || 'start'; return `<div class="gRow"><span>🏁 ${escapeHtml(nm(a))} → ${escapeHtml(nm(b))}</span><b>${fmtTime(t)}</b></div>`; }).join('');
+  $('achBody').innerHTML = `<div class="lvlBox"><div class="lvlNum">⭐ Level ${lv}</div><div class="lvlBar"><div style="width:${Math.min(100, (xp - a0) / Math.max(1, a1 - a0) * 100)}%"></div></div><small>${xp} XP · ${a1 - xp} XP to level ${lv + 1}</small></div>
+    <h2>📖 Story · chapter ${Math.min(storyIdx + 1, steps.length)} of ${steps.length}</h2><p>${st ? escapeHtml(st.text) : '🎉 You finished the story. You are the Hero of Brick World!'}</p>
+    <h2>🏆 Achievements · ${achDone.size} of ${ACH.length}</h2>
+    <div class="achGrid">${ACH.map(a => { const done = achDone.has(a[0]), pr = !done && a[6] ? a[6]() : null;
+      return `<div class="ach${done ? ' done' : ''}"><span class="achIcon">${done ? a[1] : '🔒'}</span><div><b>${a[2]}</b><br><small>${a[3]}${pr ? ` · ${Math.min(pr[0], pr[1])}/${pr[1]}` : ''} · ${a[5]} XP</small></div></div>`; }).join('')}</div>
+    ${races ? '<h2>🏁 City race best times</h2>' + races : '<h2>🏁 City races</h2><p style="font-size:13px">Get in a car or boat, open the 🗺 map and pick a place to race to.</p>'}`;
+}
+$('achBtn').onclick = openAch; $('achClose').onclick = closeAch;
+
 function toggleNight() { cycleDayMode(); }
 $('fuelBtn').onclick = toggleFuel;
 $('weatherBtn').onclick = cycleWeatherMode;
@@ -5824,7 +5965,7 @@ function serialize() {
   const b = []; for (const x of bricks) if (!x.gen) b.push(...brickData(x));
   if (car) for (const d of (planPark() || car.items.map(it => it.orig))) b.push(...d);   // a car being driven saves as parked
   if (trailer) for (const d of (trailerPlan() || trailer.items.map(it => it.orig))) b.push(...d);
-  return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget, day: dayMode, unlocked: [...unlocked], stats, quest, questIdx, weather: weatherMode, visited: [...visitedSites], pieces: customPieces.filter(cp => [...bricks].some(b => b.p.id === cp.id) || hotbar.includes(cp.id)), fuel: +fuel.toFixed(1), fuelOn, raceBest, tod: +timeOfDay.toFixed(4), marks,
+  return { v: 1, ids: PIECES.map(p => p.id), colors: COLORS.map(c => c.n), b, hotbar, hotCols, slot, colorIdx, night: nightTarget, day: dayMode, unlocked: [...unlocked], stats, quest, questIdx, weather: weatherMode, visited: [...visitedSites], ach: [...achDone], story: storyIdx, pieces: customPieces.filter(cp => [...bricks].some(b => b.p.id === cp.id) || hotbar.includes(cp.id)), fuel: +fuel.toFixed(1), fuelOn, raceBest, tod: +timeOfDay.toFixed(4), marks,
            texts: [...bricks].filter(x => x.text && !x.gen).map(x => [x.x, x.y, x.z, x.text]),
            seed: worldSeed, empty: emptyWorld ? 1 : 0, removed: [...removedGen], dug: [...dug], res,
            pl: [player.x, player.y, player.z, player.yaw, player.pitch, player.fly ? 1 : 0] };
@@ -5860,6 +6001,7 @@ function load(data) {
   fuel = typeof data.fuel === 'number' ? Math.max(0, Math.min(100, data.fuel)) : 100; fuelOn = data.fuelOn !== false; $('fuelBtn').textContent = FUEL_MODES.find(m => m[0] === fuelOn)[1];
   raceBest = data.raceBest && typeof data.raceBest === 'object' ? data.raceBest : {};
   visitedSites = new Set(Array.isArray(data.visited) ? data.visited.filter(v => typeof v === 'string') : []);
+  achDone = new Set(Array.isArray(data.ach) ? data.ach : []); storyIdx = Math.max(0, +data.story || 0);
   marks = Array.isArray(data.marks) ? data.marks.filter(m => m && typeof m.x === 'number').slice(0, 50) : [];
   for (const t of (Array.isArray(data.texts) ? data.texts : [])) { const o = occ.get(key(t[0], t[1], t[2])); if (o && o.b.p.text && o.b.x === t[0] && o.b.y === t[1] && o.b.z === t[2]) setSignText(o.b, String(t[3]).slice(0, 60)); }
   if (Array.isArray(data.pl)) { const [x, y, z, yaw, pitch, fly] = data.pl; Object.assign(player, { x, y, z, yaw, pitch, fly: !!fly, vy: 0 }); }
@@ -5923,7 +6065,8 @@ function frame() {
   updateSmoke(dt);
   updateLamps();
   updateGamepad(dt); mpUpdate(dt); cullRegions(dt); updateCompass(dt); updateWaypoints(); updateMobs(dt); updateWeather(dt); updateTrailer(); updateRace(dt);
-  if (car) { if (lastCarXZ) stats.driven += Math.hypot(car.x - lastCarXZ[0], car.z - lastCarXZ[1]) * 0.53; lastCarXZ = [car.x, car.z]; } else lastCarXZ = null;
+  if (car) { if (lastCarXZ) { const m = Math.hypot(car.x - lastCarXZ[0], car.z - lastCarXZ[1]) * 0.53; stats.driven += m; if (car.boat) stats.sailed += m; if (car.air && isAirborne()) stats.flown += m; } lastCarXZ = [car.x, car.z]; } else lastCarXZ = null;
+  updateCityRace();
   updateDayCycle(dt);
   night += (nightTarget - night) * Math.min(1, dt * 2.5); applyLight();
   if (inWater(camera.position.x, camera.position.y, camera.position.z)) { scene.fog.color.set('#1d5f8c'); scene.fog.near = 1; scene.fog.far = 30; }
@@ -5940,7 +6083,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__game = { record, undo, digBlock, mp, hostGame, joinGame, leaveGame, openMp, openChat, camera, raycaster, get pickables() { refreshPickables(); return pickables; }, scene, openDesigner, closeDesigner, registerCustom, get customPieces() { return customPieces; }, get dz() { return dz; }, dzRefresh, openDeco, closeDeco, get padIdx() { return padIdx; }, setPiece: (id) => { hotbar[slot] = id; rot = 0; refreshUI(); }, setRot: (r) => { rot = r; }, get visitedSites() { return visitedSites; }, siteKnown, mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
+window.__game = { get stats() { return stats; }, get achDone() { return achDone; }, xpTotal, levelOf, storySteps, storyNow, get storyIdx() { return storyIdx; }, set storyIdx(v) { storyIdx = v; }, storyCheck, startCityRace, get cityRace() { return cityRace; }, openAch, checkGoals, record, undo, digBlock, mp, hostGame, joinGame, leaveGame, openMp, openChat, camera, raycaster, get pickables() { refreshPickables(); return pickables; }, scene, openDesigner, closeDesigner, registerCustom, get customPieces() { return customPieces; }, get dz() { return dz; }, dzRefresh, openDeco, closeDeco, get padIdx() { return padIdx; }, setPiece: (id) => { hotbar[slot] = id; rot = 0; refreshUI(); }, setRot: (r) => { rot = r; }, get visitedSites() { return visitedSites; }, siteKnown, mineTunnel, hillLevels, stepPlayer: (dt) => updatePlayer(dt), allSites, siteAt, sitePlan, mineInCell, mineSetChunk, mineOpen, rangeLevels, MINE_LEN, renderer, get batches() { return batches; }, get trailer() { return trailer; }, hookTrailer, get race() { return race; }, updateRace, raceTrackItems, toggleOpen, useTarget, get fuel() { return fuel; }, set fuel(v) { fuel = v; }, isAirborne, STARTERS, get target() { return target; }, hillLevels, coarseAt, get coarse() { return coarse; }, get mobs() { return mobs; }, updateMobs, openChest, brickLoot, craft, get unlocked() { return unlocked; }, refreshCraft, get stats() { return stats; }, get quest() { return quest; }, questStart, questProgress, talk, closeTalk, get nearVillager() { return nearVillager; }, setWeather, get wet() { return wet; }, set wet(v) { wet = v; }, cycleWeatherMode, buriedTreasure, topSolidAt, solidAt, repaint, copyStructure, setClip, get clip() { return clip; }, pasteTarget, pasteAction, setSignText, toCode, fromCode, openMap, closeMap, teleportTo, get mapOpen() { return mapOpen; }, setPhoto, takePhoto, cycleDayMode, get dayMode() { return dayMode; }, get timeOfDay() { return timeOfDay; }, set timeOfDay(v) { timeOfDay = v; }, get night() { return night; }, startTutorial, get tut() { return tut; }, undo, redo, refreshBlueprints, loadBlueprints, askText, closeText, get tool() { return tool; }, placeAction, setLastPlaced: (b) => { lastPlaced = b; stackAxis = stackAxisNow(); }, setFly, cycleFly, removeAction, cycleStackDir, stackAction, get stackDir() { return stackDir; }, lampPool, updateLamps, toggleNight, gTarget, analyzeVehicle, startGuide, guidePlaceStep, get gGuide() { return gGuide; }, collectCar, digBlock, isOpen, waterAt, toolAction, toolTarget, setTool, chopTree, get res() { return res; }, get dug() { return dug; }, boatFits, get chunks() { return chunks; }, biomeAt, updateChunks, get removedGen() { return removedGen; }, supported, carStats, get gStats() { return gStats; }, setGarageEngine, get puffs() { return puffs; }, openGarage, closeGarage, get ws() { return ws; }, gTarget, gPlaceAction, mixDesign, spawnDesign, wsDesign, loadMyCars, get car() { return car; }, keys, stepCar: (dt) => updateCar(dt), toggleCar, nearestCar, planPark, serialize, openChar, closeChar, toggleView, get thirdPerson() { return thirdPerson; }, charCfg: () => charCfg, player, bricks, addBrick, clearWorld, PIECES, PIECE_BY_ID, generateWorld, computeTarget, canPlace, collides };
 </script>
 </body>
 </html>
