@@ -6,6 +6,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Brick Builder World</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
 <meta name="description" content="A free-form, open world brick building game. Explore an island and build anything with dozens of brick types.">
 <style>
   :root {
@@ -196,6 +198,47 @@
   #raceHud { position: fixed; left: 50%; transform: translateX(-50%); top: 12px; padding: 8px 16px; border-radius: 999px; background: rgba(15,20,30,.85); color: #fff; font-size: 17px; z-index: 5; border: 2px solid var(--accent); }
   body.touch #raceHud { top: calc(56px + env(safe-area-inset-top)); }
   .menuCard { width: min(560px, 100%); text-align: center; }
+  /* ---- the main menu: a bright toy-box look */
+  #menu { background: radial-gradient(ellipse at 50% 30%, rgba(255, 240, 170, .45), transparent 55%), linear-gradient(180deg, rgba(40, 140, 255, .62) 0%, rgba(120, 205, 255, .42) 58%, rgba(70, 180, 90, .45) 100%); backdrop-filter: blur(4px); overflow: hidden; }
+  #menu::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 64px; pointer-events: none;
+    background: radial-gradient(circle at 12px 12px, #5cc466 0 6px, #2a8f39 7px, transparent 8px) 0 0 / 24px 24px, linear-gradient(#3aa647, #2a8a37);
+    box-shadow: 0 -6px 0 rgba(0, 0, 0, .12); }
+  #menuBg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  #menuBg .fb { position: absolute; top: 0; width: var(--s); height: calc(var(--s) * .84); animation: brickFloat var(--d) linear infinite; animation-delay: var(--dl); opacity: .95; filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .22)); }
+  @keyframes brickFloat { from { transform: translateY(110vh) rotate(var(--r0)); } to { transform: translateY(-25vh) rotate(var(--r1)); } }
+  @media (prefers-reduced-motion: reduce) { #menuBg .fb { animation: none; top: var(--ry); } }
+  .menuCard { position: relative; z-index: 1; color: #fff; border: 4px solid #f2cd37; border-radius: 22px; padding-top: 30px;
+    background: radial-gradient(circle at 14px 11px, #ffe57e 0 5px, #c9a21f 6px, transparent 7px) 4px 0 / 28px 22px repeat-x, linear-gradient(#f2cd37, #f2cd37) 0 0 / 100% 20px no-repeat, linear-gradient(180deg, #24427a, #172a52 60%, #13213f);
+    box-shadow: 0 8px 0 #b38f1a, 0 26px 60px rgba(0, 0, 0, .45); }
+  .menuCard, .menuCard button, .menuCard summary { font-family: 'Fredoka', system-ui, sans-serif; }
+  .menuCard h1 { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 8px 0 8px; font-size: 32px; font-weight: 700; letter-spacing: .5px; }
+  .menuCard h1 .tw { position: relative; padding: 4px 14px 6px; border-radius: 8px; background: var(--c); color: var(--fg, #fff); text-shadow: 0 2px 0 rgba(0, 0, 0, .25);
+    box-shadow: inset 0 -5px 0 rgba(0, 0, 0, .22), inset 0 3px 0 rgba(255, 255, 255, .25), 0 4px 0 rgba(0, 0, 0, .25); transform: rotate(var(--tilt, 0deg)); }
+  .menuCard h1 .tw::before { content: ''; position: absolute; top: -8px; left: calc(50% - 26px); width: 18px; height: 9px; border-radius: 5px 5px 2px 2px; background: var(--c); box-shadow: 34px 0 0 var(--c), inset 0 3px 0 rgba(255, 255, 255, .35); }
+  .menuCard > p { color: #dbe8ff; font-size: 16px; }
+  .menuCard .playBig { position: relative; margin: 22px 0 18px; font-size: 26px !important; font-weight: 700; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, .25); letter-spacing: 1px;
+    background: #2fa84a; border: none; border-radius: 14px !important; box-shadow: inset 0 -7px 0 rgba(0, 0, 0, .22), inset 0 4px 0 rgba(255, 255, 255, .25), 0 5px 0 #1b6e2e; animation: playPulse 2.4s ease-in-out infinite; }
+  .menuCard .playBig::before { content: ''; position: absolute; top: -9px; left: 14%; width: 26px; height: 10px; border-radius: 6px 6px 2px 2px; background: #2fa84a; }
+  .menuCard .playBig::after { content: ''; position: absolute; top: -9px; right: 14%; width: 26px; height: 10px; border-radius: 6px 6px 2px 2px; background: #2fa84a; }
+  .menuCard .playBig:hover { filter: brightness(1.08); } .menuCard .playBig:active { transform: translateY(3px); box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .22), 0 2px 0 #1b6e2e; animation: none; }
+  @keyframes playPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+  .menuCard .tiles { row-gap: 18px; column-gap: 10px; padding-top: 4px; }
+  .menuCard .tiles { grid-template-columns: repeat(4, 1fr) !important; }
+  @media (max-width: 480px) { .menuCard .tiles { column-gap: 7px; } .menuCard .tiles button { font-size: 12.5px; padding: 10px 2px; } .menuCard .tiles button span { font-size: 24px; } .menuCard { padding-left: 14px; padding-right: 14px; } }
+  @media (max-height: 520px) { .menuCard .tiles button { flex-direction: row; justify-content: center; gap: 6px; padding: 9px 4px 11px; font-size: 13px; } .menuCard .tiles button span { font-size: 20px; } .menuCard { width: min(620px, 100%); } }
+  @media (orientation: landscape) { #menu p.touchOnly { display: none !important; } }
+  .menuCard .tiles button { position: relative; background: var(--c); color: var(--fg, #fff); border: none; font-weight: 600; font-size: 15px; text-shadow: 0 1px 0 rgba(0, 0, 0, .25);
+    box-shadow: inset 0 -5px 0 rgba(0, 0, 0, .22), inset 0 3px 0 rgba(255, 255, 255, .22), 0 4px 0 rgba(0, 0, 0, .3); transition: transform .08s; }
+  .menuCard .tiles button::before { content: ''; position: absolute; top: -8px; left: calc(50% - 25px); width: 18px; height: 9px; border-radius: 5px 5px 2px 2px; background: var(--c); box-shadow: 32px 0 0 var(--c); }
+  .menuCard .tiles button:hover { transform: translateY(-2px); filter: brightness(1.08); } .menuCard .tiles button:active { transform: translateY(2px); }
+  .menuCard .tiles button span { filter: drop-shadow(0 2px 1px rgba(0, 0, 0, .25)); }
+  #charBtn { --c: #d01712; } #garageBtn { --c: #0055bf; } #mapBtn { --c: #f2cd37; --fg: #3a2a00; } #homeBtn { --c: #fe8a18; --fg: #3a1d00; }
+  #photoBtn { --c: #1fa8e0; } #tutBtn { --c: #a5ca18; --fg: #233000; } #mpBtn { --c: #81007b; } #achBtn { --c: #e4428f; }
+  #mapBtn, #homeBtn, #tutBtn { text-shadow: none !important; }
+  .menuCard .sect { background: rgba(255, 255, 255, .07); border: 2px solid rgba(255, 255, 255, .14); border-radius: 14px; }
+  .menuCard .sect summary { font-weight: 600; font-size: 16px; }
+  @media (max-height: 520px) { .menuCard { padding-top: 26px; } .menuCard h1 { font-size: 22px; margin: 4px 0; } .menuCard h1 .tw { padding: 2px 10px 4px; } .menuCard .playBig { margin: 12px 0 14px; padding: 8px !important; font-size: 20px !important; } .menuCard .tiles { row-gap: 14px; } #menu::after { height: 36px; } }
+
   .menuCard .sect, .menuCard .keys { text-align: left; }
   .playBig { display: block; width: 100%; margin: 14px 0 12px; font-size: 22px !important; padding: 14px !important; border-radius: 14px !important; }
   .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -276,8 +319,9 @@
 </div>
 
 <div id="menu" class="overlay">
+  <div id="menuBg" aria-hidden="true"></div>
   <div class="card menuCard">
-    <h1>Brick Builder <span>World</span></h1>
+    <h1><span class="tw" style="--c:#d01712;--tilt:-3deg">Brick</span><span class="tw" style="--c:#0055bf;--tilt:2deg">Builder</span><span class="tw" style="--c:#f2cd37;--fg:#3a2a00;--tilt:-1.5deg">World</span></h1>
     <p>Explore a huge world and build anything you like.</p>
     <p class="touchOnly" style="color:var(--accent)">📱 Turn your phone sideways for the best view.</p>
     <button id="playBtn" class="primary playBig">▶ Play</button>
@@ -6256,6 +6300,21 @@ function updateAmbient(dt) {
   const wet = !!player.swim; if (wet && !wasWet) splash(player.vy < -8); wasWet = wet;
   // birds singing by day in the countryside
   if ((birdT -= dt) < 0) { birdT = 3 + Math.random() * 7; const m = mus.mood; if (night < 0.3 && (m === 'grass' || m === 'forest') && player.y > -1) chirp(); }
+}
+
+
+// ---- floating bricks behind the main menu
+{
+  const COLS = [['#d01712', '#a3120e', '#ff4b3e'], ['#0055bf', '#003f8f', '#3a86e8'], ['#f2cd37', '#c9a21f', '#ffe57e'], ['#237841', '#185a30', '#3fa864'],
+    ['#fe8a18', '#c96a0c', '#ffb25e'], ['#ffffff', '#c9ced6', '#ffffff'], ['#81007b', '#5c0058', '#b040ab'], ['#1fa8e0', '#167fab', '#6fd0f5'], ['#a5ca18', '#7d9a10', '#cfe865']];
+  const brickSvg = ([m, d, l]) => { const stud = (x, y) => `<g transform="translate(${x},${y})"><ellipse cx="0" cy="3" rx="5" ry="2.6" fill="${d}"/><rect x="-5" y="0" width="10" height="3" fill="${m}"/><ellipse cx="0" cy="0" rx="5" ry="2.6" fill="${l}"/></g>`;
+    return `<svg viewBox="0 0 48 40" xmlns="http://www.w3.org/2000/svg"><path d="M4 18 L24 26 L44 18 L44 32 L24 40 L4 32 Z" fill="${d}"/><path d="M4 18 L24 26 L24 40 L4 32 Z" fill="${m}"/><path d="M4 18 L24 10 L44 18 L24 26 Z" fill="${l}"/>${stud(17, 15)}${stud(31, 15)}${stud(17, 21)}${stud(31, 21)}</svg>`; };
+  const bg = document.getElementById('menuBg'), n = innerWidth < 600 ? 10 : 18; let html = '';
+  for (let i = 0; i < n; i++) {
+    const size = 34 + Math.random() * 52, d = 16 + Math.random() * 22, r0 = Math.random() * 360 - 180;
+    html += `<div class="fb" style="left:${(i + Math.random() * 0.8) / n * 100}%;--s:${size}px;--d:${d}s;--dl:${-Math.random() * d}s;--r0:${r0}deg;--r1:${r0 + (Math.random() < 0.5 ? -1 : 1) * (90 + Math.random() * 200)}deg;--ry:${Math.random() * 85}vh">${brickSvg(COLS[i % COLS.length])}</div>`;
+  }
+  bg.innerHTML = html;
 }
 
 function toggleNight() { cycleDayMode(); }
